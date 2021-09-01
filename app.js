@@ -15,11 +15,6 @@ var timeIt = require('./timeIt.js');
 const port     = 3100;
 const dataPath = "DEVICE_DATA/xochitl/";
 const imagesPath = "DEVICE_DATA_IMAGES/";
-var cmdHistory = []; // DEBUG
-var stdoutHistory = []; // DEBUG
-var storage = {
-	// files:{}
-};
 var getLastValueOfArray = function(arr){
 	return arr[arr.length-1];
 };
@@ -624,6 +619,29 @@ const createNotebookPageImages = async function(recreateall){
 	});
 };
 
+// WEB UI ROUTES.
+app.get('/syncUsingWifi'       , async (req, res) => {
+	console.log("/syncUsingWifi");
+	res.send(JSON.stringify("/syncUsingWifi"));
+});
+app.get('/getFilesJson'        , async (req, res) => {
+	console.log("/getFilesJson");
+	res.send(JSON.stringify("/getFilesJson"));
+});
+app.get('/getGlobalUsageStats' , async (req, res) => {
+	console.log("/getGlobalUsageStats");
+	res.send(JSON.stringify("/getGlobalUsageStats"));
+});
+app.get('/getSvgs'             , async (req, res) => {
+	console.log("/getSvgs");
+	res.send(JSON.stringify("/getFilesJson"));
+});
+app.get('/getThumbnails'             , async (req, res) => {
+	console.log("/getThumbnails");
+	res.send(JSON.stringify("/getThumbnails"));
+});
+
+// DEBUG AND TEST ROUTES.
 app.get('/showTimeItStamps', async (req, res) => {
 	// http://localhost:3100/showTimeItStamps
 	console.log("/showTimeItStamps");
@@ -727,22 +745,6 @@ app.get('/getExistingJsonFsData', async (req, res) => {
 
 	res.send(returnValue);
 });
-
-app.get('/removeAllNotebookPageImages', async (req, res) => {
-	console.log("/removeAllNotebookPageImages");
-	res.send("not ready yet.");	
-	// let timeItIndex = timeIt.stamp("route: removeAllNotebookPageImages", null);
-	// let returnValue;
-	// try{ returnValue = await removeAllNotebookPageImages(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	// timeIt.stamp("route: removeAllNotebookPageImages", timeItIndex);
-	
-	// let timeStampString = timeIt.getStampString();
-	// console.log("*".repeat(83));
-	// console.log("timeIt_stamps:", timeStampString );
-	// console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
-});
-
 app.get('/createNotebookPageImages', async (req, res) => {
 	console.log("/createNotebookPageImages");
 	
@@ -759,15 +761,7 @@ app.get('/createNotebookPageImages', async (req, res) => {
 	console.log("*".repeat(83));
 	timeIt.clearTimeItStamps();
 
-	console.log("cmdHistory:", cmdHistory);
-
 	res.send(returnValue);
-	// res.send(returnValue.fileIdsWithChanges.map(function(d){
-	// 	d.oldFile = "FILTERED-OUT";
-	// 	d.newFile = "FILTERED-OUT";
-	// 	d.DEBUG = JSON.stringify(d.DEBUG,null,1);
-	// 	return d;
-	// }) );
 	console.log(returnValue);
 });
 
