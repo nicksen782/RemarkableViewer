@@ -1,0 +1,16 @@
+{
+  "name": "remarkableviewer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nickolas Andersen",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "promise-async": "^0.2.0",
+    "serve-index": "^1.9.1"
+  }
+}

@@ -1,0 +1,10 @@
+DEVICE_DATA/*
+!DEVICE_DATA/.gitkeep
+
+DEVICE_DATA_IMAGES/*
+!DEVICE_DATA_IMAGES/.gitkeep
+
+node_modules/*
+
+debug/*
+public/files.json
