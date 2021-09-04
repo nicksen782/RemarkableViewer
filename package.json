@@ -1,16 +1,15 @@
 {
-  "name": "remarkableviewer",
+  "name": "remarkable-viewer",
   "version": "1.0.0",
-  "description": "",
-  "main": "app.js",
+  "description": "This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 12.1.1.",
+  "main": "_backend.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Nickolas Andersen",
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.1",
-    "promise-async": "^0.2.0",
-    "serve-index": "^1.9.1"
+    "promise-async": "^0.2.0"
   }
 }

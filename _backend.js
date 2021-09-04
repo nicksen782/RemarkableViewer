@@ -1,5 +1,5 @@
 // Libraries/frameworks from NPM.
-var serveIndex = require('serve-index');
+// var serveIndex = require('serve-index');
 const express  = require('express'); // npm install express
 const app      = express();
 const path     = require('path');
@@ -768,15 +768,15 @@ app.get('/createNotebookPageImages', async (req, res) => {
 app.listen(port, () => {
 	
 	// Set virtual path.
-	app.use('/', express.static(path.join(__dirname, 'public')));
+	app.use('/', express.static(path.join(__dirname, 'Html')));
+	app.use('/data', express.static(path.join(__dirname, 'DEVICE_DATA')));
+	app.use('/svgs', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+
 	// app.use('/DEVICE_DATA_IMAGES', serveIndex(__dirname + '/DEVICE_DATA_IMAGES'));
 	// app.use('/DEVICE_DATA_IMAGES', serveIndex(path.join(__dirname, "DEVICE_DATA_IMAGES")));
-	
-	app.use('/svgs', express.static('DEVICE_DATA_IMAGES'), serveIndex('DEVICE_DATA_IMAGES', {'icons': true}))
-
-	// app.use ('/test', express.static( path.join(__dirname, "DEVICE_DATA_IMAGES")));
+	// app.use('/svgs', express.static('DEVICE_DATA_IMAGES'), serveIndex('DEVICE_DATA_IMAGES', {'icons': true}))
 		
 	//
-	console.log(`App listening at http://localhost:${port}`);
+	console.log(`*App listening at http://localhost:${port}*`);
 
 });
