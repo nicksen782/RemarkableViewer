@@ -177,33 +177,6 @@ const createJsonFsData = async function(writeFile){
 								// Start creating the new json entry.
 								let newObj = {};
 		
-								// ********** NEW PRE-FILTERING **********
-								// Filter out what you don't need (just keep notebook-related stuff.)
-								// preFilterObj = JSON.parse(file_buffer);
-								// let keys_new      = Object.keys( preFilterObj["DocumentType"] );
-								// keys_new.forEach(function(key){
-									// let file_new      = preFilterObj["DocumentType"][key];
-									
-								// Only compare notebooks. 
-								// if(file_new.content.fileType != "notebook"){ 
-									// console.log("Skip non-notebook.", file_new_visibleName, file_dir_visibleName); 
-									return; 
-								// }
-
-								// Ignore dummyDocument true.
-								// else if(file_new.content.dummyDocument != false){ 
-									// console.log("Skip dummyDocument.", file_new_visibleName, file_dir_visibleName); 
-									// return; 
-								// }
-
-								// Ignore trash.
-								// else if(file_dir_visibleName == "TRASH"){ 
-								// 	console.log("Skip trash.", file_new_visibleName, file_dir_visibleName); 
-								// 	return; 
-								// }
-								// });
-								// ********** NEW PRE-FILTERING **********
-
 								// Create metadata.
 								newObj.metadata = JSON.parse(file_buffer);
 		
@@ -246,21 +219,26 @@ const createJsonFsData = async function(writeFile){
 									newObj.content = JSON.parse(file_buffer2);
 		
 									// ********** NEW PRE-FILTERING **********
+									let check0 = newObj.metadata.type == "CollectionType";
 									let check1 = newObj.content.fileType != "notebook";
 									let check2 = newObj.content.dummyDocument != false;
 									let check3 = newObj.metadata.parent == "trash";
 
+									// Allow all CollectionType.
+									if(check0){
+										json[newObj.metadata.type].push(newObj);
+									}
 									// Only compare notebooks. 
-									if(check1){
-
+									else if(check1){
+										// console.log("Skipping non-notebook.");
 									}
 									// Ignore dummyDocument true.
 									else if(check2){
-
+										// console.log("Skipping dummyDocument.");
 									}
 									// Ignore trash.
 									else if(check3){
-
+										// console.log("Skipping trash.");
 									}
 									// Add the completed record.
 									else {
@@ -350,6 +328,7 @@ const createJsonFsData = async function(writeFile){
 				return base;
 			})
 		;
+
 		files = await getAllJson(files, dataPath);
 
 		files = await createDirectoryStructure(files);
@@ -467,23 +446,20 @@ const createNotebookPageImages = async function(recreateall){
 				try{ file_dir_visibleName       = getParentDirName(file_new, NewFilesJson); } catch(e){ file_dir_visibleName       = undefined; }
 
 				// Only compare notebooks. 
-				if(file_new.content.fileType != "notebook"){ 
-					// console.log("Skip non-notebook.", file_new_visibleName, file_dir_visibleName); 
-					return; 
-				}
-				
-				// Ignore dummyDocument true.
-				if(file_new.content.dummyDocument != false){ 
-					console.log("Skip dummyDocument.", file_new_visibleName, file_dir_visibleName); 
-					return; 
-				}
-				
-				// Ignore trash.
-				if(file_dir_visibleName == "TRASH"){ 
-					console.log("Skip trash.", file_new_visibleName, file_dir_visibleName); 
-					return; 
-				}
-
+				// if(file_new.content.fileType != "notebook"){ 
+				// 	console.log("Skip non-notebook.", file_new_visibleName, file_dir_visibleName); 
+				// 	return; 
+				// }
+				// // Ignore dummyDocument true.
+				// if(file_new.content.dummyDocument != false){ 
+				// 	console.log("Skip dummyDocument.", file_new_visibleName, file_dir_visibleName); 
+				// 	return; 
+				// }
+				// // Ignore trash.
+				// if(file_dir_visibleName == "TRASH"){ 
+				// 	console.log("Skip trash.", file_new_visibleName, file_dir_visibleName); 
+				// 	return; 
+				// }
 				// Ignore content with missing transforms.
 				// if(file_new.content.transform == undefined){ 
 				// 	console.log("Missing transform.", file_new_visibleName, file_dir_visibleName); 
