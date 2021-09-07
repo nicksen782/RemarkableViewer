@@ -7,4 +7,6 @@ DEVICE_DATA_IMAGES/*
 node_modules/*
 
 debug/*
-# public/files.json
+
+# Html/*
+# Angular/*
