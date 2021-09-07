@@ -261,6 +261,6 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
     output.write('</g>') # Closing page group
     output.write('</svg>') # END notebook
     output.close()
-
+    print('DONE: OUTPUT:', output_name, end = '')
 if __name__ == "__main__":
     main()

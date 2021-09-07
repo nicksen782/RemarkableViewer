@@ -1,0 +1,23 @@
+{
+	"restartable": "rs",
+	"ignore": [
+		".git",
+		"node_modules/**/node_modules",
+		"./DEVICE_DATA",
+		"./DEVICE_DATA_IMAGES"
+	],
+	"verbose": false,
+	"execMap": {
+		"js": "node "
+	},
+	"events": {
+		"restart": ""
+	},
+	"watch": [
+		"_backend.js", "timeIt.js"
+	],
+	"env": {
+		"NODE_ENV": "development"
+	},
+	"ext": "js"
+  }

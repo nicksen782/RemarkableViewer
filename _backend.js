@@ -1,20 +1,32 @@
 // Libraries/frameworks from NPM.
 // var serveIndex = require('serve-index');
 const express  = require('express'); // npm install express
+const compression = require('compression');
 const app      = express();
 const path     = require('path');
 const exec     = require('child_process').exec;
+const { spawn } = require('child_process');
 const fs       = require('fs');
 // const { mapLimit } = require('promise-async');
 const async = require('promise-async');
+const svg_to_png = require('svg-to-png');
 
 // Personal libraries/frameworks.
 var timeIt = require('./timeIt.js');
+
+// express.compress({
+// 	filter: function (req, res) {
+// 	  return true;
+// 	}
+// });
 
 //
 const port     = 3100;
 const dataPath = "DEVICE_DATA/xochitl/";
 const imagesPath = "DEVICE_DATA_IMAGES/";
+const htmlPath = path.join("..", 'Html');
+
+// UTILITY
 var getLastValueOfArray = function(arr){
 	return arr[arr.length-1];
 };
@@ -55,6 +67,99 @@ const getItemsInDir = async function(targetPath, type){
   
 	return fetchedFiles;
 };
+// Get the visibleName of the file found within files. 
+let getParentDirName = function(file, files){
+	// Cosmetic. "" is shown as "FSROOT"
+	if(file.metadata.parent == ""){
+		return "FSROOT";
+	}
+	else if(file.metadata.parent == "trash"){
+		return "TRASH";
+	}
+	else{
+		try{
+			return files["CollectionType"][file.metadata.parent].metadata.visibleName;
+		}
+		catch(e){
+			console.log("****", file.metadata.parent, "****", e);
+			return "ERROR" + file.metadata.parent;
+		}
+	}
+};
+// Runs a specified command (with promise.)
+let runCommand_exec = async function(cmd){
+	return new Promise(function(cmd_res, cmd_rej){
+		// Run the command.
+		exec(cmd, 
+			function (error, stdout, stderr) {
+				if (error) {
+					console.log(
+						JSON.stringify({ error: error, stderr:stderr, stdout:stdout })
+					);
+					cmd_rej(JSON.stringify({error: error, stderr:stderr, stdout:stdout}));
+					throw "ERROR in runCommand_exec";
+					return;
+				}
+				// let debug_stdout = stdout.split("\n")[0].trim();
+				// if(debug_stdout != ""){
+				// 	messages.push("createNotebookPageImages: cmd: " + debug_stdout);
+				// 	console.log(getLastValueOfArray(messages));
+				// }
+				cmd_res();
+			}
+		);
+	});
+
+};
+// Runs a specified command (with promise, and progress)
+let runCommand_exec_progress = async function(cmd, expectedExitCode = 0){
+	return new Promise(function(cmd_res, cmd_rej){
+		// let cmds = cmd.split(" && ");
+		// let maxLen = 0;
+		// cmds.forEach(function(d){
+		// 	if(d.length > maxLen){ maxLen = d.length; }
+		// });
+		// // 915 commands
+		// // 270 longest command length.
+		// // 32000 longest allowed input.
+
+		// console.log(cmds.length, maxLen);
+
+		// Need to batch these commands.
+		// let proms = [];
+		// let numCommandsSent = 0;
+		// let numCommandsSentCounter = 0;
+		// let batchedCmds = "";
+		// cmds.forEach(function(d){
+		// 	if(numCommandsSentCounter < 30000){
+		// 	}
+		// 	else{
+		// 	}
+		// });
+
+		const proc = spawn(cmd, {
+			shell: true
+		});
+
+		proc.stdout.on('data', (data) => {
+			console.log(`  stdout: ${data}`);
+		});
+		proc.stderr.on('data', (data) => {
+			console.error(`  stderr: ${data}`);
+		});
+		proc.on('close', (code) => {
+			if(code == expectedExitCode){ cmd_res(); }
+			else{
+				console.log(`  child process exited with code ${code}`);
+				cmd_rej();
+			}
+		});
+
+	});
+
+};
+
+// FUNCTIONS.
 const createJsonFsData = async function(writeFile){
 	return new Promise(async function(resolve, reject){
 		const getAllJson = function(fileList, basePath){
@@ -208,7 +313,7 @@ const createJsonFsData = async function(writeFile){
 		files = await createDirectoryStructure(files);
 		
 		if(writeFile){
-			fs.writeFileSync('public/files.json', JSON.stringify(files,null,0), function(err){
+			fs.writeFileSync(htmlPath + "/files.json", JSON.stringify(files,null,0), function(err){
 				if (err) { console.log("ERROR: ", err); reject(err); }
 			});
 		}
@@ -219,20 +324,19 @@ const createJsonFsData = async function(writeFile){
 const getExistingJsonFsData = async function(){
 	return new Promise(async function(resolve,reject){
 		let files;
-		if( !fs.existsSync("public/files.json") ){
+		if( !fs.existsSync(htmlPath + "/files.json") ){
 			console.log("getExistingJsonFsData: no existing data. Creating it now.");
 			try{ files = await createJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
 		}
 		else{
 			console.log("getExistingJsonFsData: Data exists, retrieving it.");
-			files = fs.readFileSync("public/files.json");
+			files = fs.readFileSync(htmlPath + "/files.json");
 			files = JSON.parse(files);
 		}
 
 		resolve(files);
 	});
 };
-
 const createNotebookPageImages = async function(recreateall){
 	return new Promise(async function(resolve_top,reject_top){
 		// Holds log messages.
@@ -243,26 +347,6 @@ const createNotebookPageImages = async function(recreateall){
 
 		// Holds the list of commands;
 		let cmdList = [];
-
-		// Get the visibleName of the file found within files. 
-		let getParentDirName = function(file, files){
-			// Cosmetic. "" is shown as "FSROOT"
-			if(file.metadata.parent == ""){
-				return "FSROOT";
-			}
-			else if(file.metadata.parent == "trash"){
-				return "TRASH";
-			}
-			else{
-				try{
-					return files["CollectionType"][file.metadata.parent].metadata.visibleName;
-				}
-				catch(e){
-					console.log("****", file.metadata.parent, "****", e);
-					return "ERROR" + file.metadata.parent;
-				}
-			}
-		};
 
 		// Runs a specified command.
 		let preCommand = async function(cmdList){
@@ -294,48 +378,6 @@ const createNotebookPageImages = async function(recreateall){
 
 				cmd_res();
 			});
-		};
-
-		// Runs a specified command.
-		let runCommand = async function(cmd_obj){
-			return new Promise(function(cmd_res, cmd_rej){
-				let cmd        = cmd_obj.cmd;
-				let key        = cmd_obj.key;
-				let srcRmDir   = cmd_obj.srcRmDir;
-
-				let dest = imagesPath + key;
-				
-				// Create the directory if it doesn't exist. 
-				// if( !fs.existsSync(dest) ){
-				// 	// Create the directory.
-				// 	fs.mkdirSync(dest);
-				// }
-
-				// Run the command.
-				exec(cmd, 
-					function (error, stdout, stderr) {
-						if (error) {
-							console.log(
-								JSON.stringify({
-									error: error, 
-									stderr:stderr, 
-									stdout:stdout
-								})
-							);
-							cmd_rej(JSON.stringify({error: error, stderr:stderr, stdout:stdout}));
-							throw "ERROR in runCommand";
-							return;
-						}
-						let debug_stdout = stdout.split("\n")[0].trim();
-						if(debug_stdout != ""){
-							messages.push("createNotebookPageImages: cmd: " + debug_stdout);
-							console.log(getLastValueOfArray(messages));
-						}
-						cmd_res();
-					}
-				);
-			});
-
 		};
 
 		// Get the files.json file (or create it if it doesn't exist.)
@@ -480,6 +522,11 @@ const createNotebookPageImages = async function(recreateall){
 					}
 
 				}
+				// This should never happen.
+				else{
+					messages.push("createNotebookPageImages: (NO MATCH): FILE: " + file_new_visibleName + " (PARENT: " + file_dir_visibleName + ")");
+					console.log(getLastValueOfArray(messages));
+				}
 			});
 
 			//
@@ -554,61 +601,156 @@ const createNotebookPageImages = async function(recreateall){
 						let dest_fullName = imagesPath + obj.key + "/" + baseFileName ;
 						let srcFile = dataPath + obj.key + "/" + page + ".rm";
 						let pageNum = page_i.toString().padStart(3, "0");
-						let cmd = `python3 scripts/rM2svg.py -i ${srcFile} -o ${dest_fullName}_PAGE_${pageNum}.svg`;
+						let fullOutputName = `${dest_fullName}_PAGE_${pageNum}.svg`;
+						let cmd = `python3 scripts/rM2svg.py -i ${srcFile} -o ${fullOutputName}`;
+						let cmd2 = `node_modules/svgo/bin/svgo --config="scripts/svgo.config.json" ${fullOutputName} -o ${fullOutputName} `;
+						
+						// Add the full command and info.
 						cmdList.push({
 							cmd: cmd, 
+							cmd2: cmd2, 
 							key: obj.key,
+							numPages: pages.length,
 							clearFirst: true,
 							srcRmDir: dataPath + obj.key,
 							destDir: imagesPath + obj.key,
-							baseFileName: baseFileName + "_PAGE_" + pageNum
+							fullOutputName: fullOutputName,
+							baseFileName: baseFileName + "_PAGE_" + pageNum,
 						});
+						// console.log("Wait here");
 					});
 				}
 			// });
 			}
 
-			// resolve_top( { messages: messages } ); return; 
-
 			if(cmdList.length){
-				// console.log("Yay! we have commands.");
-				// console.log("Yay! we have commands.", cmdList.map(function(d){return d.key;}));
-				cmdList.sort(function(a,b) {
-					return a.srcRmDir - b.srcRmDir;
+				// try{ await preCommand(cmdList); } catch(e){ console.log("failure: preCommand", e); }
+
+				let destDirs_pre = [];
+				cmdList.forEach(function(d){ if(destDirs_pre.indexOf(d.destDir) == -1){ 
+					destDirs_pre.push(d.destDir); 
+					}
 				});
 
-				// Clear and then recreate the directories.
-				try{ await preCommand(cmdList); } catch(e){ console.log("failure: preCommand", e); }
-
-				// Run the commands.
-				// Use the data from fileIdsWithChanges to create the image conversion commands.
-				let currentFile = 0;
-				let totalPages = (cmdList.length).toString().padStart(4, "_");
-				let cmds_prom = async.mapLimit(cmdList, 10, async function(cmd_obj, callback){
-					// messages.push(rec);
-					// console.log(getLastValueOfArray(messages)); 
-					// console.log("  cmd: ", cmd_obj.cmd);
-					let currPage = (currentFile+1).toString().padStart(4, "_");
-					console.log("Page: " + (currPage) + " of " + totalPages + " pages", " ::: ", cmd_obj.baseFileName);
-					try{ await runCommand(cmd_obj); } catch(e){ console.log("failure: runCommand", e); }
-					currentFile +=1 ;
-
-					callback(null, cmd_obj);
+				let destDirs = [];
+				destDirs_pre.forEach(function(dir, dir_i, dir_a){
+					destDirs.push({
+						"dir": dir,
+						"num": (dir_i+1) + "/" + dir_a.length, 
+						"pages": cmdList.filter(function(f){ if(f.destDir==dir){ return true; } }).length,
+						"notebookName":NewFilesJson["DocumentType"][dir.split("/")[1]].metadata.visibleName,
+						"parentName": getParentDirName(NewFilesJson["DocumentType"][dir.split("/")[1]], NewFilesJson),
+					});
 				});
-	
-				cmds_prom
-				.then(
-					result => {
-						console.log("success:", result.length, "of", cmdList.length);
-						resolve_top( { messages: messages } );
+
+				// let bigCmd = 'echo "First noteboook..."' ;
+				let bigCmd = '' ;
+				console.log("STARTING: rM2svg...");
+				for(let notebook=0; notebook<destDirs.length; notebook+=1){
+					break;
+					let rec = destDirs[notebook];
+
+					// if(rec.pages != 10) { continue; }
+					
+					let recs = cmdList.filter(function(r){
+						if(rec.dir == r.destDir) { return true; }
+					});
+					
+					for(let cmd_i=0; cmd_i<recs.length; cmd_i+=1){
+						// Just the first command. 
+						if(bigCmd == ""){
+							bigCmd += "" + recs[cmd_i].cmd ;
+						}
+						else{
+							bigCmd += " && " + recs[cmd_i].cmd ;
+						}
 					}
-				)
-				.catch(
-					(err) => {
-						console.log("no success", err);
-						reject_top(err);
-					}
-				);
+					console.log("CURRENT: notebook:", (notebook+1), "of", destDirs.length, ", pages:", recs[cmd_i].pages, ", cmdLength:", bigCmd.length);
+					try{ await runCommand_exec_progress(bigCmd, 0); } catch(e){ console.log("failure: bigCmd", e, bigCmd.length); }
+					
+					// bigCmd = 'echo "Next notebook..."';
+					bigCmd = '';
+				}
+				// let pageFiles = [];
+				// let recs;
+				// for(let notebook=0; notebook<destDirs.length; notebook+=1){
+				// 	let rec = destDirs[notebook];
+				// 	// let recs = cmdList.filter(function(r){
+				// 	// 	if(rec.dir == r.destDir) { return true; }
+				// 	// });
+				// }
+				try{ await convertSvgsToPngs(cmdList); } catch(e){ console.log("failure: convertSvgsToPngs", e); }
+				resolve_top( { messages: messages } );
+				
+				// console.log("STARTING: svg-to-png...");
+				// let proms_svgToPng = [];
+				// for(let notebook=0; notebook<destDirs.length; notebook+=1){
+				// 	let rec = destDirs[notebook];
+					
+				// 	// if(rec.pages != 10) { continue; }
+					
+				// 	let recs = cmdList.filter(function(r){
+				// 		if(rec.dir == r.destDir) { return true; }
+				// 	});
+					
+				// 	// let srcFile = r.fullOutputName.split("/")[2];
+				// 	let fullpath_src  = path.join(__dirname, rec.dir);// + "/" + srcFile;
+				// 	let fullpath_dest = path.join(__dirname, rec.dir);
+				// 	let proms_svgToPng = async.mapLimit(recs, 10, async function(cmd_obj, callback){
+				// 		// try{ await runCommand(cmd_obj); } catch(e){ console.log("failure: runCommand", e); }
+				// 		await svg_to_png.convert(fullpath_src, fullpath_dest).then( 
+				// 			function(data){
+				// 				console.log("DONE: ", srcFile.split(".svg")[0]);
+				// 				res_stp();
+				// 			},
+				// 			function(err){ console.log("--ERROR--:", srcFile.split(".svg")[0], err); rej_stp(); }
+				// 		)
+				// 		callback(null, cmd_obj);
+				// 	});
+
+				// 	proms_svgToPng.then(
+				// 		function(){
+				// 			console.log("Good:", recs);
+				// 		},
+				// 		function(err){ console.log("err:", err); }
+				// 	);
+
+				// 	// recs.forEach(function(r){
+				// 	// 	let srcFile = r.fullOutputName.split("/")[2];
+				// 	// 	let fullpath_src  = path.join(__dirname, rec.dir) + "/" + srcFile;
+				// 	// 	let fullpath_dest = path.join(__dirname, rec.dir) ;
+				// 	// 	proms_svgToPng.push(
+				// 	// 		new Promise(
+				// 	// 			function(res_stp, rej_stp){
+				// 	// 					console.log(srcFile);
+				// 	// 					try{
+				// 	// 						svg_to_png.convert(fullpath_src, fullpath_dest).then( 
+				// 	// 							function(data){
+				// 	// 								console.log("DONE: ", srcFile.split(".svg")[0]);
+				// 	// 								res_stp();
+				// 	// 							},
+				// 	// 							function(err){ console.log("--ERROR--:", srcFile.split(".svg")[0], err); rej_stp(); }
+				// 	// 						)
+				// 	// 					}
+				// 	// 					catch(e){
+				// 	// 						console.log("ERROR---", srcFile.split(".svg")[0], fullpath_src, fullpath_dest);
+				// 	// 						console.log("ERROR---", e);
+				// 	// 						rej_stp();
+				// 	// 					}
+				// 	// 				}
+				// 	// 			)
+				// 	// 	);
+				// 	// });
+				// }
+				
+				// Promise.all(proms_svgToPng).then(
+				// 	function(){
+				// 		console.log("svg-to-png has finished.");
+				// 		resolve_top( { messages: messages } );
+				// 	},
+				// 	function(err){ console.log("ERROR:", err); }
+				// );
+
 			}
 			else{
 				console.log("No commands to run.");
@@ -618,27 +760,361 @@ const createNotebookPageImages = async function(recreateall){
 		}
 	});
 };
+const convertSvgsToPngs = async function(destDirs){
+	return new Promise(async function(resolve_top,reject_top){
+		// console.log(destDirs);
+		// dir: 'DEVICE_DATA_IMAGES/862892f0-e2fc-459c-b347-176c36e75040',
+		// num: '99/188',
+		// pages: 3,
+		// notebookName: 'Assigning Identity-based Policies for users, Roles, and Groups on AWS',
+		// parentName: '01 Beginner'
+
+		// {
+		// 	key: "010d635d-60c4-4ed2-bc13-1b0c728a449c",
+		// 	numPages: 27,
+		// 	srcRmDir: "DEVICE_DATA/xochitl/010d635d-60c4-4ed2-bc13-1b0c728a449c",
+		// 	destDir: "DEVICE_DATA_IMAGES/010d635d-60c4-4ed2-bc13-1b0c728a449c",
+		// 	fullOutputName: "DEVICE_DATA_IMAGES/010d635d-60c4-4ed2-bc13-1b0c728a449c/Work_Notes_1_PAGE_000.svg",
+		// 	baseFileName: "Work_Notes_1_PAGE_000",
+		// }
+
+		// Run the commands.
+		let currentFile=0;
+		let totalFiles = destDirs.length;
+		let prom_svgToPng = async.mapLimit(destDirs, 10, async function(rec, callback){
+			let fullpath_src  = path.join(__dirname, rec.fullOutputName);// + "/" + srcFile;
+			let fullpath_dest = path.join(__dirname, rec.destDir);
+			// console.log(rec.baseFileName, "START:", rec.destDir);
+			try{ await svg_to_png.convert(fullpath_src, fullpath_dest); } catch(e){ console.log("error in convertSvgsToPngs", e); } 
+			console.log(`DONE: (${currentFile+1} of ${totalFiles}) ${rec.baseFileName} (${rec.destDir})`);
+			// console.log(rec.baseFileName, "DONE:", rec.destDir);
+			currentFile+=1;
+			callback(null, rec);
+		});
+
+		prom_svgToPng
+		.then(
+			result => {
+				console.log("success:", result.length, "of", destDirs.length);
+				// resolve_top( { messages: messages } );
+				resolve_top( { } );
+			}
+		)
+		.catch(
+			(err) => {
+				console.log("no success", err);
+				reject_top(err);
+			}
+		);
+
+	});
+};
+const convertSvgsToPngs2 = async function(destDirs){
+	return new Promise(async function(resolve_top,reject_top){
+		// console.log(destDirs);
+		// dir: 'DEVICE_DATA_IMAGES/862892f0-e2fc-459c-b347-176c36e75040',
+		// num: '99/188',
+		// pages: 3,
+		// notebookName: 'Assigning Identity-based Policies for users, Roles, and Groups on AWS',
+		// parentName: '01 Beginner'
+
+		// {
+		// 	key: "010d635d-60c4-4ed2-bc13-1b0c728a449c",
+		// 	numPages: 27,
+		// 	srcRmDir: "DEVICE_DATA/xochitl/010d635d-60c4-4ed2-bc13-1b0c728a449c",
+		// 	destDir: "DEVICE_DATA_IMAGES/010d635d-60c4-4ed2-bc13-1b0c728a449c",
+		// 	fullOutputName: "DEVICE_DATA_IMAGES/010d635d-60c4-4ed2-bc13-1b0c728a449c/Work_Notes_1_PAGE_000.svg",
+		// 	baseFileName: "Work_Notes_1_PAGE_000",
+		// }
+
+		// Run the commands.
+		let currentFile=0;
+		let totalFiles = destDirs.length;
+		let prom_svgToPng = async.mapLimit(destDirs, 10, async function(rec, callback){
+			let fullpath_src  = path.join(__dirname, rec.fullOutputName);// + "/" + srcFile;
+			let fullpath_dest = path.join(__dirname, rec.destDir);
+			// console.log(rec.baseFileName, "START:", rec.destDir);
+			try{ await svg_to_png.convert(fullpath_src, fullpath_dest); } catch(e){ console.log("error in convertSvgsToPngs", e); } 
+			console.log(`DONE: (${currentFile+1} of ${totalFiles}) ${rec.baseFileName} (${rec.destDir})`);
+			// console.log(rec.baseFileName, "DONE:", rec.destDir);
+			currentFile+=1;
+			callback(null, rec);
+		});
+
+		prom_svgToPng
+		.then(
+			result => {
+				console.log("success:", result.length, "of", destDirs.length);
+				// resolve_top( { messages: messages } );
+				resolve_top( { } );
+			}
+		)
+		.catch(
+			(err) => {
+				console.log("no success", err);
+				reject_top(err);
+			}
+		);
+
+	});
+};
+const webApi = {
+	syncRunner : async function(dest, interface){
+		return new Promise(async function(resolve_top,reject_top){
+			// Check for the validity of both arguments.
+			if( ["tolocal", "toremote"].indexOf(dest) == -1) {
+				reject_top(JSON.stringify("ERROR: Invalid 'dest'"));
+				return;
+			}
+			if( ["wifi", "usb"].indexOf(interface) == -1) {
+				reject_top(JSON.stringify("ERROR: Invalid 'interface'"));
+				return;
+			}
+
+			let cmd = `cd scripts && ./syncRunner.sh ${dest} ${interface}`;
+			// console.log("syncRunner: ", cmd);
+			exec(cmd, 
+				function (error, stdout, stderr) {
+					if (error) {
+						console.log("syncRunner: ", "ERROR");
+						reject_top(JSON.stringify({error: error, stderr:stderr, stdout:stdout}));
+						return;
+					}
+					// console.log("syncRunner: ", "DONE");
+					// console.log( {error: error, stderr:stderr, stdout:stdout} );
+					resolve_top(JSON.stringify(stdout+stderr,null,1));
+				}
+			);
+		});
+	},
+	getFilesJson : async function(){
+		return new Promise(async function(resolve_top,reject_top){
+			let existingFilesJson;
+			try{ existingFilesJson = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject_top(JSON.stringify(e)); return; }
+			resolve_top(existingFilesJson);
+		});
+	},
+	getSvgs : async function(notebookId){
+		return new Promise(async function(resolve_top,reject_top){
+			// Need to check that the directory exists.
+			// Need to check if there are already svg files in the directory.
+			// Retrieve what is in that directory.
+			let targetPath = imagesPath + "/" + notebookId;
+			let dirExists = fs.existsSync(targetPath);
+			let dirFiles = await getItemsInDir(targetPath, "files"); // fs.promises.readdir(targetPath);
+
+			let dirFiles_pngs = [];
+			dirFiles.forEach(function(file){
+				file.filepath = file.filepath.replace(/.svg/g, ".png");
+				if(file.filepath.indexOf(".png")){ dirFiles_pngs.push(file); }
+			});
+
+			// console.log(dirFiles);
+
+			// Option 1: Send a filelist for the client to download.
+			// Option 2: Send a filelist containing each svg. (svg is plain text.)
+			// Option 3: Send a .zip file of the svgs.
+
+			let proms = [];
+			dirFiles.forEach(function(file){
+				console.log(file);
+				proms.push(
+					new Promise(function(res1, rej1){
+						fs.readFile(file.filepath, function (err, file_buffer) {
+							if (err) {
+								console.log("ERROR READING FILE 1", file, err); 
+								rej1([file, err]); 
+								return;
+							}
+							// 
+							res1('data:image/png;base64,' + file_buffer.toString('base64') );
+						})
+					})
+				)
+			});
+			Promise.all(proms).then(
+				function(results){
+					// console.log(results.length, results);
+					resolve_top(
+						JSON.stringify(
+							{
+								"notebookId": notebookId,
+								"targetPath": targetPath,
+								"dirExists": dirExists,
+								// "dirFiles": dirFiles,
+								"dirFiles": dirFiles_pngs,
+								"svgTexts": results,
+							}, null, 0));
+				},
+
+				function(error){ console.log("ERROR:", error); reject_top(JSON.stringify([],null,0)); }
+			);
+		});
+	},
+	getGlobalUsageStats : async function(){
+		return new Promise(async function(resolve_top,reject_top){
+			resolve_top(JSON.stringify([],null,0));
+			// reject_top(JSON.stringify([],null,0));
+		});
+	},
+	getThumbnails : async function(parentId){
+		return new Promise(async function(resolve_top,reject_top){
+			resolve_top(JSON.stringify([],null,0));
+			// reject_top(JSON.stringify([],null,0));
+		});
+	},
+	debug_getNotebookList : async function(){
+		return new Promise(async function(resolve_top,reject_top){
+			// resolve_top(JSON.stringify([],null,0));
+			// reject_top(JSON.stringify([],null,0));
+
+			let existingFilesJson;
+			try{ existingFilesJson = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject_top(JSON.stringify(e)); return; }
+
+			let list = [];
+			let keys = Object.keys(existingFilesJson.DocumentType);
+			keys.forEach(function(key){
+				let d = existingFilesJson.DocumentType[key];
+
+				// Get content.fileType
+				if(d.content.fileType != "notebook") { return; }
+				
+				// Get content.dummyDocument
+				if(d.content.dummyDocument) { return; }
+
+				let obj = {};
+
+				// Get metadata.visibleName
+				obj.visibleName = d.metadata.visibleName;
+				
+				// Get content.pageCount
+				obj.pageCount = d.content.pageCount;
+				
+				// Get content.pages.length
+				// obj.pageCount2 = d.content.pages.length;
+				
+				// Add the key.
+				obj.key = key;
+
+				// Add the parent.
+				try{ obj.parentName = getParentDirName(d, existingFilesJson); } catch(e){ obj.parentName = "UNKNOWN"; }
+
+				list.push(obj);
+			});
+
+			list.sort((a,b)=> (a.parentName > b.parentName ? 1 : -1));
+			// list.sort((a,b)=> (a.pageCount > b.pageCount ? 1 : -1));
+
+			// resolve_top(list);
+			resolve_top(JSON.stringify(list,null,0));
+		});
+	},
+};
 
 // WEB UI ROUTES.
 app.get('/syncUsingWifi'       , async (req, res) => {
-	console.log("/syncUsingWifi");
-	res.send(JSON.stringify("/syncUsingWifi"));
+	console.log("\nroute: syncUsingWifi:", req.query);
+
+	let stamp = timeIt.stamp("route: syncUsingWifi", null);
+	let returnValue;
+	try{ returnValue = await webApi.syncRunner("tolocal", "wifi"); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("route: syncRunner", stamp);
+
+	let timeStampString = timeIt.getStampString();
+	console.log("*".repeat(83));
+	console.log("timeIt_stamps:", timeStampString );
+	console.log("*".repeat(83));
+	timeIt.clearTimeItStamps();
+
+	// Should be JSON already.
+	res.send(returnValue);
 });
 app.get('/getFilesJson'        , async (req, res) => {
-	console.log("/getFilesJson");
-	res.send(JSON.stringify("/getFilesJson"));
+	console.log("\nroute: getFilesJson:", req.query);
+	
+	let stamp = timeIt.stamp("route: getFilesJson", null);
+	let returnValue;
+	try{ returnValue = await webApi.getFilesJson(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("route: getFilesJson", stamp);
+
+	let timeStampString = timeIt.getStampString();
+	console.log("*".repeat(83));
+	console.log("timeIt_stamps:", timeStampString );
+	console.log("*".repeat(83));
+	timeIt.clearTimeItStamps();
+
+	// Should be JSON already.
+	res.send(returnValue);
 });
 app.get('/getGlobalUsageStats' , async (req, res) => {
-	console.log("/getGlobalUsageStats");
-	res.send(JSON.stringify("/getGlobalUsageStats"));
+	console.log("\nroute: getGlobalUsageStats:", req.query);
+	
+	let stamp = timeIt.stamp("route: getGlobalUsageStats", null);
+	let returnValue;
+	try{ returnValue = await webApi.getGlobalUsageStats(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("route: getGlobalUsageStats", stamp);
+
+	let timeStampString = timeIt.getStampString();
+	console.log("*".repeat(83));
+	console.log("timeIt_stamps:", timeStampString );
+	console.log("*".repeat(83));
+	timeIt.clearTimeItStamps();
+
+	// Should be JSON already.
+	res.send(returnValue);
 });
-app.get('/getSvgs'             , async (req, res) => {
-	console.log("/getSvgs");
-	res.send(JSON.stringify("/getFilesJson"));
+app.get('/getSvgs' , async (req, res) => {
+	console.log("\nroute: getSvgs", req.query);
+	
+	let stamp = timeIt.stamp("route: getSvgs:", null);
+	let returnValue;
+	try{ returnValue = await webApi.getSvgs(req.query.notebookId); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("route: getSvgs", stamp);
+
+	let timeStampString = timeIt.getStampString();
+	console.log("*".repeat(83));
+	console.log("timeIt_stamps:", timeStampString );
+	console.log("*".repeat(83));
+	timeIt.clearTimeItStamps();
+
+	// Should be JSON already.
+	res.send(returnValue);
 });
+app.get('/debug_getNotebookList' , async (req, res) => {
+	console.log("\nroute: debug_getNotebookList", req.query);
+	
+	let stamp = timeIt.stamp("route: debug_getNotebookList:", null);
+	let returnValue;
+	try{ returnValue = await webApi.debug_getNotebookList(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("route: debug_getNotebookList", stamp);
+
+	let timeStampString = timeIt.getStampString();
+	console.log("*".repeat(83));
+	console.log("timeIt_stamps:", timeStampString );
+	console.log("*".repeat(83));
+	timeIt.clearTimeItStamps();
+
+	// Should be JSON already.
+	res.send(returnValue);
+});
+
 app.get('/getThumbnails'             , async (req, res) => {
-	console.log("/getThumbnails");
-	res.send(JSON.stringify("/getThumbnails"));
+	console.log("\nroute: getThumbnails:", req.query);
+	// req.query.parentId
+
+	let stamp = timeIt.stamp("route: getThumbnails", null);
+	let returnValue;
+	try{ returnValue = await webApi.getThumbnails(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("route: getThumbnails", stamp);
+
+	let timeStampString = timeIt.getStampString();
+	console.log("*".repeat(83));
+	console.log("timeIt_stamps:", timeStampString );
+	console.log("*".repeat(83));
+	timeIt.clearTimeItStamps();
+
+	// Should be JSON already.
+	res.send(returnValue);
 });
 
 // DEBUG AND TEST ROUTES.
@@ -765,12 +1241,26 @@ app.get('/createNotebookPageImages', async (req, res) => {
 	console.log(returnValue);
 });
 
+function shouldCompress (req, res) {
+	// if (req.headers['x-no-compression']) {
+	//   // don't compress responses with this request header
+	//   return false;
+	// }
+  
+	// fallback to standard filter function
+	return compression.filter(req, res);
+  }
 app.listen(port, () => {
-	
-	// Set virtual path.
-	app.use('/', express.static(path.join(__dirname, 'Html')));
-	app.use('/data', express.static(path.join(__dirname, 'DEVICE_DATA')));
-	app.use('/svgs', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+	// Compression.
+	app.use(compression({ filter: shouldCompress }));
+
+	// Set virtual paths.
+	app.use('/'                  , express.static(htmlPath));
+	app.use('/DEVICE_DATA'       , express.static(path.join(__dirname, 'DEVICE_DATA')));
+	app.use('/DEVICE_DATA_IMAGES', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+
+	// app.use('/data', express.static(path.join(__dirname, 'DEVICE_DATA')));
+	// app.use('/svgs', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
 
 	// app.use('/DEVICE_DATA_IMAGES', serveIndex(__dirname + '/DEVICE_DATA_IMAGES'));
 	// app.use('/DEVICE_DATA_IMAGES', serveIndex(path.join(__dirname, "DEVICE_DATA_IMAGES")));
