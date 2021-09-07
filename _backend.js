@@ -117,20 +117,33 @@ let runCommand_exec = async function(cmd){
 
 };
 // Runs a specified command (with promise, and progress)
-let runCommand_exec_progress = async function(cmd, expectedExitCode = 0){
+let runCommand_exec_progress = async function(cmd, expectedExitCode = 0, progress=true){
 	return new Promise(function(cmd_res, cmd_rej){
 		const proc = spawn(cmd, {
 			shell: true
 		});
+		let stdOutHist = "";
+		let stdErrHist = "";
 
 		proc.stdout.on('data', (data) => {
-			console.log(`  stdout: ${data}`);
+			if(progress){
+				console.log(`  stdout: ${data}`);
+			}
+			stdOutHist += data;
 		});
 		proc.stderr.on('data', (data) => {
-			console.error(`  stderr: ${data}`);
+			if(progress){
+				console.error(`  stderr: ${data}`);
+			}
+			stdErrHist += data;
 		});
 		proc.on('close', (code) => {
-			if(code == expectedExitCode){ cmd_res(); }
+			if(code == expectedExitCode){ 
+				cmd_res({
+					"stdOutHist": stdOutHist,
+					"stdErrHist": stdErrHist,
+				}); 
+			}
 			else{
 				console.log(`  child process exited with code ${code}`);
 				cmd_rej();
@@ -164,6 +177,33 @@ const createJsonFsData = async function(writeFile){
 								// Start creating the new json entry.
 								let newObj = {};
 		
+								// ********** NEW PRE-FILTERING **********
+								// Filter out what you don't need (just keep notebook-related stuff.)
+								// preFilterObj = JSON.parse(file_buffer);
+								// let keys_new      = Object.keys( preFilterObj["DocumentType"] );
+								// keys_new.forEach(function(key){
+									// let file_new      = preFilterObj["DocumentType"][key];
+									
+								// Only compare notebooks. 
+								// if(file_new.content.fileType != "notebook"){ 
+									// console.log("Skip non-notebook.", file_new_visibleName, file_dir_visibleName); 
+									return; 
+								// }
+
+								// Ignore dummyDocument true.
+								// else if(file_new.content.dummyDocument != false){ 
+									// console.log("Skip dummyDocument.", file_new_visibleName, file_dir_visibleName); 
+									// return; 
+								// }
+
+								// Ignore trash.
+								// else if(file_dir_visibleName == "TRASH"){ 
+								// 	console.log("Skip trash.", file_new_visibleName, file_dir_visibleName); 
+								// 	return; 
+								// }
+								// });
+								// ********** NEW PRE-FILTERING **********
+
 								// Create metadata.
 								newObj.metadata = JSON.parse(file_buffer);
 		
@@ -205,8 +245,27 @@ const createJsonFsData = async function(writeFile){
 									// Create content.
 									newObj.content = JSON.parse(file_buffer2);
 		
+									// ********** NEW PRE-FILTERING **********
+									let check1 = newObj.content.fileType != "notebook";
+									let check2 = newObj.content.dummyDocument != false;
+									let check3 = newObj.metadata.parent == "trash";
+
+									// Only compare notebooks. 
+									if(check1){
+
+									}
+									// Ignore dummyDocument true.
+									else if(check2){
+
+									}
+									// Ignore trash.
+									else if(check3){
+
+									}
 									// Add the completed record.
-									json[newObj.metadata.type].push(newObj);
+									else {
+										json[newObj.metadata.type].push(newObj);
+									}
 									
 									// Resolve.
 									res1();
@@ -292,6 +351,7 @@ const createJsonFsData = async function(writeFile){
 			})
 		;
 		files = await getAllJson(files, dataPath);
+
 		files = await createDirectoryStructure(files);
 		
 		if(writeFile){
@@ -606,7 +666,7 @@ const createNotebookPageImages = async function(recreateall){
 			}
 
 			if(cmdList.length){
-				// try{ await preCommand(cmdList); } catch(e){ console.log("failure: preCommand", e); }
+				try{ await preCommand(cmdList); } catch(e){ console.log("failure: preCommand", e); }
 
 				let destDirs_pre = [];
 				cmdList.forEach(function(d){ if(destDirs_pre.indexOf(d.destDir) == -1){ 
@@ -616,6 +676,10 @@ const createNotebookPageImages = async function(recreateall){
 
 				let destDirs = [];
 				destDirs_pre.forEach(function(dir, dir_i, dir_a){
+					// Allow only one.
+					// if(dir.indexOf("1c5917c5-1451-4fb4-8b5a-03531b32dbf4") == -1){ return; } // Go Fish
+					// if(dir.indexOf("d70d80a5-9378-4739-81a5-4cb14c22e9c4") == -1){ return; } // Pen Test
+
 					destDirs.push({
 						"dir": dir,
 						"num": (dir_i+1) + "/" + dir_a.length, 
@@ -629,7 +693,6 @@ const createNotebookPageImages = async function(recreateall){
 				let bigCmd = '' ;
 				console.log("STARTING: rM2svg...");
 				for(let notebook=0; notebook<destDirs.length; notebook+=1){
-					break;
 					let rec = destDirs[notebook];
 
 					// if(rec.pages != 10) { continue; }
@@ -647,92 +710,52 @@ const createNotebookPageImages = async function(recreateall){
 							bigCmd += " && " + recs[cmd_i].cmd ;
 						}
 					}
-					console.log("CURRENT: notebook:", (notebook+1), "of", destDirs.length, ", pages:", recs[cmd_i].pages, ", cmdLength:", bigCmd.length);
-					try{ await runCommand_exec_progress(bigCmd, 0); } catch(e){ console.log("failure: bigCmd", e, bigCmd.length); }
+					console.log("CURRENT: notebook:", (notebook+1), "of", destDirs.length, ", pages:", rec.pages, ", cmdLength:", bigCmd.length);
+					try{ await runCommand_exec_progress(bigCmd, 0, true); } catch(e){ console.log("failure: bigCmd", e, bigCmd.length, "of", 32000); }
 					
 					// bigCmd = 'echo "Next notebook..."';
 					bigCmd = '';
 				}
-				// let pageFiles = [];
-				// let recs;
-				// for(let notebook=0; notebook<destDirs.length; notebook+=1){
-				// 	let rec = destDirs[notebook];
-				// 	// let recs = cmdList.filter(function(r){
-				// 	// 	if(rec.dir == r.destDir) { return true; }
-				// 	// });
-				// }
-				try{ await convertSvgsToPngs(cmdList); } catch(e){ console.log("failure: convertSvgsToPngs", e); }
+				
+				// convertSvgsToPngs
+				// try{ await convertSvgsToPngs(cmdList); } catch(e){ console.log("failure: convertSvgsToPngs", e); }
+				// resolve_top( { messages: messages } );
+				
+				// convertSvgsToPngs2
+				bigCmd = '' ;
+				console.log("STARTING: svgexport...");
+				for(let notebook=0; notebook<destDirs.length; notebook+=1){
+					let rec = destDirs[notebook];
+
+					// if(rec.pages != 10) { continue; }
+					
+					let recs = cmdList.filter(function(r){
+						if(rec.dir == r.destDir) { return true; }
+					});
+					
+					for(let cmd_i=0; cmd_i<recs.length; cmd_i+=1){
+						if(bigCmd == ""){
+							bigCmd += "" ;
+						}
+						else{
+							bigCmd += " && "
+						}
+						let pngName = recs[cmd_i].fullOutputName.replace(/.svg/g, ".png");
+						bigCmd += `svgexport ${recs[cmd_i].fullOutputName} ${pngName} png 100% 555:666 pad `
+						// bigCmd += `svgexport ${recs[cmd_i].fullOutputName} ${pngName} png 100% pad `
+					}
+					console.log("CURRENT: notebook:", (notebook+1), "of", destDirs.length, ", pages:", rec.pages, ", cmdLength:", bigCmd.length);
+					try{ await runCommand_exec_progress(bigCmd, 0, true); } catch(e){ console.log("failure: bigCmd", e, bigCmd.length, "of", 32000); }
+					
+					// bigCmd = 'echo "Next notebook..."';
+					bigCmd = '';
+				}
+				
+				// try{ await convertSvgsToPngs(cmdList); } catch(e){ console.log("failure: convertSvgsToPngs", e); }
+				// resolve_top( { messages: messages } );
+				
 				resolve_top( { messages: messages } );
 				
-				// console.log("STARTING: svg-to-png...");
-				// let proms_svgToPng = [];
-				// for(let notebook=0; notebook<destDirs.length; notebook+=1){
-				// 	let rec = destDirs[notebook];
-					
-				// 	// if(rec.pages != 10) { continue; }
-					
-				// 	let recs = cmdList.filter(function(r){
-				// 		if(rec.dir == r.destDir) { return true; }
-				// 	});
-					
-				// 	// let srcFile = r.fullOutputName.split("/")[2];
-				// 	let fullpath_src  = path.join(__dirname, rec.dir);// + "/" + srcFile;
-				// 	let fullpath_dest = path.join(__dirname, rec.dir);
-				// 	let proms_svgToPng = async.mapLimit(recs, 10, async function(cmd_obj, callback){
-				// 		// try{ await runCommand(cmd_obj); } catch(e){ console.log("failure: runCommand", e); }
-				// 		await svg_to_png.convert(fullpath_src, fullpath_dest).then( 
-				// 			function(data){
-				// 				console.log("DONE: ", srcFile.split(".svg")[0]);
-				// 				res_stp();
-				// 			},
-				// 			function(err){ console.log("--ERROR--:", srcFile.split(".svg")[0], err); rej_stp(); }
-				// 		)
-				// 		callback(null, cmd_obj);
-				// 	});
-
-				// 	proms_svgToPng.then(
-				// 		function(){
-				// 			console.log("Good:", recs);
-				// 		},
-				// 		function(err){ console.log("err:", err); }
-				// 	);
-
-				// 	// recs.forEach(function(r){
-				// 	// 	let srcFile = r.fullOutputName.split("/")[2];
-				// 	// 	let fullpath_src  = path.join(__dirname, rec.dir) + "/" + srcFile;
-				// 	// 	let fullpath_dest = path.join(__dirname, rec.dir) ;
-				// 	// 	proms_svgToPng.push(
-				// 	// 		new Promise(
-				// 	// 			function(res_stp, rej_stp){
-				// 	// 					console.log(srcFile);
-				// 	// 					try{
-				// 	// 						svg_to_png.convert(fullpath_src, fullpath_dest).then( 
-				// 	// 							function(data){
-				// 	// 								console.log("DONE: ", srcFile.split(".svg")[0]);
-				// 	// 								res_stp();
-				// 	// 							},
-				// 	// 							function(err){ console.log("--ERROR--:", srcFile.split(".svg")[0], err); rej_stp(); }
-				// 	// 						)
-				// 	// 					}
-				// 	// 					catch(e){
-				// 	// 						console.log("ERROR---", srcFile.split(".svg")[0], fullpath_src, fullpath_dest);
-				// 	// 						console.log("ERROR---", e);
-				// 	// 						rej_stp();
-				// 	// 					}
-				// 	// 				}
-				// 	// 			)
-				// 	// 	);
-				// 	// });
-				// }
-				
-				// Promise.all(proms_svgToPng).then(
-				// 	function(){
-				// 		console.log("svg-to-png has finished.");
-				// 		resolve_top( { messages: messages } );
-				// 	},
-				// 	function(err){ console.log("ERROR:", err); }
-				// );
-
 			}
 			else{
 				console.log("No commands to run.");
@@ -809,6 +832,8 @@ const convertSvgsToPngs2 = async function(destDirs){
 		// 	baseFileName: "Work_Notes_1_PAGE_000",
 		// }
 
+		// Make big command.
+
 		// Run the commands.
 		let currentFile=0;
 		let totalFiles = destDirs.length;
@@ -816,7 +841,9 @@ const convertSvgsToPngs2 = async function(destDirs){
 			let fullpath_src  = path.join(__dirname, rec.fullOutputName);// + "/" + srcFile;
 			let fullpath_dest = path.join(__dirname, rec.destDir);
 			// console.log(rec.baseFileName, "START:", rec.destDir);
-			try{ await svg_to_png.convert(fullpath_src, fullpath_dest); } catch(e){ console.log("error in convertSvgsToPngs", e); } 
+			
+			// try{ await svg_to_png.convert(fullpath_src, fullpath_dest); } catch(e){ console.log("error in convertSvgsToPngs", e); } 
+
 			console.log(`DONE: (${currentFile+1} of ${totalFiles}) ${rec.baseFileName} (${rec.destDir})`);
 			// console.log(rec.baseFileName, "DONE:", rec.destDir);
 			currentFile+=1;
@@ -887,8 +914,8 @@ const webApi = {
 
 			let dirFiles_pngs = [];
 			dirFiles.forEach(function(file){
-				// file.filepath = file.filepath.replace(/.svg/g, ".png");
 				if(file.filepath.indexOf(".png") != -1){ dirFiles_pngs.push(file); }
+				// if(file.filepath.indexOf(".svg") != -1){ dirFiles_pngs.push(file); }
 			});
 
 			// Option 1: Send a filelist for the client to download.
@@ -907,9 +934,12 @@ const webApi = {
 								return;
 							}
 							// 
-							res1(
-								('data:image/png;base64,' + file_buffer.toString('base64')).trim()
-							);
+							if(file.filepath.indexOf(".png") != -1){
+								res1( 'data:image/png;base64,' + file_buffer.toString('base64').trim() );
+							}
+							else if(file.filepath.indexOf(".svg") != -1){
+								res1( 'data:image/svg+xml;base64,' + file_buffer.toString('base64').trim() );
+							}
 						})
 					})
 				)
@@ -1006,7 +1036,7 @@ app.get('/syncUsingWifi'       , async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
 	res.send(returnValue);
@@ -1023,7 +1053,7 @@ app.get('/getFilesJson'        , async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
 	res.send(returnValue);
@@ -1040,7 +1070,7 @@ app.get('/getGlobalUsageStats' , async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
 	res.send(returnValue);
@@ -1057,7 +1087,7 @@ app.get('/getSvgs' , async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
 	res.send(returnValue);
@@ -1074,7 +1104,7 @@ app.get('/debug_getNotebookList' , async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
 	res.send(returnValue);
@@ -1093,7 +1123,7 @@ app.get('/getThumbnails'             , async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
 	res.send(returnValue);
@@ -1162,7 +1192,7 @@ app.get('/syncRunner', async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	res.send(returnValue);
 });
@@ -1178,7 +1208,7 @@ app.get('/createJsonFsData', async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	res.send(
 		"/createJsonFsData: (data written): " +
@@ -1199,7 +1229,7 @@ app.get('/getExistingJsonFsData', async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	res.send(returnValue);
 });
@@ -1217,7 +1247,7 @@ app.get('/createNotebookPageImages', async (req, res) => {
 	console.log("*".repeat(83));
 	console.log("timeIt_stamps:", timeStampString );
 	console.log("*".repeat(83));
-	timeIt.clearTimeItStamps();
+	// timeIt.clearTimeItStamps();
 
 	res.send(returnValue);
 	console.log(returnValue);

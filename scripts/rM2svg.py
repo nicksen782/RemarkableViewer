@@ -13,6 +13,7 @@ import struct
 import os.path
 import argparse
 import re
+import math
 
 
 __prog_name__ = "rm2svg"
@@ -187,6 +188,10 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
             # Fix the pen if required.
             pen = fixPen(pen)
 
+            # Change all non-erase pens to the fine-liner. (Some pens output as garbage.)
+            if pen != 6 and pen != 8:
+                pen = 4
+
             #if i_unk != 0: # No theory on that one
                 #print('Unexpected value at offset {}'.format(offset - 12))
             if pen == 0 or pen == 1:
@@ -214,7 +219,12 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
                 opacity = 0.
 
             width /= 2.3 # adjust for transformation to A4
-            
+            # width = math.ceil(width)
+            width = 3
+            # width = 3
+            # print('PEN:', pen, ', WIDTH:', width, end = '')
+            # print('PEN:', pen, ', WIDTH:', width)
+
             #print('Stroke {}: pen={}, colour={}, width={}, nsegments={}'.format(stroke, pen, colour, width, nsegments))
             output.write('<polyline style="fill:none;stroke:{};stroke-width:{:.3f};opacity:{}" points="'.format(stroke_colour[colour], width, opacity)) # BEGIN stroke
 
@@ -236,7 +246,8 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
                     if 0 == segment % 8:
                         segment_width = (5. * tilt) * (6. * width - 10) * (1 + 2. * pressure * pressure * pressure)
                         #print('    width={}'.format(segment_width))
-                        output.write('" />\n<polyline style="fill:none;stroke:{};stroke-width:{:.3f}" points="'.format(
+                        # output.write('" />\n<polyline style="fill:none;stroke:{};stroke-width:{:.3f}" points="'.format(
+                        output.write('" />\n<polyline style="fill:none;stroke:{};stroke-width:{:.1f}" points="'.format(
                                     stroke_colour[colour], segment_width)) # UPDATE stroke
                         if last_x != -1.:
                             output.write('{:.3f},{:.3f} '.format(last_x, last_y)) # Join to previous segment
@@ -246,18 +257,21 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
                         segment_width = (10. * tilt -2) * (8. * width - 14)
                         segment_opacity = (pressure - .2) * (pressure - .2)
                         #print('    width={}, opacity={}'.format(segment_width, segment_opacity))
-                        output.write('" /><polyline style="fill:none;stroke:{};stroke-width:{:.3f};opacity:{:.3f}" points="'.format(
+                        # output.write('" /><polyline style="fill:none;stroke:{};stroke-width:{:.3f};opacity:{:.3f}" points="'.format(
+                        output.write('" /><polyline style="fill:none;stroke:{};stroke-width:{:.0f};opacity:{:.1f}" points="'.format(
                                     stroke_colour[colour], segment_width, segment_opacity)) # UPDATE stroke
                         if last_x != -1.:
-                            output.write('{:.3f},{:.3f} '.format(last_x, last_y)) # Join to previous segment
+                            # output.write('{:.3f},{:.3f} '.format(last_x, last_y)) # Join to previous segment
+                            output.write('{:.0f},{:.0f} '.format(last_x, last_y)) # Join to previous segment
                         last_x = xpos; last_y = ypos
 
-                output.write('{:.3f},{:.3f} '.format(xpos, ypos)) # BEGIN and END polyline segment
+                # output.write('{:.3f},{:.3f} '.format(xpos, ypos)) # BEGIN and END polyline segment
+                output.write('{:.0f},{:.0f} '.format(xpos, ypos)) # BEGIN and END polyline segment
 
             output.write('" />\n') # END stroke
 
     # Overlay the page with a clickable rect to flip pages
-    output.write('<rect x="0" y="0" width="{}" height="{}" fill-opacity="0"/>'.format(x_width, y_width))
+    # output.write('<rect x="0" y="0" width="{}" height="{}" fill-opacity="0"/>'.format(x_width, y_width))
     output.write('</g>') # Closing page group
     output.write('</svg>') # END notebook
     output.close()
