@@ -86,6 +86,11 @@ let getParentDirName = function(file, files){
 		}
 	}
 };
+let getFullPathToDocument = function(){
+	return new Promise(async function(resolve_top,reject_top){
+		resolve_top();
+	});
+};
 // Runs a specified command (with promise.)
 let runCommand_exec = async function(cmd){
 	return new Promise(function(cmd_res, cmd_rej){
@@ -114,29 +119,6 @@ let runCommand_exec = async function(cmd){
 // Runs a specified command (with promise, and progress)
 let runCommand_exec_progress = async function(cmd, expectedExitCode = 0){
 	return new Promise(function(cmd_res, cmd_rej){
-		// let cmds = cmd.split(" && ");
-		// let maxLen = 0;
-		// cmds.forEach(function(d){
-		// 	if(d.length > maxLen){ maxLen = d.length; }
-		// });
-		// // 915 commands
-		// // 270 longest command length.
-		// // 32000 longest allowed input.
-
-		// console.log(cmds.length, maxLen);
-
-		// Need to batch these commands.
-		// let proms = [];
-		// let numCommandsSent = 0;
-		// let numCommandsSentCounter = 0;
-		// let batchedCmds = "";
-		// cmds.forEach(function(d){
-		// 	if(numCommandsSentCounter < 30000){
-		// 	}
-		// 	else{
-		// 	}
-		// });
-
 		const proc = spawn(cmd, {
 			shell: true
 		});
@@ -905,18 +887,16 @@ const webApi = {
 
 			let dirFiles_pngs = [];
 			dirFiles.forEach(function(file){
-				file.filepath = file.filepath.replace(/.svg/g, ".png");
-				if(file.filepath.indexOf(".png")){ dirFiles_pngs.push(file); }
+				// file.filepath = file.filepath.replace(/.svg/g, ".png");
+				if(file.filepath.indexOf(".png") != -1){ dirFiles_pngs.push(file); }
 			});
-
-			// console.log(dirFiles);
 
 			// Option 1: Send a filelist for the client to download.
 			// Option 2: Send a filelist containing each svg. (svg is plain text.)
 			// Option 3: Send a .zip file of the svgs.
 
 			let proms = [];
-			dirFiles.forEach(function(file){
+			dirFiles_pngs.forEach(function(file){
 				console.log(file);
 				proms.push(
 					new Promise(function(res1, rej1){
@@ -927,7 +907,9 @@ const webApi = {
 								return;
 							}
 							// 
-							res1('data:image/png;base64,' + file_buffer.toString('base64') );
+							res1(
+								('data:image/png;base64,' + file_buffer.toString('base64')).trim()
+							);
 						})
 					})
 				)
