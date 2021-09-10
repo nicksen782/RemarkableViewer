@@ -1,18 +1,17 @@
 // Libraries/frameworks from NPM.
 // var serveIndex = require('serve-index');
-const express  = require('express'); // npm install express
+const express     = require('express'); // npm install express
 const compression = require('compression');
-const app      = express();
-const path     = require('path');
-const exec     = require('child_process').exec;
-const { spawn } = require('child_process');
-const fs       = require('fs');
+const app         = express();
+const path        = require('path');
+const exec        = require('child_process').exec;
+const { spawn }   = require('child_process');
+const fs          = require('fs');
 // const { mapLimit } = require('promise-async');
 const async = require('promise-async');
-const svg_to_png = require('svg-to-png');
 
 // Personal libraries/frameworks.
-var timeIt = require('./timeIt.js');
+const timeIt = require('./timeIt.js');
 
 // express.compress({
 // 	filter: function (req, res) {
@@ -21,13 +20,14 @@ var timeIt = require('./timeIt.js');
 // });
 
 //
-const port     = 3100;
-const dataPath = "DEVICE_DATA/xochitl/";
+const port       = 3100;
+const dataPath   = "DEVICE_DATA/xochitl/";
 const imagesPath = "DEVICE_DATA_IMAGES/";
-const htmlPath = path.join("..", 'Html');
+const htmlPath   = path.join("..", 'Html');
+
 
 // UTILITY
-var getLastValueOfArray = function(arr){
+const getLastValueOfArray = function(arr){
 	return arr[arr.length-1];
 };
 const getItemsInDir = async function(targetPath, type){
@@ -68,7 +68,7 @@ const getItemsInDir = async function(targetPath, type){
 	return fetchedFiles;
 };
 // Get the visibleName of the file found within files. 
-let getParentDirName = function(file, files){
+const getParentDirName = function(file, files){
 	// Cosmetic. "" is shown as "FSROOT"
 	if(file.metadata.parent == ""){
 		return "FSROOT";
@@ -86,13 +86,13 @@ let getParentDirName = function(file, files){
 		}
 	}
 };
-let getFullPathToDocument = function(){
+const getFullPathToDocument = function(){
 	return new Promise(async function(resolve_top,reject_top){
 		resolve_top();
 	});
 };
 // Runs a specified command (with promise.)
-let runCommand_exec = async function(cmd){
+const runCommand_exec = async function(cmd){
 	return new Promise(function(cmd_res, cmd_rej){
 		// Run the command.
 		exec(cmd, 
@@ -117,26 +117,29 @@ let runCommand_exec = async function(cmd){
 
 };
 // Runs a specified command (with promise, and progress)
-let runCommand_exec_progress = async function(cmd, expectedExitCode = 0, progress=true){
+const runCommand_exec_progress = async function(cmd, expectedExitCode = 0, progress=true){
 	return new Promise(function(cmd_res, cmd_rej){
-		const proc = spawn(cmd, {
-			shell: true
-		});
+		const proc = spawn(cmd, { shell: true });
+
 		let stdOutHist = "";
 		let stdErrHist = "";
 
 		proc.stdout.on('data', (data) => {
 			if(progress){
-				console.log(`  stdout: ${data}`);
+				// console.log(`  stdout: ${data}`);
+				console.log(`  ${data}`);
 			}
 			stdOutHist += data;
 		});
+
 		proc.stderr.on('data', (data) => {
 			if(progress){
-				console.error(`  stderr: ${data}`);
+				console.error(`  ${data}`);
+				// console.error(`  stderr: ${data}`);
 			}
 			stdErrHist += data;
 		});
+
 		proc.on('close', (code) => {
 			if(code == expectedExitCode){ 
 				cmd_res({
@@ -146,7 +149,10 @@ let runCommand_exec_progress = async function(cmd, expectedExitCode = 0, progres
 			}
 			else{
 				console.log(`  child process exited with code ${code}`);
-				cmd_rej();
+				cmd_rej({
+					"stdOutHist": stdOutHist,
+					"stdErrHist": stdErrHist,
+				});
 			}
 		});
 
@@ -182,23 +188,22 @@ const createJsonFsData = async function(writeFile){
 		
 								// DEBUG: Remove keys
 								if(newObj.metadata.type == "CollectionType"){
-									// delete newObj.metadata.deleted;
-									// delete newObj.metadata.lastModified;
-									// delete newObj.metadata.modified;
-									// delete newObj.metadata.pinned;
-									// delete newObj.metadata.synced;
-									// delete newObj.metadata.version;
-									// delete newObj.metadata.metadatamodified;
+									delete newObj.metadata.deleted;
+									delete newObj.metadata.lastModified;
+									delete newObj.metadata.modified;
+									delete newObj.metadata.pinned;
+									delete newObj.metadata.synced;
+									delete newObj.metadata.version;
+									delete newObj.metadata.metadatamodified;
 								}
 								else if(newObj.metadata.type == "DocumentType"){
-									// delete newObj.metadata.deleted;
+									delete newObj.metadata.deleted;
 									// delete newObj.metadata.lastModified;
-									// delete newObj.metadata.modified;
-									// delete newObj.metadata.pinned;
-									// delete newObj.metadata.synced;
+									delete newObj.metadata.modified;
+									delete newObj.metadata.pinned;
+									delete newObj.metadata.synced;
 									// delete newObj.metadata.version;
-									// delete newObj.metadata.metadatamodified;
-		
+									delete newObj.metadata.metadatamodified;
 									delete newObj.metadata.lastOpened;     
 									delete newObj.metadata.lastOpenedPage; 
 								}
@@ -206,6 +211,8 @@ const createJsonFsData = async function(writeFile){
 								// Create extra.
 								newObj.extra = {};
 								newObj.extra["_thisFileId"] = file.replace(".metadata", "");
+
+								// newObj.extra["_thisFileId"] = file.replace(".metadata", "");
 		
 								// Get the .content file too.
 								fs.readFile(path.join(basePath, file.replace(".metadata", ".content")), function (err, file_buffer2) {
@@ -219,11 +226,19 @@ const createJsonFsData = async function(writeFile){
 									newObj.content = JSON.parse(file_buffer2);
 		
 									// ********** NEW PRE-FILTERING **********
-									let check0 = newObj.metadata.type == "CollectionType";
-									let check1 = newObj.content.fileType != "notebook";
+									let check0 = newObj.metadata.type         == "CollectionType";
+									let check1 = newObj.content.fileType      != "notebook";
 									let check2 = newObj.content.dummyDocument != false;
-									let check3 = newObj.metadata.parent == "trash";
+									let check3 = newObj.metadata.parent       == "trash";
 
+									// Remove the remaining unneeded keys.
+									delete newObj.content.coverPageNumber;
+									delete newObj.content.documentMetadata;
+									delete newObj.content.extraMetadata;
+									delete newObj.content.fontName;
+									delete newObj.content.lineHeight;
+									delete newObj.content.transform;
+									
 									// Allow all CollectionType.
 									if(check0){
 										json[newObj.metadata.type].push(newObj);
@@ -242,6 +257,7 @@ const createJsonFsData = async function(writeFile){
 									}
 									// Add the completed record.
 									else {
+										newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
 										json[newObj.metadata.type].push(newObj);
 									}
 									
@@ -256,7 +272,7 @@ const createJsonFsData = async function(writeFile){
 		
 				Promise.all(proms).then(
 					function(success){
-						// console.log("SUCCESS:", success.length, "files.");
+						// console.log("SUCCESS: createJsonFsData: ", success.length, "files.");
 						res(json);
 					},
 					function(error){
@@ -294,6 +310,7 @@ const createJsonFsData = async function(writeFile){
 				fileList["DocumentType"].forEach(function(d){
 					// Create the object if it doesn't exist.
 					if(!files[d.metadata.parent]){
+						// Save the the id of this file.. 
 						files[d.extra._thisFileId] = {};
 					}
 		
@@ -342,12 +359,19 @@ const createJsonFsData = async function(writeFile){
 		resolve(files);
 	});
 };
-const getExistingJsonFsData = async function(){
+const getExistingJsonFsData = async function(recreateIfMissing = true){
 	return new Promise(async function(resolve,reject){
 		let files;
+		let recreateall = false;
 		if( !fs.existsSync(htmlPath + "/files.json") ){
-			console.log("getExistingJsonFsData: no existing data. Creating it now.");
-			try{ files = await createJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+			// if(recreateIfMissing){
+				console.log("getExistingJsonFsData: no existing data. Creating it now.");
+				try{ files = await createJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+			// }
+			// else{
+				// console.log("getExistingJsonFsData: no existing data. recreateIfMissing was set to false. Not creating data.");
+			// }
+			recreateall = true;
 		}
 		else{
 			console.log("getExistingJsonFsData: Data exists, retrieving it.");
@@ -355,55 +379,28 @@ const getExistingJsonFsData = async function(){
 			files = JSON.parse(files);
 		}
 
-		resolve(files);
+		resolve({recreateall:recreateall, files:files});
 	});
 };
-const createNotebookPageImages = async function(recreateall){
+const createNotebookPageImages = async function(recreateall, messages=[]){
 	return new Promise(async function(resolve_top,reject_top){
-		// Holds log messages.
-		let messages = [];
-
 		// Holds changed/new files data. 
 		let fileIdsWithChanges = [];
 
 		// Holds the list of commands;
 		let cmdList = [];
 
-		// Runs a specified command.
-		let preCommand = async function(cmdList){
-			return new Promise(function(cmd_res, cmd_rej){
-				let dirs1 = cmdList.map(function(d){
-					return d.destDir;
-				});
-				
-				let dirs = [];
-				dirs1.forEach(function(d){
-					if(dirs.indexOf(d) == -1) { dirs.push(d); }
-				});
-
-				console.log("Removing " + dirs.length + " directories recursively") ;
-
-				for(let i=0; i<dirs.length; i+=1){
-					try{
-						let dest = dirs[i];
-						if( fs.existsSync(dest) ){
-							// Remove the directory recursively.
-							fs.rmdirSync(dest, { recursive: true });
-						}
-						fs.mkdirSync(dest);
-					}
-					catch(e){
-						cmd_rej();
-					}
-				}
-
-				cmd_res();
-			});
-		};
-
 		// Get the files.json file (or create it if it doesn't exist.)
 		let existingFilesJson;
-		try{ existingFilesJson = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+		let returnValue;
+		existingFilesJson
+		try{ returnValue = await getExistingJsonFsData(false); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+		existingFilesJson = returnValue.files;
+		
+		// getExistingJsonFsData can return a new value for the recreateall flag.
+		if(!recreateall){
+			recreateall = returnValue.recreateall;
+		}
 
 		// Generate data against the synced data on the server. 
 		let NewFilesJson;
@@ -412,15 +409,25 @@ const createNotebookPageImages = async function(recreateall){
 		// Compare existing and new to detect changes. (new needs to win all conflicts.)
 
 		// Check to see if the files are equal.
-		if(!recreateall && JSON.stringify(existingFilesJson["DocumentType"]) == JSON.stringify(NewFilesJson["DocumentType"]) ){
-			messages.push("createNotebookPageImages: No changes have been detected.");
+		let existingJson = JSON.stringify(existingFilesJson["DocumentType"]).trim();
+		let newJson      = JSON.stringify(NewFilesJson["DocumentType"]).trim();
+
+		fs.writeFileSync(htmlPath + "/testExisting.json", existingJson), function(err){
+			if (err) { console.log("ERROR: ", err); reject(err); }
+		};
+		fs.writeFileSync(htmlPath + "/testNew.json", newJson), function(err){
+			if (err) { console.log("ERROR: ", err); reject(err); }
+		};
+
+		if(!recreateall && existingJson == newJson ){
+			messages.push("createNotebookPageImages: NO changes have been detected.");
 			console.log(getLastValueOfArray(messages));
 			resolve_top( { messages: messages, fileIdsWithChanges: fileIdsWithChanges } );
 			return; 
 		}
 		// They are different. Determine what has changed and only update what has changed.
 		else{
-			messages.push("createNotebookPageImages: Changes have been detected.");
+			messages.push("createNotebookPageImages: Checking for file changes..." + Object.keys( NewFilesJson ).length );
 			console.log(getLastValueOfArray(messages));
 
 			// Get file_id keys for the DocumentType(s) of the existing and new json.
@@ -444,27 +451,6 @@ const createNotebookPageImages = async function(recreateall){
 				try{ file_existing_visibleName  = file_existing.metadata.visibleName;       } catch(e){ file_existing_visibleName  = undefined; }
 				try{ file_new_visibleName       = file_new.metadata.visibleName;            } catch(e){ file_new_visibleName       = undefined; }
 				try{ file_dir_visibleName       = getParentDirName(file_new, NewFilesJson); } catch(e){ file_dir_visibleName       = undefined; }
-
-				// Only compare notebooks. 
-				// if(file_new.content.fileType != "notebook"){ 
-				// 	console.log("Skip non-notebook.", file_new_visibleName, file_dir_visibleName); 
-				// 	return; 
-				// }
-				// // Ignore dummyDocument true.
-				// if(file_new.content.dummyDocument != false){ 
-				// 	console.log("Skip dummyDocument.", file_new_visibleName, file_dir_visibleName); 
-				// 	return; 
-				// }
-				// // Ignore trash.
-				// if(file_dir_visibleName == "TRASH"){ 
-				// 	console.log("Skip trash.", file_new_visibleName, file_dir_visibleName); 
-				// 	return; 
-				// }
-				// Ignore content with missing transforms.
-				// if(file_new.content.transform == undefined){ 
-				// 	console.log("Missing transform.", file_new_visibleName, file_dir_visibleName); 
-				// 	return;
-				// }
 
 				// recreateall override?
 				if(recreateall){
@@ -538,7 +524,6 @@ const createNotebookPageImages = async function(recreateall){
 							}
 						});
 					}
-
 				}
 				// This should never happen.
 				else{
@@ -550,7 +535,6 @@ const createNotebookPageImages = async function(recreateall){
 			//
 			for(let i=0; i<fileIdsWithChanges.length; i+=1){
 				let obj = fileIdsWithChanges[i];
-			// fileIdsWithChanges.forEach(async function(obj){
 				let regenerateAllPages=false;
 
 				if(recreateall){
@@ -561,19 +545,30 @@ const createNotebookPageImages = async function(recreateall){
 					regenerateAllPages = true; 
 				}
 				else if(obj.change=="updated"){
-					// reMarkable .lines file, version=5
-
 					// Have the number of pages changed?
-					if( obj.oldFile.content.pages.length != obj.newFile.content.pages ){
-						messages.push("createNotebookPageImages:   Page count change.");
+					if( obj.oldFile.content.pages.length != obj.newFile.content.pages.length ){
+						messages.push("createNotebookPageImages:   Page count change. (" + obj.newFile.metadata.visibleName + ") : " +obj.oldFile.content.pages.length + " vs " + obj.newFile.content.pages.length );
 						console.log(getLastValueOfArray(messages));
+
+						// If there are less pages now then the page numbers on the files will be wrong.
+						//
+
+						// If there are more pages now then the new pages will need to be processed (rm to svg to png.
+						// obj.oldFile.content.pages 
+						// obj.newFile.content.pages 
+						// obj.newFile.content.pages.unshift(obj.newFile.content.pages.pop());
+						// // https://stackoverflow.com/a/33034768/2731377
+						// let difference = obj.oldFile.content.pages
+						// 					.filter(x => !obj.newFile.content.pages.includes(x))
+						// 					.concat(obj.newFile.content.pages.filter(x => !obj.oldFile.content.pages.includes(x)));
+						// console.log("difference:", difference);
 
 						// Just regenerate all the pages. 
 						regenerateAllPages = true; 
 					}
 					// Has the order of the pages changed?
 					else if( obj.oldFile.content.pages.toString() != obj.newFile.content.pages.toString() ){
-						messages.push("createNotebookPageImages:   Page order change.");
+						messages.push("createNotebookPageImages:   Page order change. (" + obj.newFile.metadata.visibleName + ")" );
 						console.log(getLastValueOfArray(messages)); 
 
 						// Just regenerate all the pages. 
@@ -581,23 +576,32 @@ const createNotebookPageImages = async function(recreateall){
 					}
 					// Just a data change on the file.
 					else{
-						messages.push("createNotebookPageImages:   Page data change.");
+						messages.push("createNotebookPageImages:   Page data change. (" + obj.newFile.metadata.visibleName +")");
 						console.log(getLastValueOfArray(messages)); 
 	
+						// Regenerate THIS page.
+						//
+
 						// Just regenerate all the pages. 
 						regenerateAllPages = true; 
 					}
 				}
 				else if(obj.change=="newfile"){
+					messages.push("createNotebookPageImages:   New file. (" + obj.newFile.metadata.visibleName + ")" );
+					console.log(getLastValueOfArray(messages)); 
 					// resolve_top( { messages: messages, cmdList: cmdList } );
 					regenerateAllPages=true;
 				}
 				else if(obj.change=="delete"){
 					// resolve_top( { messages: messages, cmdList: cmdList } );
+					messages.push("createNotebookPageImages:   Deleted file. (" + obj.newFile.metadata.visibleName + ")" );
+					console.log(getLastValueOfArray(messages)); 
 					regenerateAllPages=true;
 				}
 				else{
 					// Unknown change type. 
+					messages.push("createNotebookPageImages:   UNKNOWN CHANGE TYPE. (" + obj.newFile.metadata.visibleName + ")" );
+					console.log(getLastValueOfArray(messages)); 
 					reject_top("UNKNOWN CHANGE TYPE");
 				}
 
@@ -615,236 +619,234 @@ const createNotebookPageImages = async function(recreateall){
 
 					// For each .rm file, in order by pages...
 					pages.forEach(function(page, page_i){
-						let baseFileName = obj.newFile.metadata.visibleName.replace(/[^A-Z0-9]+/ig, "_");
-						let dest_fullName = imagesPath + obj.key + "/" + baseFileName ;
-						let srcFile = dataPath + obj.key + "/" + page + ".rm";
-						let pageNum = page_i.toString().padStart(3, "0");
-						let fullOutputName = `${dest_fullName}_PAGE_${pageNum}.svg`;
-						let cmd = `python3 scripts/rM2svg.py -i ${srcFile} -o ${fullOutputName}`;
-						let cmd2 = `node_modules/svgo/bin/svgo --config="scripts/svgo.config.json" ${fullOutputName} -o ${fullOutputName} `;
+						let baseFileName    = obj.newFile.metadata.visibleName.replace(/[^A-Z0-9]+/ig, "_");
+						let dest_fullName   = imagesPath + obj.key + "/" + baseFileName ;
+						let srcFile         = dataPath + obj.key + "/" + page + ".rm";
+						let pageNum         = page_i.toString().padStart(3, "0");
+						let fullOutputName  = `${dest_fullName}_PAGE_${pageNum}.svg`;
+						let fullOutputName2 = `${dest_fullName}_PAGE_${pageNum}.min.svg`;
+						let cmd             = `python3 scripts/rM2svg.py -i ${srcFile} -o ${fullOutputName}`;
+						let cmd2            = `node_modules/svgo/bin/svgo --config="scripts/svgo.config.json" -i ${fullOutputName} -o ${fullOutputName2} `;
+						let cmd3            = `rm ${fullOutputName}`;
 						
 						// Add the full command and info.
 						cmdList.push({
-							cmd: cmd, 
-							cmd2: cmd2, 
-							key: obj.key,
-							numPages: pages.length,
-							clearFirst: true,
-							srcRmDir: dataPath + obj.key,
-							destDir: imagesPath + obj.key,
-							fullOutputName: fullOutputName,
-							baseFileName: baseFileName + "_PAGE_" + pageNum,
+							cmd             : cmd, 
+							cmd2            : cmd2, 
+							cmd3            : cmd3, 
+							key             : obj.key,
+							page_i          : page_i,
+							numPages        : pages.length,
+							clearFirst      : true,
+							srcRmDir        : dataPath + obj.key,
+							destDir         : imagesPath + obj.key,
+							fullOutputName  : fullOutputName,
+							fullOutputName2 : fullOutputName2,
+							baseFileName    : baseFileName + "_PAGE_" + pageNum,
 						});
-						// console.log("Wait here");
 					});
 				}
-			// });
 			}
-
+			
+			// Is there something to do?
 			if(cmdList.length){
-				try{ await preCommand(cmdList); } catch(e){ console.log("failure: preCommand", e); }
+				messages.push("createNotebookPageImages: There are " + cmdList.length + " changes");
+				console.log(getLastValueOfArray(messages));
 
-				let destDirs_pre = [];
-				cmdList.forEach(function(d){ if(destDirs_pre.indexOf(d.destDir) == -1){ 
-					destDirs_pre.push(d.destDir); 
-					}
-				});
-
-				let destDirs = [];
-				destDirs_pre.forEach(function(dir, dir_i, dir_a){
-					// Allow only one.
-					// if(dir.indexOf("1c5917c5-1451-4fb4-8b5a-03531b32dbf4") == -1){ return; } // Go Fish
-					// if(dir.indexOf("d70d80a5-9378-4739-81a5-4cb14c22e9c4") == -1){ return; } // Pen Test
-
-					destDirs.push({
-						"dir": dir,
-						"num": (dir_i+1) + "/" + dir_a.length, 
-						"pages": cmdList.filter(function(f){ if(f.destDir==dir){ return true; } }).length,
-						"notebookName":NewFilesJson["DocumentType"][dir.split("/")[1]].metadata.visibleName,
-						"parentName": getParentDirName(NewFilesJson["DocumentType"][dir.split("/")[1]], NewFilesJson),
-					});
-				});
-
-				// let bigCmd = 'echo "First noteboook..."' ;
-				let bigCmd = '' ;
-				console.log("STARTING: rM2svg...");
-				for(let notebook=0; notebook<destDirs.length; notebook+=1){
-					let rec = destDirs[notebook];
-
-					// if(rec.pages != 10) { continue; }
-					
-					let recs = cmdList.filter(function(r){
-						if(rec.dir == r.destDir) { return true; }
-					});
-					
-					for(let cmd_i=0; cmd_i<recs.length; cmd_i+=1){
-						// Just the first command. 
-						if(bigCmd == ""){
-							bigCmd += "" + recs[cmd_i].cmd ;
-						}
-						else{
-							bigCmd += " && " + recs[cmd_i].cmd ;
-						}
-					}
-					console.log("CURRENT: notebook:", (notebook+1), "of", destDirs.length, ", pages:", rec.pages, ", cmdLength:", bigCmd.length);
-					try{ await runCommand_exec_progress(bigCmd, 0, true); } catch(e){ console.log("failure: bigCmd", e, bigCmd.length, "of", 32000); }
-					
-					// bigCmd = 'echo "Next notebook..."';
-					bigCmd = '';
-				}
-				
-				// convertSvgsToPngs
-				// try{ await convertSvgsToPngs(cmdList); } catch(e){ console.log("failure: convertSvgsToPngs", e); }
-				// resolve_top( { messages: messages } );
-				
-				// convertSvgsToPngs2
-				bigCmd = '' ;
-				console.log("STARTING: svgexport...");
-				for(let notebook=0; notebook<destDirs.length; notebook+=1){
-					let rec = destDirs[notebook];
-
-					// if(rec.pages != 10) { continue; }
-					
-					let recs = cmdList.filter(function(r){
-						if(rec.dir == r.destDir) { return true; }
-					});
-					
-					for(let cmd_i=0; cmd_i<recs.length; cmd_i+=1){
-						if(bigCmd == ""){
-							bigCmd += "" ;
-						}
-						else{
-							bigCmd += " && "
-						}
-						let pngName = recs[cmd_i].fullOutputName.replace(/.svg/g, ".png");
-						bigCmd += `svgexport ${recs[cmd_i].fullOutputName} ${pngName} png 100% 555:666 pad `
-						// bigCmd += `svgexport ${recs[cmd_i].fullOutputName} ${pngName} png 100% pad `
-					}
-					console.log("CURRENT: notebook:", (notebook+1), "of", destDirs.length, ", pages:", rec.pages, ", cmdLength:", bigCmd.length);
-					try{ await runCommand_exec_progress(bigCmd, 0, true); } catch(e){ console.log("failure: bigCmd", e, bigCmd.length, "of", 32000); }
-					
-					// bigCmd = 'echo "Next notebook..."';
-					bigCmd = '';
-				}
-				
-				// try{ await convertSvgsToPngs(cmdList); } catch(e){ console.log("failure: convertSvgsToPngs", e); }
-				// resolve_top( { messages: messages } );
+				try{ await optimizeImages(cmdList, messages); } catch(e){ console.log("failure: optimizeImages", e); }
 				
 				resolve_top( { messages: messages } );
-				
+				return; 
 			}
 			else{
-				console.log("No commands to run.");
+				messages.push("createNotebookPageImages: No changes have been made.");
+				console.log(getLastValueOfArray(messages));
+				console.log("No commands to run.", "cmdList.length:", cmdList.length);
 				resolve_top( { messages: messages } );
+				return;
 			}
 
 		}
 	});
 };
-const convertSvgsToPngs = async function(destDirs){
+const optimizeImages = async function(cmdList, messages){
 	return new Promise(async function(resolve_top,reject_top){
-		// console.log(destDirs);
-		// dir: 'DEVICE_DATA_IMAGES/862892f0-e2fc-459c-b347-176c36e75040',
-		// num: '99/188',
-		// pages: 3,
-		// notebookName: 'Assigning Identity-based Policies for users, Roles, and Groups on AWS',
-		// parentName: '01 Beginner'
+		// Remove the specified dirs.
+		const removeDirs = function(cmdList){
+			return new Promise(async function(resolve_removeDirs, reject_removeDirs){
+				// Get directories used by each notebook and remove duplicate directories.
+				let dirs = [];
+				cmdList.forEach(function(d){
+					if(dirs.indexOf(d.destDir) == -1) { dirs.push(d.destDir); }
+				});
 
-		// {
-		// 	key: "010d635d-60c4-4ed2-bc13-1b0c728a449c",
-		// 	numPages: 27,
-		// 	srcRmDir: "DEVICE_DATA/xochitl/010d635d-60c4-4ed2-bc13-1b0c728a449c",
-		// 	destDir: "DEVICE_DATA_IMAGES/010d635d-60c4-4ed2-bc13-1b0c728a449c",
-		// 	fullOutputName: "DEVICE_DATA_IMAGES/010d635d-60c4-4ed2-bc13-1b0c728a449c/Work_Notes_1_PAGE_000.svg",
-		// 	baseFileName: "Work_Notes_1_PAGE_000",
-		// }
+				let proms = [];
+				for(let i=0; i<dirs.length; i+=1){
+					let func = function(dirPath){
+						return new Promise(function(res, rej){
+							// Check if the dir exists. 
+							let dir_existsSync;
+							try{ dir_existsSync = fs.existsSync(dirPath); } catch(e){ console.log("ERROR in existsSync.", dirPath, e); rej(); return; } 
+							
+							// Remove the directory recursively if it exists.
+							if( dir_existsSync ){
+								let dir_rmdirSync;
+								try { dir_rmdirSync = fs.rmdirSync(dirPath, { recursive: true }); } catch(e){ console.log("ERROR in rmdirSync.", dirPath, e); rej(); return; } 
+							}
+							
+							// Create the directory.
+							let dir_mkdirSync;
+							try { dir_mkdirSync = fs.mkdirSync(dirPath); } catch(e){ console.log("ERROR in mkdirSync.", dirPath, e); rej(); return; } 
+							
+							// Resolve.
+							res(dirPath);
+						});
+					};
+					proms.push(func(dirs[i]));
+				}
 
-		// Run the commands.
-		let currentFile=0;
-		let totalFiles = destDirs.length;
-		let prom_svgToPng = async.mapLimit(destDirs, 10, async function(rec, callback){
-			let fullpath_src  = path.join(__dirname, rec.fullOutputName);// + "/" + srcFile;
-			let fullpath_dest = path.join(__dirname, rec.destDir);
-			// console.log(rec.baseFileName, "START:", rec.destDir);
-			try{ await svg_to_png.convert(fullpath_src, fullpath_dest); } catch(e){ console.log("error in convertSvgsToPngs", e); } 
-			console.log(`DONE: (${currentFile+1} of ${totalFiles}) ${rec.baseFileName} (${rec.destDir})`);
-			// console.log(rec.baseFileName, "DONE:", rec.destDir);
-			currentFile+=1;
-			callback(null, rec);
-		});
+				Promise.all(proms).then(
+					function(data){ 
+						console.log("Total dirs:", data.length); 
+						resolve_removeDirs(dirs); 
+					},
+					function(err){ console.log(err); reject_removeDirs(dirs); process.exit(1); }
+				);
+			});
+		};
 
-		prom_svgToPng
-		.then(
-			result => {
-				console.log("success:", result.length, "of", destDirs.length);
-				// resolve_top( { messages: messages } );
-				resolve_top( { } );
-			}
-		)
-		.catch(
-			(err) => {
-				console.log("no success", err);
-				reject_top(err);
-			}
-		);
+		
+		// Remove the relevant directories. 
+		let dirs ;
+		try{ dirs = await removeDirs(cmdList); } catch(e){ console.log("failure: removeDirs", e); }
 
-	});
-};
-const convertSvgsToPngs2 = async function(destDirs){
-	return new Promise(async function(resolve_top,reject_top){
-		// console.log(destDirs);
-		// dir: 'DEVICE_DATA_IMAGES/862892f0-e2fc-459c-b347-176c36e75040',
-		// num: '99/188',
-		// pages: 3,
-		// notebookName: 'Assigning Identity-based Policies for users, Roles, and Groups on AWS',
-		// parentName: '01 Beginner'
+		// const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+		// await delay(30000); /// waiting 1 second.
+		
+		// First, run all cmd1 to convert the .rm files to an unoptizized .svg.
+		// Next, run each cmd2 immediately followed by cmd3.
+		// Result: only the optimized .svg remains although the unoptimized .svg is available while optimizing.
 
-		// {
-		// 	key: "010d635d-60c4-4ed2-bc13-1b0c728a449c",
-		// 	numPages: 27,
-		// 	srcRmDir: "DEVICE_DATA/xochitl/010d635d-60c4-4ed2-bc13-1b0c728a449c",
-		// 	destDir: "DEVICE_DATA_IMAGES/010d635d-60c4-4ed2-bc13-1b0c728a449c",
-		// 	fullOutputName: "DEVICE_DATA_IMAGES/010d635d-60c4-4ed2-bc13-1b0c728a449c/Work_Notes_1_PAGE_000.svg",
-		// 	baseFileName: "Work_Notes_1_PAGE_000",
-		// }
-
-		// Make big command.
-
-		// Run the commands.
-		let currentFile=0;
-		let totalFiles = destDirs.length;
-		let prom_svgToPng = async.mapLimit(destDirs, 10, async function(rec, callback){
-			let fullpath_src  = path.join(__dirname, rec.fullOutputName);// + "/" + srcFile;
-			let fullpath_dest = path.join(__dirname, rec.destDir);
-			// console.log(rec.baseFileName, "START:", rec.destDir);
+		let currentCmd = 0;
+		let totalCmds  = cmdList.length;
+		let stamp;
+		stamp = timeIt.stamp("optimizeImages.rM2svg.py", null);
+		let prom_cmd1 = async.mapLimit(cmdList, 2, async function(rec, callback){
+			// Create the directory.if it doesn't exist.
+			// if( !fs.existsSync(rec.destDir) ){ fs.mkdirSync(rec.destDir); }
 			
-			// try{ await svg_to_png.convert(fullpath_src, fullpath_dest); } catch(e){ console.log("error in convertSvgsToPngs", e); } 
-
-			console.log(`DONE: (${currentFile+1} of ${totalFiles}) ${rec.baseFileName} (${rec.destDir})`);
-			// console.log(rec.baseFileName, "DONE:", rec.destDir);
-			currentFile+=1;
+			let cmd = rec.cmd;
+			let response;
+			
+			try{ response = await runCommand_exec_progress(cmd, 0, false); } catch(e){ console.log("failure: optimizeImages: rM2svg.py:", e, cmd.length, "of", 32000); throw rec.cmd; }
+			currentCmd += 1;
+			if(response.stdOutHist) { console.log("stdOutHist:", response.stdOutHist); }
+			if(response.stdErrHist) { console.log("stdErrHist:", response.stdErrHist); }
+			
+			messages.push(`  optimizeImages: ${currentCmd}/${totalCmds} rM2svg.py: DONE: ${rec.fullOutputName}`);
+			console.log(getLastValueOfArray(messages));
+			
 			callback(null, rec);
-		});
-
-		prom_svgToPng
+		})
 		.then(
-			result => {
-				console.log("success:", result.length, "of", destDirs.length);
-				// resolve_top( { messages: messages } );
-				resolve_top( { } );
-			}
-		)
-		.catch(
-			(err) => {
-				console.log("no success", err);
-				reject_top(err);
-			}
-		);
+			function(data){ 
+				timeIt.stamp("optimizeImages.rM2svg.py", stamp);
 
+				stamp = timeIt.stamp("optimizeImages.svgo rm", null);
+
+				let currentCmd = 0;
+				let totalCmds  = cmdList.length;
+				let prom_cmd1and2 = async.mapLimit(cmdList, 2, async function(rec, callback){
+					let cmd;
+					let response;
+					
+					cmd = rec.cmd2;
+					try{ response = await runCommand_exec_progress(cmd, 0, false); } catch(e){ console.log("failure: optimizeImages: svgo", e, cmd.length, "of", 32000); throw rec.cmd2; }
+					currentCmd += 1;
+					let respLines = response.stdOutHist.split("\n");
+					if(response.stdOutHist) { 
+						messages.push(`  optimizeImages: ${currentCmd}/${totalCmds} svgo     : DONE: ${rec.fullOutputName2} (${respLines[3].split(" - ")[1].split("%")[0]}% reduction)`);
+						console.log(getLastValueOfArray(messages));
+						// console.log("stdOutHist:", "svgo:   ", response.stdOutHist.replace(/\n/g, " ").trim()); 
+					}
+
+					if(response.stdErrHist) { console.log("stdErrHist:", response.stdErrHist); }
+
+					cmd = rec.cmd3;
+					try{ response = await runCommand_exec_progress(cmd, 0, false); } catch(e){ console.log("failure: optimizeImages: rm", e, cmd.length, "of", 32000); throw rec.cmd3;}
+					if(response.stdOutHist) { console.log("stdOutHist:", response.stdOutHist); }
+					if(response.stdErrHist) { console.log("stdErrHist:", response.stdErrHist); }
+					
+					callback(null, rec);
+				})
+				.then(
+					async function(){ 
+						timeIt.stamp("optimizeImages.svgo rm", stamp);
+
+						stamp = timeIt.stamp("optimizeImages.createJsonFsData", null);
+						try{ await createJsonFsData(true); } catch(e){ console.log("failure: createJsonFsData", e); }
+						timeIt.stamp("optimizeImages.createJsonFsData", stamp);
+
+						resolve_top();
+					},
+					function(err){ console.log("err:", err); }
+				);
+			},
+			function(err){ console.log("err:", err); },
+		);
 	});
 };
+const updateRemoteDemo = async function(){
+	return new Promise(async function(resolve,reject){
+		// try{ files = await createJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+
+		resolve(true);
+	});
+};
+
 const webApi = {
-	syncRunner : async function(dest, interface){
+	updateAll : function(){
+		return new Promise(async function(res_top, rej_top){
+			// try{ resp = await runCommand_exec_progress(cmd, 0, true); } catch(e){ console.log("Error in syncRunner:", e); reject_top(); }
+			// let resp1 ;
+			// try{ resp1 = await webApi.syncRunner("tolocal", "wifi"); } catch(e){ console.log("ERROR:", e); rej_top(); return; }
+			
+			// let resp1 ;
+			// try{ resp1 = await webApi.syncRunner("tolocal", "wifi"); } catch(e){ console.log("ERROR:", e); rej_top(); return; }
+
+			// DEBUG: Forces a recreateall event within createNotebookPageImages. 
+			// if( fs.existsSync(htmlPath + "/files.json") ){
+			// 	fs.unlinkSync(htmlPath + "/files.json");
+			// }
+			
+			let stamp1;
+			let stamp2;
+			let returnValue1;
+			let returnValue2;
+
+			// Holds log messages.
+			var messages = [];
+
+			// First, syncUsingWifi.
+			messages.push("Starting: webApi.syncRunner.");
+			console.log(getLastValueOfArray(messages));
+
+			stamp1 = timeIt.stamp("webApi.syncRunner", null);
+			try{ returnValue1 = await webApi.syncRunner("tolocal", "wifi", messages); } catch(e){ console.log("ERROR:", e); rej_top(); return; }
+			timeIt.stamp("webApi.syncRunner", stamp1);
+
+			messages.push("Finished: webApi.syncRunner.");
+			console.log(getLastValueOfArray(messages));
+
+			// Next, create and compress local .svgs, then update files.json.
+			stamp2 = timeIt.stamp("createNotebookPageImages", null);
+			try{ returnValue2 = await createNotebookPageImages(false, messages); } catch(e){ console.log("ERROR:", e); rej_top(); return; }
+			timeIt.stamp("createNotebookPageImages", stamp2);
+			
+			res_top([returnValue1, returnValue2]);
+		});
+	},
+	syncRunner : function(dest, interface, messages=[]){
 		return new Promise(async function(resolve_top,reject_top){
 			// Check for the validity of both arguments.
 			if( ["tolocal", "toremote"].indexOf(dest) == -1) {
@@ -857,50 +859,45 @@ const webApi = {
 			}
 
 			let cmd = `cd scripts && ./syncRunner.sh ${dest} ${interface}`;
-			// console.log("syncRunner: ", cmd);
-			exec(cmd, 
-				function (error, stdout, stderr) {
-					if (error) {
-						console.log("syncRunner: ", "ERROR");
-						reject_top(JSON.stringify({error: error, stderr:stderr, stdout:stdout}));
-						return;
-					}
-					// console.log("syncRunner: ", "DONE");
-					// console.log( {error: error, stderr:stderr, stdout:stdout} );
-					resolve_top(JSON.stringify(stdout+stderr,null,1));
-				}
-			);
+
+			let resp ;
+			try{ resp = await runCommand_exec_progress(cmd, 0, true); } catch(e){ console.log("Error in syncRunner:", e); reject_top(); }
+
+			resolve_top(resp);
 		});
 	},
-	getFilesJson : async function(){
+	getFilesJson : function(){
 		return new Promise(async function(resolve_top,reject_top){
 			let existingFilesJson;
 			try{ existingFilesJson = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject_top(JSON.stringify(e)); return; }
-			resolve_top(existingFilesJson);
+			resolve_top(existingFilesJson.files);
 		});
 	},
-	getSvgs : async function(notebookId){
+	getSvgs : function(notebookId){
 		return new Promise(async function(resolve_top,reject_top){
 			// Need to check that the directory exists.
 			// Need to check if there are already svg files in the directory.
 			// Retrieve what is in that directory.
-			let targetPath = imagesPath + "/" + notebookId;
+			let targetPath = imagesPath + "" + notebookId;
 			let dirExists = fs.existsSync(targetPath);
 			let dirFiles = await getItemsInDir(targetPath, "files"); // fs.promises.readdir(targetPath);
 
 			let dirFiles_pngs = [];
 			dirFiles.forEach(function(file){
-				if(file.filepath.indexOf(".png") != -1){ dirFiles_pngs.push(file); }
-				// if(file.filepath.indexOf(".svg") != -1){ dirFiles_pngs.push(file); }
+				// Try to send the .min.svg files.
+				if     (file.filepath.indexOf(".min.svg") != -1){ dirFiles_pngs.push(file); }
+
+				// If they are not available (yet) then send the .svg file.
+				else if(file.filepath.indexOf(".svg")     != -1){ dirFiles_pngs.push(file); }
 			});
 
 			// Option 1: Send a filelist for the client to download.
-			// Option 2: Send a filelist containing each svg. (svg is plain text.)
+			// *Option 2: Send a filelist containing each svg. (svg is plain text.)
 			// Option 3: Send a .zip file of the svgs.
 
 			let proms = [];
 			dirFiles_pngs.forEach(function(file){
-				console.log(file);
+				// console.log(file);
 				proms.push(
 					new Promise(function(res1, rej1){
 						fs.readFile(file.filepath, function (err, file_buffer) {
@@ -939,74 +936,32 @@ const webApi = {
 			);
 		});
 	},
-	getGlobalUsageStats : async function(){
+	getGlobalUsageStats : function(){
 		return new Promise(async function(resolve_top,reject_top){
 			resolve_top(JSON.stringify([],null,0));
 			// reject_top(JSON.stringify([],null,0));
 		});
 	},
-	getThumbnails : async function(parentId){
+	getThumbnails : function(notebookId){
 		return new Promise(async function(resolve_top,reject_top){
+			// Use the parentId
+			let targetPath = dataPath + "" + notebookId;
+
 			resolve_top(JSON.stringify([],null,0));
 			// reject_top(JSON.stringify([],null,0));
 		});
 	},
-	debug_getNotebookList : async function(){
-		return new Promise(async function(resolve_top,reject_top){
-			// resolve_top(JSON.stringify([],null,0));
-			// reject_top(JSON.stringify([],null,0));
 
-			let existingFilesJson;
-			try{ existingFilesJson = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject_top(JSON.stringify(e)); return; }
-
-			let list = [];
-			let keys = Object.keys(existingFilesJson.DocumentType);
-			keys.forEach(function(key){
-				let d = existingFilesJson.DocumentType[key];
-
-				// Get content.fileType
-				if(d.content.fileType != "notebook") { return; }
-				
-				// Get content.dummyDocument
-				if(d.content.dummyDocument) { return; }
-
-				let obj = {};
-
-				// Get metadata.visibleName
-				obj.visibleName = d.metadata.visibleName;
-				
-				// Get content.pageCount
-				obj.pageCount = d.content.pageCount;
-				
-				// Get content.pages.length
-				// obj.pageCount2 = d.content.pages.length;
-				
-				// Add the key.
-				obj.key = key;
-
-				// Add the parent.
-				try{ obj.parentName = getParentDirName(d, existingFilesJson); } catch(e){ obj.parentName = "UNKNOWN"; }
-
-				list.push(obj);
-			});
-
-			list.sort((a,b)=> (a.parentName > b.parentName ? 1 : -1));
-			// list.sort((a,b)=> (a.pageCount > b.pageCount ? 1 : -1));
-
-			// resolve_top(list);
-			resolve_top(JSON.stringify(list,null,0));
-		});
-	},
 };
 
 // WEB UI ROUTES.
-app.get('/syncUsingWifi'       , async (req, res) => {
-	console.log("\nroute: syncUsingWifi:", req.query);
-
-	let stamp = timeIt.stamp("route: syncUsingWifi", null);
+app.get('/updateAll' , async (req, res) => {
+	console.log("\nroute: updateAll:", req.query);
+	
+	let stamp = timeIt.stamp("route: updateAll", null);
 	let returnValue;
-	try{ returnValue = await webApi.syncRunner("tolocal", "wifi"); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: syncRunner", stamp);
+	try{ returnValue = await webApi.updateAll(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("route: updateAll", stamp);
 
 	let timeStampString = timeIt.getStampString();
 	console.log("*".repeat(83));
@@ -1017,6 +972,37 @@ app.get('/syncUsingWifi'       , async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
+
+
+app.get('/syncUsingWifi'       , async (req, res) => {
+	console.log("\nroute: syncUsingWifi:", req.query);
+	let stamp;
+
+	// First, syncUsingWifi.
+	stamp = timeIt.stamp("route: syncUsingWifi", null);
+	let returnValue1;
+	try{ returnValue1 = await webApi.syncRunner("tolocal", "wifi"); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("route: syncRunner", stamp);
+
+	// Next, create and compress local .svgs, then update files.json.
+	stamp = timeIt.stamp("createNotebookPageImages", null);
+	let returnValue2;
+	try{ returnValue2 = await createNotebookPageImages(false); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	timeIt.stamp("createNotebookPageImages", stamp);
+
+	let timeStampString = timeIt.getStampString();
+	console.log("*".repeat(83));
+	console.log("timeIt_stamps:", timeStampString );
+	console.log("*".repeat(83));
+
+	// timeIt.clearTimeItStamps();
+
+	// Should be JSON already.
+	res.send({
+		"syncUsingWifi"           : returnValue1,
+		"createNotebookPageImages": returnValue2,
+	});
+});
 app.get('/getFilesJson'        , async (req, res) => {
 	console.log("\nroute: getFilesJson:", req.query);
 	
@@ -1024,6 +1010,23 @@ app.get('/getFilesJson'        , async (req, res) => {
 	let returnValue;
 	try{ returnValue = await webApi.getFilesJson(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
 	timeIt.stamp("route: getFilesJson", stamp);
+
+	// The web UI does not need the "pages" within .content so remove them. 
+	for(let key in returnValue.DocumentType){
+		let rec = returnValue.DocumentType[key];
+
+		// Save the first page. 
+		if(!rec.extra._firstPageId){
+			console.log("Adding missing rec.extra._firstPageId");
+			rec.extra._firstPageId = rec.content.pages[0];
+		}
+		else{
+			// console.log("Already exists: rec.extra._firstPageId");
+		}
+
+		// Delete the pages key.
+		delete rec.content.pages;
+	}
 
 	let timeStampString = timeIt.getStampString();
 	console.log("*".repeat(83));
@@ -1051,7 +1054,7 @@ app.get('/getGlobalUsageStats' , async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
-app.get('/getSvgs' , async (req, res) => {
+app.get('/getSvgs'             , async (req, res) => {
 	console.log("\nroute: getSvgs", req.query);
 	
 	let stamp = timeIt.stamp("route: getSvgs:", null);
@@ -1068,25 +1071,8 @@ app.get('/getSvgs' , async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
-app.get('/debug_getNotebookList' , async (req, res) => {
-	console.log("\nroute: debug_getNotebookList", req.query);
-	
-	let stamp = timeIt.stamp("route: debug_getNotebookList:", null);
-	let returnValue;
-	try{ returnValue = await webApi.debug_getNotebookList(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: debug_getNotebookList", stamp);
 
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
-
-	// Should be JSON already.
-	res.send(returnValue);
-});
-
-app.get('/getThumbnails'             , async (req, res) => {
+app.get('/getThumbnails'       , async (req, res) => {
 	console.log("\nroute: getThumbnails:", req.query);
 	// req.query.parentId
 
@@ -1106,7 +1092,7 @@ app.get('/getThumbnails'             , async (req, res) => {
 });
 
 // DEBUG AND TEST ROUTES.
-app.get('/showTimeItStamps', async (req, res) => {
+app.get('/showTimeItStamps'        , async (req, res) => {
 	// http://localhost:3100/showTimeItStamps
 	console.log("/showTimeItStamps");
 	
@@ -1122,7 +1108,7 @@ app.get('/showTimeItStamps', async (req, res) => {
 	// Convert '\n' to '<br>' for display via direct route.
 	res.send( returnValue.replace(/\n/g, "<br>") );
 });
-app.get('/syncRunner', async (req, res) => {
+app.get('/syncRunner'              , async (req, res) => {
 	// http://localhost:3100/syncRunner?dest=tolocal&interface=wifi
 	// http://localhost:3100/syncRunner?dest=tolocal&interface=usb
 	// http://localhost:3100/syncRunner?dest=toremotel&interface=wifi
@@ -1172,7 +1158,7 @@ app.get('/syncRunner', async (req, res) => {
 
 	res.send(returnValue);
 });
-app.get('/createJsonFsData', async (req, res) => {
+app.get('/createJsonFsData'        , async (req, res) => {
 	console.log("/createJsonFsData");
 	
 	let timeItIndex = timeIt.stamp("route: createJsonFsData", null);
@@ -1193,12 +1179,15 @@ app.get('/createJsonFsData', async (req, res) => {
 	);
 
 });
-app.get('/getExistingJsonFsData', async (req, res) => {
+app.get('/getExistingJsonFsData'   , async (req, res) => {
 	console.log("/getExistingJsonFsData");
 	
+	// First, get the data.
 	let timeItIndex = timeIt.stamp("route: getExistingJsonFsData", null);
 	let returnValue;
 	try{ returnValue = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	returnValue = returnValue.files;
+
 	timeIt.stamp("route: getExistingJsonFsData", timeItIndex);
 
 	let timeStampString = timeIt.getStampString();
@@ -1228,22 +1217,45 @@ app.get('/createNotebookPageImages', async (req, res) => {
 	res.send(returnValue);
 	console.log(returnValue);
 });
+app.get('/updateRemoteDemo'        , async (req, res) => {
+	console.log("/getExistingJsonFsData");
+	
+	// First, get the data.
+	let timeItIndex = timeIt.stamp("route: updateRemoteDemo", null);
+	let returnValue;
+	try{ returnValue = await updateRemoteDemo(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	returnValue = returnValue.files;
 
-function shouldCompress (req, res) {
-	// if (req.headers['x-no-compression']) {
-	//   // don't compress responses with this request header
-	//   return false;
-	// }
+	timeIt.stamp("route: updateRemoteDemo", timeItIndex);
+
+	let timeStampString = timeIt.getStampString();
+	console.log("*".repeat(83));
+	console.log("timeIt_stamps:", timeStampString );
+	console.log("*".repeat(83));
+	// timeIt.clearTimeItStamps();
+
+	res.send(returnValue);
+});
+
+// function shouldCompress (req, res) {
+// 	// if (req.headers['x-no-compression']) {
+// 	//   // don't compress responses with this request header
+// 	//   return false;
+// 	// }
   
-	// fallback to standard filter function
-	return compression.filter(req, res);
-  }
+// 	// fallback to standard filter function
+// 	return compression.filter(req, res);
+	
+// 	// Just return true; 
+// 	// return true;
+// }
 app.listen(port, () => {
 	// Compression.
-	app.use(compression({ filter: shouldCompress }));
+	// app.use(compression({ filter: shouldCompress }));
 
 	// Set virtual paths.
 	app.use('/'                  , express.static(htmlPath));
+	app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
 	app.use('/DEVICE_DATA'       , express.static(path.join(__dirname, 'DEVICE_DATA')));
 	app.use('/DEVICE_DATA_IMAGES', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
 

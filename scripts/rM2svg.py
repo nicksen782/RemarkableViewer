@@ -226,7 +226,7 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
             # print('PEN:', pen, ', WIDTH:', width)
 
             #print('Stroke {}: pen={}, colour={}, width={}, nsegments={}'.format(stroke, pen, colour, width, nsegments))
-            output.write('<polyline style="fill:none;stroke:{};stroke-width:{:.3f};opacity:{}" points="'.format(stroke_colour[colour], width, opacity)) # BEGIN stroke
+            output.write('<polyline pen="' + str(pen) + '" style="fill:none;stroke:{};stroke-width:{:.0f};opacity:{}" points="'.format(stroke_colour[colour], width, opacity)) # BEGIN stroke
 
             # Iterate through the segments to form a polyline
             for segment in range(nsegments):
@@ -247,7 +247,7 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
                         segment_width = (5. * tilt) * (6. * width - 10) * (1 + 2. * pressure * pressure * pressure)
                         #print('    width={}'.format(segment_width))
                         # output.write('" />\n<polyline style="fill:none;stroke:{};stroke-width:{:.3f}" points="'.format(
-                        output.write('" />\n<polyline style="fill:none;stroke:{};stroke-width:{:.1f}" points="'.format(
+                        output.write('" />\n<polyline pen="' + str(pen) + '" style="fill:none;stroke:{};stroke-width:{:.0f}" points="'.format(
                                     stroke_colour[colour], segment_width)) # UPDATE stroke
                         if last_x != -1.:
                             output.write('{:.3f},{:.3f} '.format(last_x, last_y)) # Join to previous segment
@@ -258,7 +258,7 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
                         segment_opacity = (pressure - .2) * (pressure - .2)
                         #print('    width={}, opacity={}'.format(segment_width, segment_opacity))
                         # output.write('" /><polyline style="fill:none;stroke:{};stroke-width:{:.3f};opacity:{:.3f}" points="'.format(
-                        output.write('" /><polyline style="fill:none;stroke:{};stroke-width:{:.0f};opacity:{:.1f}" points="'.format(
+                        output.write('" /><polyline pen="' + str(pen) + '" style="fill:none;stroke:{};stroke-width:{:.0f};opacity:{:.1f}" points="'.format(
                                     stroke_colour[colour], segment_width, segment_opacity)) # UPDATE stroke
                         if last_x != -1.:
                             # output.write('{:.3f},{:.3f} '.format(last_x, last_y)) # Join to previous segment
@@ -275,6 +275,6 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
     output.write('</g>') # Closing page group
     output.write('</svg>') # END notebook
     output.close()
-    print('DONE: OUTPUT:', output_name, end = '')
+    # print('rM2svg.py COMPLETE: ', output_name, end = '')
 if __name__ == "__main__":
     main()
