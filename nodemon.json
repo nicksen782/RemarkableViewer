@@ -14,7 +14,7 @@
 		"restart": ""
 	},
 	"watch": [
-		"_backend.js", "timeIt.js"
+		"_backend.js", "timeIt.js", "configFile.json"
 	],
 	"env": {
 		"NODE_ENV": "development"

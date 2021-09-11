@@ -10,3 +10,5 @@ debug/*
 
 # Html/*
 # Angular/*
+scripts/updateRemoteDemo.resps.json
+scripts/demo_files.json

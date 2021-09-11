@@ -1,32 +1,31 @@
 // Libraries/frameworks from NPM.
-// var serveIndex = require('serve-index');
-const express     = require('express'); // npm install express
-const compression = require('compression');
-const app         = express();
-const path        = require('path');
-const exec        = require('child_process').exec;
-const { spawn }   = require('child_process');
-const fs          = require('fs');
-// const { mapLimit } = require('promise-async');
-const async = require('promise-async');
+const express         = require('express'); // npm install express
+// const compression     = require('compression');
+const app             = express();
+const path            = require('path');
+const { spawn }       = require('child_process');
+const fs              = require('fs');
+const async_mapLimit  = require('promise-async').mapLimit;
 
 // Personal libraries/frameworks.
 const timeIt = require('./timeIt.js');
 
-// express.compress({
-// 	filter: function (req, res) {
-// 	  return true;
-// 	}
-// });
+// CONFIGS 
+let _configFile = JSON.parse(fs.readFileSync('configFile.json', 'utf8'));
+var config = {
+	environment: _configFile.environment, // "local" or "demo"
+}
+var   port ;
+var   host ;
+const dataPath    = "DEVICE_DATA/xochitl/";
+const imagesPath  = "DEVICE_DATA_IMAGES/";
+const htmlPath    = path.join("..", 'Html');
+const scriptsPath = path.join(".", 'scripts');
 
-//
-const port       = 3100;
-const dataPath   = "DEVICE_DATA/xochitl/";
-const imagesPath = "DEVICE_DATA_IMAGES/";
-const htmlPath   = path.join("..", 'Html');
+if     (config.environment == "local"){ host = "0.0.0.0"; port = 3100; }
+else if(config.environment == "demo") { host = "0.0.0.0"; port = 3100; }
 
-
-// UTILITY
+// UTILITY FUNCTIONS - SHARED.
 const getLastValueOfArray = function(arr){
 	return arr[arr.length-1];
 };
@@ -86,36 +85,6 @@ const getParentDirName = function(file, files){
 		}
 	}
 };
-const getFullPathToDocument = function(){
-	return new Promise(async function(resolve_top,reject_top){
-		resolve_top();
-	});
-};
-// Runs a specified command (with promise.)
-const runCommand_exec = async function(cmd){
-	return new Promise(function(cmd_res, cmd_rej){
-		// Run the command.
-		exec(cmd, 
-			function (error, stdout, stderr) {
-				if (error) {
-					console.log(
-						JSON.stringify({ error: error, stderr:stderr, stdout:stdout })
-					);
-					cmd_rej(JSON.stringify({error: error, stderr:stderr, stdout:stdout}));
-					throw "ERROR in runCommand_exec";
-					return;
-				}
-				// let debug_stdout = stdout.split("\n")[0].trim();
-				// if(debug_stdout != ""){
-				// 	messages.push("createNotebookPageImages: cmd: " + debug_stdout);
-				// 	console.log(getLastValueOfArray(messages));
-				// }
-				cmd_res();
-			}
-		);
-	});
-
-};
 // Runs a specified command (with promise, and progress)
 const runCommand_exec_progress = async function(cmd, expectedExitCode = 0, progress=true){
 	return new Promise(function(cmd_res, cmd_rej){
@@ -160,7 +129,7 @@ const runCommand_exec_progress = async function(cmd, expectedExitCode = 0, progr
 
 };
 
-// FUNCTIONS.
+// FUNCTIONS - SHARED.
 const createJsonFsData = async function(writeFile){
 	return new Promise(async function(resolve, reject){
 		const getAllJson = function(fileList, basePath){
@@ -173,10 +142,11 @@ const createJsonFsData = async function(writeFile){
 				fileList.forEach(function(file){
 					proms.push(
 						new Promise(function(res1, rej1){
-							fs.readFile(path.join(basePath, file), function (err, file_buffer) {
+							let metadata_filename = path.join(basePath, file);
+							fs.readFile(metadata_filename, function (err, file_buffer) {
 								if (err) {
-									console.log("ERROR READING FILE 1", file, err); 
-									rej1([file, err]); 
+									console.log("ERROR READING FILE 1", metadata_filename, err); 
+									rej1([metadata_filename, err]); 
 									return;
 								}
 								
@@ -214,11 +184,13 @@ const createJsonFsData = async function(writeFile){
 
 								// newObj.extra["_thisFileId"] = file.replace(".metadata", "");
 		
+								
 								// Get the .content file too.
-								fs.readFile(path.join(basePath, file.replace(".metadata", ".content")), function (err, file_buffer2) {
+								let content_filename = path.join(basePath, file.replace(".metadata", ".content") );
+								fs.readFile(content_filename, function (err, file_buffer2) {
 									if (err) {
-										console.log("ERROR READING FILE 2", file, err); 
-										rej1([file, err]); 
+										console.log("ERROR READING FILE 2", content_filename, err); 
+										rej1([content_filename, err]); 
 										return;
 									}
 		
@@ -242,27 +214,50 @@ const createJsonFsData = async function(writeFile){
 									// Allow all CollectionType.
 									if(check0){
 										json[newObj.metadata.type].push(newObj);
+
+										res1(); return; // Resolve.
 									}
 									// Only compare notebooks. 
 									else if(check1){
 										// console.log("Skipping non-notebook.");
+										res1(); return; // Resolve.
 									}
 									// Ignore dummyDocument true.
 									else if(check2){
 										// console.log("Skipping dummyDocument.");
+										res1(); return; // Resolve.
 									}
 									// Ignore trash.
 									else if(check3){
 										// console.log("Skipping trash.");
+										res1(); return; // Resolve.
 									}
 									// Add the completed record.
 									else {
-										newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
-										json[newObj.metadata.type].push(newObj);
+										// Get the .pagedata file too if it exists.
+										let pagedata_filename = path.join(basePath, file.replace(".metadata", ".pagedata") );
+										if( fs.existsSync(pagedata_filename) ) {
+											fs.readFile(pagedata_filename, function (err, file_buffer3) {
+												if (err) {
+													console.log("ERROR READING FILE 3", pagedata_filename, err); 
+													rej1([pagedata_filename, err]); 
+													return;
+												}
+												newObj.pagedata = file_buffer3.toString().trim().split("\n");
+												newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
+												json[newObj.metadata.type].push(newObj);
+												res1(); return; // Resolve.
+											});
+										}
+										else{
+											newObj.pagedata = "";
+											newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
+											json[newObj.metadata.type].push(newObj);
+											res1(); return; // Resolve.
+										}
+
 									}
 									
-									// Resolve.
-									res1();
 								});
 		
 							});
@@ -304,6 +299,7 @@ const createJsonFsData = async function(writeFile){
 						// path: [],
 						name: d.metadata.visibleName
 					};
+
 				});
 		
 				// Creates "files"
@@ -319,6 +315,7 @@ const createJsonFsData = async function(writeFile){
 						metadata: d.metadata,
 						content: d.content,
 						extra: d.extra,
+						pagedata: d.pagedata,
 						
 						// DEBUG
 						// path: [],
@@ -365,7 +362,7 @@ const getExistingJsonFsData = async function(recreateIfMissing = true){
 		let recreateall = false;
 		if( !fs.existsSync(htmlPath + "/files.json") ){
 			// if(recreateIfMissing){
-				console.log("getExistingJsonFsData: no existing data. Creating it now.");
+				// console.log("getExistingJsonFsData: no existing data. Creating it now.");
 				try{ files = await createJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
 			// }
 			// else{
@@ -374,7 +371,7 @@ const getExistingJsonFsData = async function(recreateIfMissing = true){
 			recreateall = true;
 		}
 		else{
-			console.log("getExistingJsonFsData: Data exists, retrieving it.");
+			// console.log("getExistingJsonFsData: Data exists, retrieving it.");
 			files = fs.readFileSync(htmlPath + "/files.json");
 			files = JSON.parse(files);
 		}
@@ -427,7 +424,7 @@ const createNotebookPageImages = async function(recreateall, messages=[]){
 		}
 		// They are different. Determine what has changed and only update what has changed.
 		else{
-			messages.push("createNotebookPageImages: Checking for file changes..." + Object.keys( NewFilesJson ).length );
+			messages.push("createNotebookPageImages: Checking for file changes...");
 			console.log(getLastValueOfArray(messages));
 
 			// Get file_id keys for the DocumentType(s) of the existing and new json.
@@ -731,7 +728,7 @@ const optimizeImages = async function(cmdList, messages){
 		let totalCmds  = cmdList.length;
 		let stamp;
 		stamp = timeIt.stamp("optimizeImages.rM2svg.py", null);
-		let prom_cmd1 = async.mapLimit(cmdList, 2, async function(rec, callback){
+		let prom_cmd1 = async_mapLimit(cmdList, 2, async function(rec, callback){
 			// Create the directory.if it doesn't exist.
 			// if( !fs.existsSync(rec.destDir) ){ fs.mkdirSync(rec.destDir); }
 			
@@ -756,7 +753,7 @@ const optimizeImages = async function(cmdList, messages){
 
 				let currentCmd = 0;
 				let totalCmds  = cmdList.length;
-				let prom_cmd1and2 = async.mapLimit(cmdList, 2, async function(rec, callback){
+				let prom_cmd1and2 = async_mapLimit(cmdList, 2, async function(rec, callback){
 					let cmd;
 					let response;
 					
@@ -787,7 +784,7 @@ const optimizeImages = async function(cmdList, messages){
 						try{ await createJsonFsData(true); } catch(e){ console.log("failure: createJsonFsData", e); }
 						timeIt.stamp("optimizeImages.createJsonFsData", stamp);
 
-						resolve_top();
+						resolve_top(messages);
 					},
 					function(err){ console.log("err:", err); }
 				);
@@ -798,31 +795,110 @@ const optimizeImages = async function(cmdList, messages){
 };
 const updateRemoteDemo = async function(){
 	return new Promise(async function(resolve,reject){
-		// try{ files = await createJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+		/**
+		 * Get the files.json
+		 * Look for directories that match dirIds.
+		 * Look for files that are within the directories specified by dirIds.
+		 * Change the first directory in dirIds to have a parent of "". (should be the lowest parent of the other folders in dirIds.)
+		 * Change the "Getting Started" notebook to have a parent of "". (should be the lowest parent of the other folders in dirIds.)
+		 * Write the json results to scripts/demo_files.json.
+		 * Create the rsync --include-from filter file and write it to scripts/updateRemoteDemo.filter.
+		 * Run the scripts/updateRemoteDemo.sh file for each section, passing in the correct 'part' argument.
+		 * Write the combined command responses to scripts/updateRemoteDemo.resps.json in case debugging is needed.
+		 * Resolve with the combined command responses.
+		 */
 
-		resolve(true);
+		let files;
+		try{ files = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+		files = files.files;
+
+		// Get a list of all files and directories within "Remarkable Page Turner"
+		let newFilesJson = {
+			"CollectionType": {}, 
+			"DocumentType"  : {}, 
+		};
+		// Dirs of the parent "Remarkable Page Turner" directory..
+		let dirIds = [
+			"4f668058-bfd5-402f-a4dd-e7a3e83f1578", // "Remarkable Page Turner" directory (parent)
+			"4d763cad-5f31-4afd-bcd8-e7e77dd9ee60", // "Old notes" directory
+			"05593124-305f-478d-b603-1a62993f0c20", // "Drawings
+		];
+		// Get the directories for the "Remarkable Page Turner/Old notes" directory.
+		for(let key in files.CollectionType){
+			let rec = files.CollectionType[key];
+			if(dirIds.indexOf(rec.extra._thisFileId) != -1){
+				newFilesJson.CollectionType[rec.extra._thisFileId] = rec;
+			}
+		}
+		// Get the files for the "Remarkable Page Turner" directory.
+		for(let key in files.DocumentType){
+			let rec = files.DocumentType[key];
+			if(dirIds.indexOf(rec.metadata.parent) != -1){
+				newFilesJson.DocumentType[rec.extra._thisFileId] = rec;
+			}
+		}
+		
+		// Modify the "Remarkable Page Turner" (first dirId) directory to change it's parent to "".
+		newFilesJson.CollectionType[dirIds[0]].metadata.parent = "";
+		// Change the "Getting Started" notebook to have a parent of "". (should be the lowest parent of the other folders in dirIds.)
+		newFilesJson.DocumentType["78f004b5-c3ec-44f6-b624-0f47d1eacb0c"].metadata.parent = "";
+		
+		// Create a demo_files.json with only that data.
+		fs.writeFileSync(scriptsPath + "/demo_files.json", JSON.stringify(newFilesJson,null,1), function(err){
+			if (err) { console.log("ERROR: ", err); reject(err); }
+		});
+
+		// Create the include/filter file.
+		let filterText = [];
+		filterText.push("+ /./");
+		filterText.push("");
+		for(let key in newFilesJson.DocumentType){
+			let rec = newFilesJson.DocumentType[key]
+			filterText.push("+ " + key + "*");
+		};
+		filterText.push("");
+		filterText.push("- /*");
+		// Write the include/filter file.
+		fs.writeFileSync(scriptsPath + "/updateRemoteDemo.filter", filterText.join("\n"), function(err){
+			if (err) { console.log("ERROR: ", err); reject(err); }
+		});
+		
+		// Break up the script into parts (easier to debug.)
+		let cmd;
+		cmd = `cd scripts && ./updateRemoteDemo.sh `;
+		let resp1, resp2, resp3, resp4, resp5, resp6;
+		try{ console.log("(SERVER)             - part1: "); resp1 = await runCommand_exec_progress(cmd + " part1", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part1", e); reject(); }
+		try{ console.log("(configFile.json)    - part2: "); resp2 = await runCommand_exec_progress(cmd + " part2", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part2", e); reject(); }
+		try{ console.log("(Html)               - part3: "); resp3 = await runCommand_exec_progress(cmd + " part3", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part3", e); reject(); }
+		try{ console.log("(files.json)         - part4: "); resp4 = await runCommand_exec_progress(cmd + " part4", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part4", e); reject(); }
+		try{ console.log("(DEVICE_DATA)        - part5: "); resp5 = await runCommand_exec_progress(cmd + " part5", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part5", e); reject(); }
+		try{ console.log("(DEVICE_DATA_IMAGES) - part6: "); resp6 = await runCommand_exec_progress(cmd + " part6", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part6", e); reject(); }
+
+		let retObj = {
+			"part1": resp1 ,
+			"part2": resp2 ,
+			"part3": resp3 ,
+			"part4": resp4 ,
+			"part5": resp5 ,
+			"part6": resp6 ,
+		};
+
+		// Write the file with the resps in it.
+		fs.writeFileSync(scriptsPath + "/updateRemoteDemo.resps.json", JSON.stringify(retObj,null,1), function(err){
+			if (err) { console.log("ERROR: ", err); reject(err); }
+		});
+
+		resolve(retObj);
 	});
 };
 
+// WEB UI - FUNCTIONS.
 const webApi = {
 	updateAll : function(){
 		return new Promise(async function(res_top, rej_top){
-			// try{ resp = await runCommand_exec_progress(cmd, 0, true); } catch(e){ console.log("Error in syncRunner:", e); reject_top(); }
-			// let resp1 ;
-			// try{ resp1 = await webApi.syncRunner("tolocal", "wifi"); } catch(e){ console.log("ERROR:", e); rej_top(); return; }
-			
-			// let resp1 ;
-			// try{ resp1 = await webApi.syncRunner("tolocal", "wifi"); } catch(e){ console.log("ERROR:", e); rej_top(); return; }
-
-			// DEBUG: Forces a recreateall event within createNotebookPageImages. 
-			// if( fs.existsSync(htmlPath + "/files.json") ){
-			// 	fs.unlinkSync(htmlPath + "/files.json");
-			// }
-			
 			let stamp1;
 			let stamp2;
 			let returnValue1;
-			let returnValue2;
 
 			// Holds log messages.
 			var messages = [];
@@ -840,10 +916,13 @@ const webApi = {
 
 			// Next, create and compress local .svgs, then update files.json.
 			stamp2 = timeIt.stamp("createNotebookPageImages", null);
-			try{ returnValue2 = await createNotebookPageImages(false, messages); } catch(e){ console.log("ERROR:", e); rej_top(); return; }
+			try{ await createNotebookPageImages(false, messages); } catch(e){ console.log("ERROR:", e); rej_top(); return; }
 			timeIt.stamp("createNotebookPageImages", stamp2);
 			
-			res_top([returnValue1, returnValue2]);
+			res_top({
+				returnValue1: returnValue1, 
+				messages    : messages
+			});
 		});
 	},
 	syncRunner : function(dest, interface, messages=[]){
@@ -891,9 +970,14 @@ const webApi = {
 				else if(file.filepath.indexOf(".svg")     != -1){ dirFiles_pngs.push(file); }
 			});
 
+			
 			// Option 1: Send a filelist for the client to download.
 			// *Option 2: Send a filelist containing each svg. (svg is plain text.)
 			// Option 3: Send a .zip file of the svgs.
+			
+			let files ;
+			try{ files = await webApi.getFilesJson(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+			let pagedata = files.DocumentType[notebookId].pagedata;
 
 			let proms = [];
 			dirFiles_pngs.forEach(function(file){
@@ -929,6 +1013,7 @@ const webApi = {
 								// "dirFiles": dirFiles,
 								"dirFiles": dirFiles_pngs,
 								"svgTexts": results,
+								"pagedata": pagedata,
 							}, null, 0));
 				},
 
@@ -947,17 +1032,22 @@ const webApi = {
 			// Use the parentId
 			let targetPath = dataPath + "" + notebookId;
 
-			resolve_top(JSON.stringify([],null,0));
+			resolve_top(JSON.stringify([targetPath],null,0));
 			// reject_top(JSON.stringify([],null,0));
 		});
 	},
-
 };
 
-// WEB UI ROUTES.
-app.get('/updateAll' , async (req, res) => {
+// WEB UI - ROUTES.
+app.get('/updateAll'          , async (req, res) => {
 	console.log("\nroute: updateAll:", req.query);
 	
+	if(config.environment != "local"){ 
+		console.log("Function is not available in the demo version."); 
+		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		return; 
+	}
+
 	let stamp = timeIt.stamp("route: updateAll", null);
 	let returnValue;
 	try{ returnValue = await webApi.updateAll(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
@@ -972,10 +1062,15 @@ app.get('/updateAll' , async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
+app.get('/syncUsingWifi'      , async (req, res) => {
+	console.log("\nroute: syncUsingWifi:");
+	
+	if(config.environment != "local"){ 
+		console.log("Function is not available in the demo version."); 
+		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		return; 
+	}
 
-
-app.get('/syncUsingWifi'       , async (req, res) => {
-	console.log("\nroute: syncUsingWifi:", req.query);
 	let stamp;
 
 	// First, syncUsingWifi.
@@ -1003,13 +1098,13 @@ app.get('/syncUsingWifi'       , async (req, res) => {
 		"createNotebookPageImages": returnValue2,
 	});
 });
-app.get('/getFilesJson'        , async (req, res) => {
-	console.log("\nroute: getFilesJson:", req.query);
+app.get('/getFilesJson'       , async (req, res) => {
+	// console.log("\nroute: getFilesJson:", req.query);
 	
-	let stamp = timeIt.stamp("route: getFilesJson", null);
+	// let stamp = timeIt.stamp("route: getFilesJson", null);
 	let returnValue;
 	try{ returnValue = await webApi.getFilesJson(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: getFilesJson", stamp);
+	// timeIt.stamp("route: getFilesJson", stamp);
 
 	// The web UI does not need the "pages" within .content so remove them. 
 	for(let key in returnValue.DocumentType){
@@ -1028,16 +1123,13 @@ app.get('/getFilesJson'        , async (req, res) => {
 		delete rec.content.pages;
 	}
 
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
+	// Add the environment value. 
+	returnValue.environment = _configFile.environment;
 
 	// Should be JSON already.
 	res.send(returnValue);
 });
-app.get('/getGlobalUsageStats' , async (req, res) => {
+app.get('/getGlobalUsageStats', async (req, res) => {
 	console.log("\nroute: getGlobalUsageStats:", req.query);
 	
 	let stamp = timeIt.stamp("route: getGlobalUsageStats", null);
@@ -1054,31 +1146,30 @@ app.get('/getGlobalUsageStats' , async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
-app.get('/getSvgs'             , async (req, res) => {
+app.get('/getSvgs'            , async (req, res) => {
 	console.log("\nroute: getSvgs", req.query);
 	
-	let stamp = timeIt.stamp("route: getSvgs:", null);
+	// let stamp = timeIt.stamp("route: getSvgs:", null);
 	let returnValue;
 	try{ returnValue = await webApi.getSvgs(req.query.notebookId); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: getSvgs", stamp);
+	// timeIt.stamp("route: getSvgs", stamp);
 
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
+	// let timeStampString = timeIt.getStampString();
+	// console.log("*".repeat(83));
+	// console.log("timeIt_stamps:", timeStampString );
+	// console.log("*".repeat(83));
 	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
 	res.send(returnValue);
 });
-
-app.get('/getThumbnails'       , async (req, res) => {
+app.get('/getThumbnails'      , async (req, res) => {
 	console.log("\nroute: getThumbnails:", req.query);
 	// req.query.parentId
 
 	let stamp = timeIt.stamp("route: getThumbnails", null);
 	let returnValue;
-	try{ returnValue = await webApi.getThumbnails(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	try{ returnValue = await webApi.getThumbnails(req.query.notebookId); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
 	timeIt.stamp("route: getThumbnails", stamp);
 
 	let timeStampString = timeIt.getStampString();
@@ -1091,141 +1182,20 @@ app.get('/getThumbnails'       , async (req, res) => {
 	res.send(returnValue);
 });
 
-// DEBUG AND TEST ROUTES.
-app.get('/showTimeItStamps'        , async (req, res) => {
-	// http://localhost:3100/showTimeItStamps
-	console.log("/showTimeItStamps");
-	
-	let timeStampString = timeIt.getStampString();
-	let returnValue = "";
-	returnValue += "*".repeat(83) + "\n";
-	returnValue += "timeIt_stamps: " + timeStampString + "\n";
-	returnValue += "*".repeat(83) + "\n";
-	console.log(returnValue);
-	
-	// timeIt.clearTimeItStamps();
-
-	// Convert '\n' to '<br>' for display via direct route.
-	res.send( returnValue.replace(/\n/g, "<br>") );
-});
-app.get('/syncRunner'              , async (req, res) => {
-	// http://localhost:3100/syncRunner?dest=tolocal&interface=wifi
-	// http://localhost:3100/syncRunner?dest=tolocal&interface=usb
-	// http://localhost:3100/syncRunner?dest=toremotel&interface=wifi
-	// http://localhost:3100/syncRunner?dest=toremotel&interface=usb
-
-	let func = function(dest, interface){
-		return new Promise(function(resolve, reject){
-			// Check for the validity of both arguments.
-			if( ["tolocal", "toremote"].indexOf(dest) == -1) {
-				res.send(JSON.stringify("ERROR: Invalid 'dest'"));
-				return;
-			}
-			if( ["wifi", "usb"].indexOf(interface) == -1) {
-				res.send(JSON.stringify("ERROR: Invalid 'interface'"));
-				return;
-			}
-
-			let cmd = `cd scripts && ./syncRunner.sh ${dest} ${interface}`;
-			console.log("syncRunner: ", cmd);
-			exec(cmd, 
-				function (error, stdout, stderr) {
-					if (error) {
-						console.log("syncRunner: ", "ERROR");
-						// res.send(JSON.stringify({error: error, stderr:stderr, stdout:stdout}));
-						reject(JSON.stringify({error: error, stderr:stderr, stdout:stdout}));
-						return;
-					}
-					console.log("syncRunner: ", "DONE");
-					// let ret = JSON.stringify(stdout);
-					// res.send(stdout);
-					resolve(stdout);
-				}
-			);
-		});
-	};
-
-	let stamp = timeIt.stamp("route: syncRunner", null);
-	let returnValue;
-	try{ returnValue = await func(req.query.dest, req.query.interface); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: syncRunner", stamp);
-
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
-
-	res.send(returnValue);
-});
-app.get('/createJsonFsData'        , async (req, res) => {
-	console.log("/createJsonFsData");
-	
-	let timeItIndex = timeIt.stamp("route: createJsonFsData", null);
-	let returnValue;
-	try{ returnValue = await createJsonFsData(true); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: createJsonFsData", timeItIndex);
-
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
-
-	res.send(
-		"/createJsonFsData: (data written): " +
-		"Files: "  + (Object.keys(returnValue["DocumentType"]).length) +
-		", Dirs: " + (Object.keys(returnValue["CollectionType"]).length)
-	);
-
-});
-app.get('/getExistingJsonFsData'   , async (req, res) => {
-	console.log("/getExistingJsonFsData");
-	
-	// First, get the data.
-	let timeItIndex = timeIt.stamp("route: getExistingJsonFsData", null);
-	let returnValue;
-	try{ returnValue = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	returnValue = returnValue.files;
-
-	timeIt.stamp("route: getExistingJsonFsData", timeItIndex);
-
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
-
-	res.send(returnValue);
-});
-app.get('/createNotebookPageImages', async (req, res) => {
-	console.log("/createNotebookPageImages");
-	
-	let timeItIndex = timeIt.stamp("route: createNotebookPageImages", null);
-	let recreateall = req.query.recreateall ? true : false;
-	console.log("recreateall:", recreateall);
-	let returnValue;
-	try{ returnValue = await createNotebookPageImages(recreateall); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: createNotebookPageImages", timeItIndex);
-	
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
-
-	res.send(returnValue);
-	console.log(returnValue);
-});
-app.get('/updateRemoteDemo'        , async (req, res) => {
-	console.log("/getExistingJsonFsData");
+// DEBUG/ADMIN routes.
+app.get('/debug/updateRemoteDemo' , async (req, res) => {
+	console.log("/debug/updateRemoteDemo");
+	if(config.environment != "local"){ 
+		console.log("Function is not available in the demo version."); 
+		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		return; 
+	}
 	
 	// First, get the data.
 	let timeItIndex = timeIt.stamp("route: updateRemoteDemo", null);
 	let returnValue;
-	try{ returnValue = await updateRemoteDemo(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	returnValue = returnValue.files;
-
+	try{ returnValue = await updateRemoteDemo(); } catch(e){ console.log("ERROR: updateRemoteDemo: ", e); res.send(JSON.stringify(e)); return; }
+	returnValue = returnValue;
 	timeIt.stamp("route: updateRemoteDemo", timeItIndex);
 
 	let timeStampString = timeIt.getStampString();
@@ -1249,24 +1219,54 @@ app.get('/updateRemoteDemo'        , async (req, res) => {
 // 	// Just return true; 
 // 	// return true;
 // }
-app.listen(port, () => {
-	// Compression.
-	// app.use(compression({ filter: shouldCompress }));
+app.listen(
+	{
+		port       : port, // port <number>
+		host       : host, // host <string>
+		// path       : ""   , // path        <string>      Will be ignored if port is specified. See Identifying paths for IPC connections.
+		// backlog    : 0    , // backlog     <number>      Common parameter of server.listen() functions.
+		// exclusive  : false, // exclusive   <boolean>     Default: false
+		// readableAll: false, // readableAll <boolean>     For IPC servers makes the pipe readable for all users. Default: false.
+		// writableAll: false, // writableAll <boolean>     For IPC servers makes the pipe writable for all users. Default: false.
+		// ipv6Only   : false, // ipv6Only    <boolean>     For TCP servers, setting ipv6Only to true will disable dual-stack support, i.e., binding to host :: won't make 0.0.0.0 be bound. Default: false.
+		// signal     : null , // signal      <AbortSignal> An AbortSignal that may be used to close a listening server.	
+	}, 
+	function() {
+		// Compression.
+		// app.use(compression({ filter: shouldCompress }));
 
-	// Set virtual paths.
-	app.use('/'                  , express.static(htmlPath));
-	app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
-	app.use('/DEVICE_DATA'       , express.static(path.join(__dirname, 'DEVICE_DATA')));
-	app.use('/DEVICE_DATA_IMAGES', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+		// Set virtual paths.
+		app.use('/'                  , express.static(htmlPath));
+		app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
+		app.use('/DEVICE_DATA'       , express.static(path.join(__dirname, 'DEVICE_DATA')));
+		app.use('/DEVICE_DATA_IMAGES', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
 
-	// app.use('/data', express.static(path.join(__dirname, 'DEVICE_DATA')));
-	// app.use('/svgs', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+		// 
+		console.log("");
+		console.log("********** APP INFO **********");
+		console.log(`CONFIGURATION: ${JSON.stringify(_configFile,null,1)}`);
+		console.log(`App listening at http://${host}:${port}`);
+		console.log("********** APP INFO **********");
+		console.log("");
+	}
+);
 
-	// app.use('/DEVICE_DATA_IMAGES', serveIndex(__dirname + '/DEVICE_DATA_IMAGES'));
-	// app.use('/DEVICE_DATA_IMAGES', serveIndex(path.join(__dirname, "DEVICE_DATA_IMAGES")));
-	// app.use('/svgs', express.static('DEVICE_DATA_IMAGES'), serveIndex('DEVICE_DATA_IMAGES', {'icons': true}))
-		
-	//
-	console.log(`*App listening at http://localhost:${port}*`);
+// app.listen(port, host, () => {
+// 	// Compression.
+// 	// app.use(compression({ filter: shouldCompress }));
 
-});
+// 	// Set virtual paths.
+// 	app.use('/'                  , express.static(htmlPath));
+// 	app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
+// 	app.use('/DEVICE_DATA'       , express.static(path.join(__dirname, 'DEVICE_DATA')));
+// 	app.use('/DEVICE_DATA_IMAGES', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+
+// 	// 
+// 	console.log("");
+// 	console.log("********** APP INFO **********");
+// 	console.log(`CONFIGURATION: ${JSON.stringify(_configFile,null,1)}`);
+// 	console.log(`App listening at http://${host}:${port}`);
+// 	console.log("********** APP INFO **********");
+// 	console.log("");
+
+// });
