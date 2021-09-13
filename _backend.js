@@ -7,6 +7,7 @@ const { spawn }       = require('child_process');
 const fs              = require('fs');
 const async_mapLimit  = require('promise-async').mapLimit;
 
+
 // Personal libraries/frameworks.
 const timeIt = require('./timeIt.js');
 
@@ -29,7 +30,7 @@ else if(config.environment == "demo") { host = "0.0.0.0"; port = 3100; }
 const getLastValueOfArray = function(arr){
 	return arr[arr.length-1];
 };
-const getItemsInDir = async function(targetPath, type){
+const getItemsInDir = async function(targetPath, type, ext=""){
 	if(["files", "dirs"].indexOf(type) == -1){
 		let msg = "";
 		console.log(msg);
@@ -46,13 +47,13 @@ const getItemsInDir = async function(targetPath, type){
 			const stats = await fs.promises.lstat(filepath);
 	
 			if(type=="files"){
-				if (stats.isFile()) {
+				if (stats.isFile() && file.lastIndexOf(ext) != -1) {
 					fetchedFiles.push({ filepath });
 				}
 			}
 			
 			else if(type=="dirs"){
-				if (stats.isDirectory()) {
+				if (stats.isDirectory() && file.lastIndexOf(ext) != -1) {
 					fetchedFiles.push({ filepath });
 				}
 			}
@@ -159,11 +160,11 @@ const createJsonFsData = async function(writeFile){
 								// DEBUG: Remove keys
 								if(newObj.metadata.type == "CollectionType"){
 									delete newObj.metadata.deleted;
-									delete newObj.metadata.lastModified;
+									// delete newObj.metadata.lastModified;
 									delete newObj.metadata.modified;
 									delete newObj.metadata.pinned;
 									delete newObj.metadata.synced;
-									delete newObj.metadata.version;
+									// delete newObj.metadata.version;
 									delete newObj.metadata.metadatamodified;
 								}
 								else if(newObj.metadata.type == "DocumentType"){
@@ -283,6 +284,11 @@ const createJsonFsData = async function(writeFile){
 				let files = {};
 		
 				// Creates "dirs"
+				// console.log(fileList.CollectionType["546a43d3-59ae-4a23-95ac-ba8218866e64"]);
+				// console.log(fileList.DocumentType["546a43d3-59ae-4a23-95ac-ba8218866e64"]);
+				// console.log(fileList.CollectionType);
+				// console.log(fileList.DocumentType);
+
 				fileList["CollectionType"].forEach(function(d){
 					// Create the object if it doesn't exist.
 					if(!dirs[d.metadata.parent]){
@@ -652,11 +658,19 @@ const createNotebookPageImages = async function(recreateall, messages=[]){
 
 				try{ await optimizeImages(cmdList, messages); } catch(e){ console.log("failure: optimizeImages", e); }
 				
+				
 				resolve_top( { messages: messages } );
 				return; 
 			}
 			else{
-				messages.push("createNotebookPageImages: No changes have been made.");
+				messages.push("createNotebookPageImages: No changes to notebooks have been made.");
+				
+				// ****************
+				stamp = timeIt.stamp("optimizeImages.createJsonFsData", null);
+				try{ await createJsonFsData(true); console.log("wrote json data."); } catch(e){ console.log("failure: createJsonFsData", e); }
+				timeIt.stamp("optimizeImages.createJsonFsData", stamp);
+				// ****************
+
 				console.log(getLastValueOfArray(messages));
 				console.log("No commands to run.", "cmdList.length:", cmdList.length);
 				resolve_top( { messages: messages } );
@@ -780,9 +794,11 @@ const optimizeImages = async function(cmdList, messages){
 					async function(){ 
 						timeIt.stamp("optimizeImages.svgo rm", stamp);
 
+						// ****************
 						stamp = timeIt.stamp("optimizeImages.createJsonFsData", null);
-						try{ await createJsonFsData(true); } catch(e){ console.log("failure: createJsonFsData", e); }
+						try{ await createJsonFsData(true); console.log("wrote json data."); } catch(e){ console.log("failure: createJsonFsData", e); }
 						timeIt.stamp("optimizeImages.createJsonFsData", stamp);
+						// ****************
 
 						resolve_top(messages);
 					},
@@ -958,6 +974,7 @@ const webApi = {
 			// Need to check if there are already svg files in the directory.
 			// Retrieve what is in that directory.
 			let targetPath = imagesPath + "" + notebookId;
+			// let targetPath = dataPath + "" + notebookId;
 			let dirExists = fs.existsSync(targetPath);
 			let dirFiles = await getItemsInDir(targetPath, "files"); // fs.promises.readdir(targetPath);
 
@@ -968,6 +985,9 @@ const webApi = {
 
 				// If they are not available (yet) then send the .svg file.
 				else if(file.filepath.indexOf(".svg")     != -1){ dirFiles_pngs.push(file); }
+
+				// 
+				// else if(file.filepath.indexOf(".rm")     != -1){ dirFiles_pngs.push(file); }
 			});
 
 			
@@ -997,6 +1017,9 @@ const webApi = {
 							else if(file.filepath.indexOf(".svg") != -1){
 								res1( 'data:image/svg+xml;base64,' + file_buffer.toString('base64').trim() );
 							}
+							// else if(file.filepath.indexOf(".rm") != -1){
+							// 	res1( 'application/octet-stream;base64,' + file_buffer.toString('base64').trim() );
+							// }
 						})
 					})
 				)
@@ -1027,13 +1050,57 @@ const webApi = {
 			// reject_top(JSON.stringify([],null,0));
 		});
 	},
-	getThumbnails : function(notebookId){
+	getThumbnails : function(parentId){
 		return new Promise(async function(resolve_top,reject_top){
-			// Use the parentId
-			let targetPath = dataPath + "" + notebookId;
+			let getThumbnail = function(notebookId, existingFilesJson){
+				//. Use notebookId to get the folder, use .pages to get the page ids (in order.)
+				let targetPath = dataPath + "" + notebookId + ".thumbnails";
+	
+				// Need to check that the directory exists.
+				if(!fs.existsSync(targetPath)){ 
+					console.log("targetPath does not exist.", targetPath); 
+					throw "targetPath does not exist." + targetPath ; 
+					return; 
+				};
 
-			resolve_top(JSON.stringify([targetPath],null,0));
-			// reject_top(JSON.stringify([],null,0));
+				// Get the first page id.
+				let firstPageId = existingFilesJson.DocumentType[notebookId].content.pages[0];
+				
+				// Check that the file exists. 
+				let firstThumbnail_path = path.join(targetPath, firstPageId+".jpg");
+				if(!fs.existsSync(firstThumbnail_path)){ 
+					console.log("firstThumbnail_path does not exist.", firstThumbnail_path); 
+					throw "firstThumbnail_path does not exist." + firstThumbnail_path; 
+					return; 
+				};
+				
+				// Retrieve the file as base64.
+				let firstThumbnail = fs.readFileSync( firstThumbnail_path, 'base64');
+				
+				// Convert to data url.
+				firstThumbnail = 'data:image/jpg;base64,' + firstThumbnail;
+				
+				return firstThumbnail ;
+			};
+
+			// Get files.json.
+			let existingFilesJson;
+			try{ existingFilesJson = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject_top(JSON.stringify(e)); return; }
+			existingFilesJson = existingFilesJson.files;
+
+			// Get list of documents that have the parentId as the parent.
+			let recs = {};
+			for(let key in existingFilesJson.DocumentType){
+				let rec = existingFilesJson.DocumentType[key];
+				if(rec.metadata.parent == parentId){ 
+					let data;
+					let notebookId = rec.extra._thisFileId;
+					try { data = getThumbnail(notebookId, existingFilesJson); } catch(e){ console.log("ERROR:", e); reject_top(JSON.stringify(e)); return; }	
+					recs[key] = data; 
+				}
+			}
+			
+			resolve_top(JSON.stringify(recs, null, 0));
 		});
 	},
 };
@@ -1101,10 +1168,8 @@ app.get('/syncUsingWifi'      , async (req, res) => {
 app.get('/getFilesJson'       , async (req, res) => {
 	// console.log("\nroute: getFilesJson:", req.query);
 	
-	// let stamp = timeIt.stamp("route: getFilesJson", null);
 	let returnValue;
 	try{ returnValue = await webApi.getFilesJson(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	// timeIt.stamp("route: getFilesJson", stamp);
 
 	// The web UI does not need the "pages" within .content so remove them. 
 	for(let key in returnValue.DocumentType){
@@ -1147,36 +1212,15 @@ app.get('/getGlobalUsageStats', async (req, res) => {
 	res.send(returnValue);
 });
 app.get('/getSvgs'            , async (req, res) => {
-	console.log("\nroute: getSvgs", req.query);
-	
-	// let stamp = timeIt.stamp("route: getSvgs:", null);
 	let returnValue;
 	try{ returnValue = await webApi.getSvgs(req.query.notebookId); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	// timeIt.stamp("route: getSvgs", stamp);
-
-	// let timeStampString = timeIt.getStampString();
-	// console.log("*".repeat(83));
-	// console.log("timeIt_stamps:", timeStampString );
-	// console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
 	res.send(returnValue);
 });
 app.get('/getThumbnails'      , async (req, res) => {
-	console.log("\nroute: getThumbnails:", req.query);
-	// req.query.parentId
-
-	let stamp = timeIt.stamp("route: getThumbnails", null);
 	let returnValue;
-	try{ returnValue = await webApi.getThumbnails(req.query.notebookId); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: getThumbnails", stamp);
-
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
+	try{ returnValue = await webApi.getThumbnails(req.query.parentId); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
 
 	// Should be JSON already.
 	res.send(returnValue);
