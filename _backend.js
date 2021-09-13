@@ -1,3 +1,4 @@
+/*jshint esversion: 6 */
 // Libraries/frameworks from NPM.
 const express         = require('express'); // npm install express
 // const compression     = require('compression');
@@ -7,24 +8,17 @@ const { spawn }       = require('child_process');
 const fs              = require('fs');
 const async_mapLimit  = require('promise-async').mapLimit;
 
-
 // Personal libraries/frameworks.
 const timeIt = require('./timeIt.js');
 
 // CONFIGS 
-let _configFile = JSON.parse(fs.readFileSync('configFile.json', 'utf8'));
-var config = {
-	environment: _configFile.environment, // "local" or "demo"
-}
-var   port ;
-var   host ;
-const dataPath    = "DEVICE_DATA/xochitl/";
-const imagesPath  = "DEVICE_DATA_IMAGES/";
-const htmlPath    = path.join("..", 'Html');
-const scriptsPath = path.join(".", 'scripts');
-
-if     (config.environment == "local"){ host = "0.0.0.0"; port = 3100; }
-else if(config.environment == "demo") { host = "0.0.0.0"; port = 3100; }
+var config = JSON.parse(fs.readFileSync('configFile.json', 'utf8'));
+const port        = config.port;
+const host        = config.host;
+const scriptsPath = config.scriptsPath;
+const dataPath    = config.dataPath;
+const imagesPath  = config.imagesPath;
+const htmlPath    = config.htmlPath;
 
 // UTILITY FUNCTIONS - SHARED.
 const getLastValueOfArray = function(arr){
@@ -68,23 +62,65 @@ const getItemsInDir = async function(targetPath, type, ext=""){
 	return fetchedFiles;
 };
 // Get the visibleName of the file found within files. 
-const getParentDirName = function(file, files){
-	// Cosmetic. "" is shown as "FSROOT"
+const getParentDirName = function(file, files, returnNameAndId=false){
+	// Cosmetic. "" is shown as "My files"
 	if(file.metadata.parent == ""){
-		return "FSROOT";
+		return "My files";
 	}
 	else if(file.metadata.parent == "trash"){
-		return "TRASH";
+		return "trash";
 	}
 	else{
 		try{
-			return files["CollectionType"][file.metadata.parent].metadata.visibleName;
+			if(!returnNameAndId){
+				return files["CollectionType"][file.metadata.parent].metadata.visibleName;
+			}
+			else{
+				return {
+					"nextId"    : files["CollectionType"][file.metadata.parent].metadata.parent,
+					"parentId"  : file.metadata.parent,
+					"parentName": files["CollectionType"][file.metadata.parent].metadata.visibleName,
+				}
+			}
 		}
 		catch(e){
-			console.log("****", file.metadata.parent, "****", e);
+			// console.log("****", file.metadata.parent, "****", e);
+			// console.log("****", file.metadata.parent, "****", file);
 			return "ERROR" + file.metadata.parent;
 		}
 	}
+};
+const getParentPath = function(id, type, files){
+	let fullPath = [];
+
+	let file = files[type][id];
+	// console.log(files[type][id]); return "";
+
+	let currId = file.metadata.parent;
+	let isAtRoot = false;
+	let isAtTrash = false;
+	for(let i=0; i<20; i+=1){
+		// Reached root?
+		if(currId == "" || file.metadata.parent == ""){ isAtRoot=true; break; }
+		
+		let obj = getParentDirName({ metadata: { parent: currId } }, files, true) ;
+		if(obj == "trash" || file.metadata.parent == "trash"){ isAtTrash=true; break; }
+
+		currId = obj.nextId;
+		fullPath.push(obj.parentName);
+	}
+
+	if(isAtRoot){
+		fullPath.push("/My files");
+	}
+	else if(isAtTrash){
+		fullPath.push("/trash");
+	}
+
+	fullPath.reverse();
+
+	fullPath = fullPath.join("/") + "/";
+	return fullPath;
 };
 // Runs a specified command (with promise, and progress)
 const runCommand_exec_progress = async function(cmd, expectedExitCode = 0, progress=true){
@@ -290,6 +326,9 @@ const createJsonFsData = async function(writeFile){
 				// console.log(fileList.DocumentType);
 
 				fileList["CollectionType"].forEach(function(d){
+					// Skip trash.
+					if(d.metadata.parent == "trash"){ return; }
+
 					// Create the object if it doesn't exist.
 					if(!dirs[d.metadata.parent]){
 						dirs[d.extra._thisFileId] = {};
@@ -302,7 +341,7 @@ const createJsonFsData = async function(writeFile){
 						extra: d.extra,
 						
 						// DEBUG
-						// path: [],
+						path: [],
 						name: d.metadata.visibleName
 					};
 
@@ -310,6 +349,9 @@ const createJsonFsData = async function(writeFile){
 		
 				// Creates "files"
 				fileList["DocumentType"].forEach(function(d){
+					// Skip trash.
+					if(d.metadata.parent == "trash"){ return; }
+
 					// Create the object if it doesn't exist.
 					if(!files[d.metadata.parent]){
 						// Save the the id of this file.. 
@@ -324,7 +366,7 @@ const createJsonFsData = async function(writeFile){
 						pagedata: d.pagedata,
 						
 						// DEBUG
-						// path: [],
+						path: [],
 						name: d.metadata.visibleName
 					};
 				});
@@ -334,6 +376,17 @@ const createJsonFsData = async function(writeFile){
 					"DocumentType":files,
 				};
 		
+				// Update the path value for CollectionType.
+				for(let key in fin.CollectionType){
+					let rec = fin.CollectionType[key];
+					rec.path = getParentPath(rec.extra._thisFileId, "CollectionType", fin);
+				}
+				// Update the path value for DocumentType.
+				for(let key in fin.DocumentType){
+					let rec = fin.DocumentType[key];
+					rec.path = getParentPath(rec.extra._thisFileId, "DocumentType", fin);
+				}
+
 				res(fin);
 			});
 		};
@@ -396,7 +449,6 @@ const createNotebookPageImages = async function(recreateall, messages=[]){
 		// Get the files.json file (or create it if it doesn't exist.)
 		let existingFilesJson;
 		let returnValue;
-		existingFilesJson
 		try{ returnValue = await getExistingJsonFsData(false); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
 		existingFilesJson = returnValue.files;
 		
@@ -869,9 +921,9 @@ const updateRemoteDemo = async function(){
 		filterText.push("+ /./");
 		filterText.push("");
 		for(let key in newFilesJson.DocumentType){
-			let rec = newFilesJson.DocumentType[key]
+			let rec = newFilesJson.DocumentType[key];
 			filterText.push("+ " + key + "*");
-		};
+		}
 		filterText.push("");
 		filterText.push("- /*");
 		// Write the include/filter file.
@@ -974,7 +1026,6 @@ const webApi = {
 			// Need to check if there are already svg files in the directory.
 			// Retrieve what is in that directory.
 			let targetPath = imagesPath + "" + notebookId;
-			// let targetPath = dataPath + "" + notebookId;
 			let dirExists = fs.existsSync(targetPath);
 			let dirFiles = await getItemsInDir(targetPath, "files"); // fs.promises.readdir(targetPath);
 
@@ -984,7 +1035,7 @@ const webApi = {
 				if     (file.filepath.indexOf(".min.svg") != -1){ dirFiles_pngs.push(file); }
 
 				// If they are not available (yet) then send the .svg file.
-				else if(file.filepath.indexOf(".svg")     != -1){ dirFiles_pngs.push(file); }
+				else if(file.filepath.indexOf(".svg")     != -1){ dirFiles_pngs.push(file); } 
 
 				// 
 				// else if(file.filepath.indexOf(".rm")     != -1){ dirFiles_pngs.push(file); }
@@ -1031,7 +1082,7 @@ const webApi = {
 						JSON.stringify(
 							{
 								"notebookId": notebookId,
-								"targetPath": targetPath,
+								// "targetPath": targetPath,
 								"dirExists": dirExists,
 								// "dirFiles": dirFiles,
 								"dirFiles": dirFiles_pngs,
@@ -1046,7 +1097,63 @@ const webApi = {
 	},
 	getGlobalUsageStats : function(){
 		return new Promise(async function(resolve_top,reject_top){
-			resolve_top(JSON.stringify([],null,0));
+			let files;
+			try{ files = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+			files = files.files;
+
+			let fileData = {
+				"newest": { lastModified: 0, },
+				"oldest": { lastModified: 0, }
+			};
+			let i = 0;
+			for(let key in files.DocumentType){
+				let rec = files.DocumentType[key];
+				if(i==0){
+					fileData.newest.lastModified = rec.metadata.lastModified;
+					fileData.newest.id           = rec.extra._thisFileId;
+					fileData.newest.name         = rec.metadata.visibleName;
+					fileData.newest.parentName   = getParentDirName(rec, files);
+					fileData.newest.parentId     = rec.metadata.parent;
+					fileData.newest.rec          = rec;
+					
+					fileData.oldest.lastModified = rec.metadata.lastModified;
+					fileData.oldest.id           = rec.extra._thisFileId;
+					fileData.oldest.name         = rec.metadata.visibleName;
+					fileData.oldest.parentName   = getParentDirName(rec, files);
+					fileData.oldest.parentId     = rec.metadata.parent;
+					fileData.oldest.rec          = rec;
+				}
+				
+				if( fileData.newest.lastModified < rec.metadata.lastModified ){
+					fileData.newest.lastModified = rec.metadata.lastModified;
+					fileData.newest.id           = rec.extra._thisFileId;
+					fileData.newest.name         = rec.name;
+					fileData.newest.parentName   = getParentDirName(rec, files);
+					fileData.newest.parentId     = rec.metadata.parent;
+					fileData.newest.rec          = rec;
+				}
+				if( fileData.oldest.lastModified > rec.metadata.lastModified ){
+					fileData.oldest.lastModified = rec.metadata.lastModified;
+					fileData.oldest.id           = rec.extra._thisFileId;
+					fileData.oldest.name         = rec.name;
+					fileData.oldest.parentName   = getParentDirName(rec, files);
+					fileData.oldest.parentId     = rec.metadata.parent;
+					fileData.oldest.rec          = rec;
+				}
+				
+				i+=1;
+			}
+
+			fileData.newest.lastModified = new Date(parseInt(fileData.newest.lastModified)).toString().split(" GMT")[0];
+			fileData.oldest.lastModified = new Date(parseInt(fileData.oldest.lastModified)).toString().split(" GMT")[0];
+
+			fileData.newest.fullpath = getParentPath(fileData.newest.rec.extra._thisFileId, "DocumentType", files);
+			fileData.oldest.fullpath = getParentPath(fileData.oldest.rec.extra._thisFileId, "DocumentType", files);
+
+			delete fileData.newest.rec;
+			delete fileData.oldest.rec;
+
+			resolve_top(JSON.stringify(fileData,null,1));
 			// reject_top(JSON.stringify([],null,0));
 		});
 	},
@@ -1189,23 +1296,23 @@ app.get('/getFilesJson'       , async (req, res) => {
 	}
 
 	// Add the environment value. 
-	returnValue.environment = _configFile.environment;
+	returnValue.environment = config.environment;
 
 	// Should be JSON already.
 	res.send(returnValue);
 });
 app.get('/getGlobalUsageStats', async (req, res) => {
-	console.log("\nroute: getGlobalUsageStats:", req.query);
+	// console.log("\nroute: getGlobalUsageStats:", req.query);
 	
-	let stamp = timeIt.stamp("route: getGlobalUsageStats", null);
+	// let stamp = timeIt.stamp("route: getGlobalUsageStats", null);
 	let returnValue;
 	try{ returnValue = await webApi.getGlobalUsageStats(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-	timeIt.stamp("route: getGlobalUsageStats", stamp);
+	// timeIt.stamp("route: getGlobalUsageStats", stamp);
 
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
+	// let timeStampString = timeIt.getStampString();
+	// console.log("*".repeat(83));
+	// console.log("timeIt_stamps:", timeStampString );
+	// console.log("*".repeat(83));
 	// timeIt.clearTimeItStamps();
 
 	// Should be JSON already.
@@ -1278,7 +1385,7 @@ app.listen(
 	function() {
 		// Compression.
 		// app.use(compression({ filter: shouldCompress }));
-
+		
 		// Set virtual paths.
 		app.use('/'                  , express.static(htmlPath));
 		app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
@@ -1288,7 +1395,7 @@ app.listen(
 		// 
 		console.log("");
 		console.log("********** APP INFO **********");
-		console.log(`CONFIGURATION: ${JSON.stringify(_configFile,null,1)}`);
+		console.log(`CONFIGURATION: ${JSON.stringify(config,null,1)}`);
 		console.log(`App listening at http://${host}:${port}`);
 		console.log("********** APP INFO **********");
 		console.log("");
@@ -1308,7 +1415,7 @@ app.listen(
 // 	// 
 // 	console.log("");
 // 	console.log("********** APP INFO **********");
-// 	console.log(`CONFIGURATION: ${JSON.stringify(_configFile,null,1)}`);
+// 	console.log(`CONFIGURATION: ${JSON.stringify(config,null,1)}`);
 // 	console.log(`App listening at http://${host}:${port}`);
 // 	console.log("********** APP INFO **********");
 // 	console.log("");

@@ -8,7 +8,8 @@ node_modules/*
 
 debug/*
 
-# Html/*
-# Angular/*
+_WebUI/*
+!_WebUI/.gitkeep
+
 scripts/updateRemoteDemo.resps.json
 scripts/demo_files.json
