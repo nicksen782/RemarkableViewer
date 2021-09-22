@@ -7,6 +7,7 @@ const path            = require('path');
 const { spawn }       = require('child_process');
 const fs              = require('fs');
 const async_mapLimit  = require('promise-async').mapLimit;
+const fkill           = require('fkill');
 
 // Personal libraries/frameworks.
 const timeIt = require('./timeIt.js');
@@ -289,7 +290,7 @@ const createJsonFsData         = async function(writeFile){
 		
 									// ********** NEW PRE-FILTERING **********
 									let check0 = newObj.metadata.type         == "CollectionType";
-									let check1 = newObj.content.fileType      != "notebook";
+									let check1 = newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
 									let check2 = newObj.content.dummyDocument != false;
 									let check3 = newObj.metadata.parent       == "trash";
 
@@ -712,7 +713,7 @@ const webApi = {
 					};
 			
 					if(!recreateall && existingJson == newJson ){
-						messages.push("createNotebookPageImages: NO changes have been detected.");
+						messages.push("createNotebookPageImages: previous and new json are identical. NO changes have been detected.");
 						console.log(getLastValueOfArray(messages));
 						res.write(`data: ${JSON.stringify( getLastValueOfArray(messages) )}\n\n`);
 						resolve_top( { messages: messages, fileIdsWithChanges: fileIdsWithChanges } );
@@ -752,9 +753,9 @@ const webApi = {
 			
 							// recreateall override?
 							if(recreateall){
-								messages.push("createNotebookPageImages: recreateall");
-								console.log(getLastValueOfArray(messages));
-								res.write(`data: ${JSON.stringify( getLastValueOfArray(messages) )}\n\n`);
+								// messages.push("createNotebookPageImages: recreateall");
+								// console.log(getLastValueOfArray(messages));
+								// res.write(`data: ${JSON.stringify( getLastValueOfArray(messages) )}\n\n`);
 								fileIdsWithChanges.push({
 									"key": key, 
 									"change": "recreateall",
@@ -849,9 +850,9 @@ const webApi = {
 							let regenerateAllPages=false;
 			
 							if(recreateall){
-								messages.push("createNotebookPageImages:   recreateall.");
-								console.log(getLastValueOfArray(messages)); 
-								res.write(`data: ${JSON.stringify( getLastValueOfArray(messages) )}\n\n`);
+								// messages.push("createNotebookPageImages:   recreateall.");
+								// console.log(getLastValueOfArray(messages)); 
+								// res.write(`data: ${JSON.stringify( getLastValueOfArray(messages) )}\n\n`);
 			
 								// Just regenerate all the pages. 
 								regenerateAllPages = true; 
@@ -938,15 +939,35 @@ const webApi = {
 			
 								// For each .rm file, in order by pages...
 								pages.forEach(function(page, page_i){
+									let fileType        = obj.newFile.content.fileType;
 									let baseFileName    = obj.newFile.metadata.visibleName.replace(/[^A-Z0-9]+/ig, "_");
 									let dest_fullName   = imagesPath + obj.key + "/" + baseFileName ;
-									let srcFile         = dataPath + obj.key + "/" + page + ".rm";
+									let srcFile ;
 									let pageNum         = page_i.toString().padStart(3, "0");
 									let fullOutputName  = `${dest_fullName}_PAGE_${pageNum}.svg`;
 									let fullOutputName2 = `${dest_fullName}_PAGE_${pageNum}.min.svg`;
-									let cmd             = `python3 scripts/rM2svg.py -i ${srcFile} -o ${fullOutputName}`;
-									let cmd2            = `node_modules/svgo/bin/svgo --config="scripts/svgo.config.json" -i ${fullOutputName} -o ${fullOutputName2} `;
-									let cmd3            = `rm ${fullOutputName}`;
+									let cmd  ;
+									let cmd2 ;
+									let cmd3 ;
+									
+									if(fileType == "notebook"){
+										srcFile         = dataPath + obj.key + "/" + page + ".rm";
+										
+										cmd             = `python3 scripts/rM2svg.py -i ${srcFile} -o ${fullOutputName}`;
+
+										cmd2            = `echo ""`;
+										// cmd2            = `node_modules/svgo/bin/svgo --config="scripts/svgo.config.json" -i ${fullOutputName} -o ${fullOutputName2} `;
+										
+										cmd3            = `echo ""`;
+										// cmd3            = `rm ${fullOutputName}`;
+									}
+									else if(fileType == "pdf"){
+										return;
+										srcFile         = ``; // dataPath + obj.key + "/" + page + ".rm";
+										cmd             = `echo ""`; // `python3 scripts/rM2svg.py -i ${srcFile} -o ${fullOutputName}`;
+										cmd2            = `echo ""`; // `node_modules/svgo/bin/svgo --config="scripts/svgo.config.json" -i ${fullOutputName} -o ${fullOutputName2} `;
+										cmd3            = `echo ""`; // `rm ${fullOutputName}`;
+									}
 									
 									// Add the full command and info.
 									cmdList.push({
@@ -962,6 +983,7 @@ const webApi = {
 										fullOutputName  : fullOutputName,
 										fullOutputName2 : fullOutputName2,
 										baseFileName    : baseFileName + "_PAGE_" + pageNum,
+										fileType        : fileType,
 									});
 								});
 							}
@@ -1070,8 +1092,15 @@ const webApi = {
 						
 						let cmd = rec.cmd;
 						let response;
-						
-						try{ response = await runCommand_exec_progress(cmd, 0, false); } catch(e){ console.log("failure: optimizeImages: rM2svg.py:", e, cmd.length, "of", 32000); throw rec.cmd; }
+
+						try{ 
+							response = await runCommand_exec_progress(cmd, 0, false); 
+						} 
+						catch(e){ 
+							console.log("failure: optimizeImages: rM2svg.py:", e, cmd.length, "of", 32000); 
+							throw rec.cmd; 
+							// content.fileType
+						}
 						currentCmd += 1;
 						if(response.stdOutHist) { console.log("stdOutHist:", response.stdOutHist); }
 						if(response.stdErrHist) { console.log("stdErrHist:", response.stdErrHist); }
@@ -1081,6 +1110,7 @@ const webApi = {
 						res.write(`data: ${JSON.stringify( getLastValueOfArray(messages) )}\n\n`);
 						
 						callback(null, rec);
+						
 					})
 					.then(
 						function(data){ 
@@ -1099,7 +1129,14 @@ const webApi = {
 								currentCmd += 1;
 								let respLines = response.stdOutHist.split("\n");
 								if(response.stdOutHist) { 
-									messages.push(`  optimizeImages: ${currentCmd}/${totalCmds} svgo     : DONE: ${rec.fullOutputName2} (${respLines[3].split(" - ")[1].split("%")[0]}% reduction)`);
+									let msg;
+									try{
+										msg = `  optimizeImages: ${currentCmd}/${totalCmds} svgo     : DONE: ${rec.fullOutputName2} (${respLines[3].split(" - ")[1].split("%")[0]}% reduction)`;
+									}
+									catch(e){
+										msg = `  optimizeImages: ${currentCmd}/${totalCmds} svgo     : DoNE: ${rec.fullOutputName2}`;
+									}
+									messages.push(msg);
 									console.log(getLastValueOfArray(messages));
 									res.write(`data: ${JSON.stringify( getLastValueOfArray(messages) )}\n\n`);
 									// console.log("stdOutHist:", "svgo:   ", response.stdOutHist.replace(/\n/g, " ").trim()); 
@@ -1711,49 +1748,61 @@ app.get('/debug/updateRemoteDemo' , async (req, res) => {
 	res.send(returnValue);
 });
 
-app.listen(
-	{
-		port       : port, // port <number>
-		host       : host, // host <string>
-		// path       : ""   , // path        <string>      Will be ignored if port is specified. See Identifying paths for IPC connections.
-		// backlog    : 0    , // backlog     <number>      Common parameter of server.listen() functions.
-		// exclusive  : false, // exclusive   <boolean>     Default: false
-		// readableAll: false, // readableAll <boolean>     For IPC servers makes the pipe readable for all users. Default: false.
-		// writableAll: false, // writableAll <boolean>     For IPC servers makes the pipe writable for all users. Default: false.
-		// ipv6Only   : false, // ipv6Only    <boolean>     For TCP servers, setting ipv6Only to true will disable dual-stack support, i.e., binding to host :: won't make 0.0.0.0 be bound. Default: false.
-		// signal     : null , // signal      <AbortSignal> An AbortSignal that may be used to close a listening server.	
-	}, 
-	function() {
-		// Set virtual paths.
-		app.use('/'                  , express.static(htmlPath));
-		app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
-		app.use('/DEVICE_DATA'       , express.static(path.join(__dirname, 'DEVICE_DATA')));
-		app.use('/DEVICE_DATA_IMAGES', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+(async () => {
+	// Make sure the process on the server port is removed before trying to listen on that port. 
+	try { 
+		await fkill(`:${config.port}`); 
+		console.log(`Process using tcp port ${config.port} REMOVED`); 
+	} 
+	catch(e){ 
+		// console.log(`Process using tcp port ${config.port} does not exist.`); 
+	} 
 
-		// app.use(express.json());
-		// app.use(express.urlencoded({ extended: true }));
+	app.listen(
+		{
+			port       : port, // port <number>
+			host       : host, // host <string>
+			// path       : ""   , // path        <string>      Will be ignored if port is specified. See Identifying paths for IPC connections.
+			// backlog    : 0    , // backlog     <number>      Common parameter of server.listen() functions.
+			// exclusive  : false, // exclusive   <boolean>     Default: false
+			// readableAll: false, // readableAll <boolean>     For IPC servers makes the pipe readable for all users. Default: false.
+			// writableAll: false, // writableAll <boolean>     For IPC servers makes the pipe writable for all users. Default: false.
+			// ipv6Only   : false, // ipv6Only    <boolean>     For TCP servers, setting ipv6Only to true will disable dual-stack support, i.e., binding to host :: won't make 0.0.0.0 be bound. Default: false.
+			// signal     : null , // signal      <AbortSignal> An AbortSignal that may be used to close a listening server.	
+		}, 
+		function() {
+			// Set virtual paths.
+			app.use('/'                  , express.static(htmlPath));
+			app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
+			app.use('/DEVICE_DATA'       , express.static(path.join(__dirname, 'DEVICE_DATA')));
+			app.use('/DEVICE_DATA_IMAGES', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+	
+			// app.use(express.json());
+			// app.use(express.urlencoded({ extended: true }));
+	
+			process.once('SIGUSR2', function () {
+				console.log("====== SIGUSR2 ======", process.pid);
+				process.kill(process.pid, 'SIGUSR2');
+			});
+			
+			process.once('SIGINT', function () {
+				// this is only called on ctrl+c, not restart
+				console.log("====== SIGINT ======", process.pid);
+				process.kill(process.pid, 'SIGINT');
+			});
+	
+			//
+			console.log("");
+			console.log("*************** APP INFO ***************");
+			console.log(`CONFIGURATION: ${JSON.stringify(config,null,1)}`);
+			console.log(`App listening at http://${host}:${port}`);
+			console.log("SERVER STARTED:", `${new Date().toString().split(" GMT")[0]} `) ;
+			console.log("*************** APP INFO ***************");
+			console.log("");
+		}
+	);
+})();
 
-		process.once('SIGUSR2', function () {
-			console.log("====== SIGUSR2 ======", process.pid);
-			process.kill(process.pid, 'SIGUSR2');
-		});
-		
-		process.once('SIGINT', function () {
-			// this is only called on ctrl+c, not restart
-			console.log("====== SIGINT ======", process.pid);
-			process.kill(process.pid, 'SIGINT');
-		});
-
-		//
-		console.log("");
-		console.log("*************** APP INFO ***************");
-		console.log(`CONFIGURATION: ${JSON.stringify(config,null,1)}`);
-		console.log(`App listening at http://${host}:${port}`);
-		console.log("SERVER STARTED:", `${new Date().toString().split(" GMT")[0]} `) ;
-		console.log("*************** APP INFO ***************");
-		console.log("");
-	}
-);
 
 // app.listen(port, host, () => {
 // 	// Compression.
