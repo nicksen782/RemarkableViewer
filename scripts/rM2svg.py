@@ -154,16 +154,16 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
     _stroke_fmt = _stroke_fmt_by_vers[re_expected_header_match.groups(1)[0]]
     output = open(output_name, 'w')
     output.write('<svg xmlns="http://www.w3.org/2000/svg" height="{}" width="{}">'.format(y_width, x_width)) # BEGIN Notebook
-    output.write('''
-        <script type="application/ecmascript"> <![CDATA[
-            var visiblePage = 'p1';
-            function goToPage(page) {
-                document.getElementById(visiblePage).setAttribute('style', 'display: none');
-                document.getElementById(page).setAttribute('style', 'display: inline');
-                visiblePage = page;
-            }
-        ]]> </script>
-    ''')
+    # output.write('''
+    #     <script type="application/ecmascript"> <![CDATA[
+    #         var visiblePage = 'p1';
+    #         function goToPage(page) {
+    #             document.getElementById(visiblePage).setAttribute('style', 'display: none');
+    #             document.getElementById(page).setAttribute('style', 'display: inline');
+    #             visiblePage = page;
+    #         }
+    #     ]]> </script>
+    # ''')
 
     # Iterate through pages (There is at least one)
     output.write('<g id="p1" style="display:inline">')

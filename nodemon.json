@@ -14,10 +14,13 @@
 		"restart": ""
 	},
 	"watch": [
-		"_backend.js", "timeIt.js", "configFile.json"
+		"_backend.js", "timeIt.js", "configFile.json", "nodemon.json"
 	],
 	"env": {
 		"NODE_ENV": "development"
 	},
-	"ext": "js"
-  }
+	"ext": "js",
+	"delay": "2000"
+}
+
+

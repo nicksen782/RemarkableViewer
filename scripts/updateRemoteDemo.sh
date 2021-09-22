@@ -8,7 +8,7 @@ if   [ $1 == 'part1' ]; then
 	echo "===== Rsync the SERVER directory. (skip: DEVICE_DATA_IMAGES, DEVICE_DATA) ===== ";
 	DEST="nicksen782@dev2.nicksen782.net:/home/nicksen782/workspace/websites/LIVE/nicksen782.net/RemarkableViewer/SERVER/";
 	SRC="..";
-	rsync --exclude '.cache/' --exclude 'DEVICE_DATA' --exclude 'DEVICE_DATA_IMAGES' --exclude '.git' --exclude 'debug/lab' --exclude 'configFile.json' --exclude '_WebUI/Angular' --delete -r -v --stats --checksum $SRC $DEST;
+	rsync --exclude '.cache/' --exclude 'DEVICE_DATA' --exclude 'DEVICE_DATA_IMAGES' --exclude '.git' --exclude 'debug/lab' --exclude 'configFile.json' --exclude '_WebUI/*' --delete -r -v --stats --checksum $SRC $DEST;
 	echo;
 
 # (configFile.json)   
