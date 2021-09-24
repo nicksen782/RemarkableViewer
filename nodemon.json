@@ -14,7 +14,14 @@
 		"restart": ""
 	},
 	"watch": [
-		"_backend.js", "timeIt.js", "configFile.json", "nodemon.json"
+		"nodemon.json",
+		"configFile.json", 
+		"timeIt.js",
+		"_backend.js", 
+		"config.js", 
+		"funcs.js", 
+		"updateAll2.js", 
+		"webApi.js" 
 	],
 	"env": {
 		"NODE_ENV": "development"
