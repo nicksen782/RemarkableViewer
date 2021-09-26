@@ -17,7 +17,8 @@ const funcs  = require('./modules/funcs.js').funcs;
 app.get('/getFilesJson'       , async (req, res) => {
 	// console.log("\nroute: getFilesJson:", req.query);
 	
-	fs.unlinkSync( config.htmlPath + "/files.json" );
+	// FOR DEBUG.
+	// fs.unlinkSync( config.htmlPath + "/files.json" );
 
 	let returnValue;
 	try{ 
@@ -37,9 +38,15 @@ app.get('/getFilesJson'       , async (req, res) => {
 app.get('/getGlobalUsageStats', async (req, res) => {
 	// console.log("\nroute: getGlobalUsageStats:", req.query);
 	
-	// let stamp = timeIt.stamp("route: getGlobalUsageStats", null);
 	let returnValue;
-	try{ returnValue = await webApi.getGlobalUsageStats(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	try{ 
+		returnValue = await webApi.getGlobalUsageStats(); 
+	}
+	catch(e){ 
+		console.log("ERROR:", e); 
+		res.send(JSON.stringify(e));
+		return; 
+	}
 
 	// Should be JSON already.
 	res.send(returnValue);
@@ -47,28 +54,29 @@ app.get('/getGlobalUsageStats', async (req, res) => {
 app.get('/getSvgs'            , async (req, res) => {
 	let returnValue;
 	let arg1 = req.query.notebookId;
-	let arg2 = req.query.notebookTemplatesAs;
-	let arg3 = req.query.notebookPagesAs;
 
-	try{ returnValue = await webApi.getSvgs(arg1, arg2, arg3); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-
-	// Should be JSON already.
-	res.send(returnValue);
-});
-app.get('/getSvgs2'           , async (req, res) => {
-	let returnValue;
-	let arg1 = req.query.notebookId;
-	let arg2 = req.query.notebookTemplatesAs;
-	let arg3 = req.query.notebookPagesAs;
-
-	try{ returnValue = await webApi.getSvgs2(arg1, arg2, arg3); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	try{ 
+		returnValue = await webApi.getSvgs(arg1); 
+	} 
+	catch(e){ 
+		console.log("ERROR:", e); 
+		res.send(JSON.stringify(e));
+		return; 
+	}
 
 	// Should be JSON already.
 	res.send(returnValue);
 });
 app.get('/getThumbnails'      , async (req, res) => {
 	let returnValue;
-	try{ returnValue = await webApi.getThumbnails(req.query.parentId, req.query.thumbnailPagesAs); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	try{ 
+		returnValue = await webApi.getThumbnails(req.query.parentId); 
+	} 
+	catch(e){ 
+		console.log("ERROR:", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
+	}
 
 	// Should be JSON already.
 	res.send(returnValue);
@@ -77,16 +85,34 @@ app.get('/getSettings'        , async (req, res) => {
 	// Get the file.
 	let settings;
 
-	if(config.environment != "local"){ 
-		try{ settings = fs.readFileSync(config.htmlPath + "/settingsDEMO.json"); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+	// Get the local version settings.
+	if(config.environment == "local"){ 
+		try{ 
+			settings = fs.readFileSync(config.htmlPath + "/settings.json"); 
+		} 
+		catch(e){ 
+			console.log("ERROR:", e); 
+			res.send(JSON.stringify(e)); 
+			return; 
+		}
 	}
+	// Get the demo version settings.
 	else{
-		try{ settings = fs.readFileSync(config.htmlPath + "/settings.json"); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
+		try{ 
+			settings = fs.readFileSync(config.htmlPath + "/settingsDEMO.json"); 
+		} 
+		catch(e){ 
+			console.log("ERROR:", e); 
+			res.send(JSON.stringify(e)); 
+			return; 
+		}
 	}
 	
 	// Add the environment value. 
 	settings = JSON.parse(settings);
 	settings.environment = config.environment;
+	// settings.environment = "local";
+	// settings.environment = "demo";
 	settings = JSON.stringify(settings, null, 1);
 
 	// Should be JSON already.
@@ -100,7 +126,14 @@ app.post('/updateSettings'    ,express.json(), async (req, res) => {
 	}
 
 	// Write the new file. 
-	fs.writeFileSync(config.htmlPath + "/settings.json", JSON.stringify(req.body,null,1) );
+	try{
+		fs.writeFileSync(config.htmlPath + "/settings.json", JSON.stringify(req.body,null,1) );
+	}
+	catch(e){ 
+		console.log("ERROR:", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
+	}
 
 	// Return the response.
 	res.json("updated");
@@ -108,7 +141,7 @@ app.post('/updateSettings'    ,express.json(), async (req, res) => {
 
 // WEB UI - ROUTES (local only)
 app.get('/updateFromDevice'          , async (req, res) => {
-	console.log("\nroute: updateFromDevice:", req.query);
+	// console.log("\nroute: updateFromDevice:", req.query);
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
@@ -127,7 +160,9 @@ app.get('/updateFromDevice'          , async (req, res) => {
 		returnValue = await webApi.updateFromDevice( { req: req, res: res, options } ); 
 	} 
 	catch(e){
-		// ?
+		console.log("ERROR:", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
 	}
 
 	// No return response here. It is handled by webApi.updateFromDevice instead. 
@@ -143,8 +178,15 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 	// First, get the data.
 	let timeItIndex = timeIt.stamp("route: updateRemoteDemo", null);
 	let returnValue;
-	try{ returnValue = await funcs.updateRemoteDemo(); } catch(e){ console.log("ERROR: funcs.updateRemoteDemo: ", e); res.send(JSON.stringify(e)); return; }
-	returnValue = returnValue;
+	try{ 
+		returnValue = await funcs.updateRemoteDemo();
+	} 
+	catch(e){ 
+		console.log("ERROR: funcs.updateRemoteDemo: ", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
+	}
+
 	timeIt.stamp("route: updateRemoteDemo", timeItIndex);
 
 	let timeStampString = timeIt.getStampString();
@@ -161,7 +203,7 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 	// Make sure the process on the server port is removed before trying to listen on that port. 
 	try { 
 		await fkill(`:${config.port}`); 
-		console.log(`Process using tcp port ${config.port} REMOVED`); 
+		console.log(`Process using tcp port ${config.port} has been REMOVED`); 
 	} 
 	catch(e){ 
 		// console.log(`Process using tcp port ${config.port} does not exist.`); 
@@ -183,8 +225,8 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 			// Set virtual paths.
 			app.use('/'                  , express.static(config.htmlPath));
 			app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
-			app.use('/DEVICE_DATA'       , express.static(path.join(__dirname, 'DEVICE_DATA')));
-			app.use('/DEVICE_DATA_IMAGES', express.static(path.join(__dirname, 'DEVICE_DATA_IMAGES')));
+			app.use('/DEVICE_DATA'       , express.static( path.join(__dirname, 'DEVICE_DATA') ));
+			app.use('/DEVICE_DATA_IMAGES', express.static( path.join(__dirname, 'DEVICE_DATA_IMAGES') ));
 	
 			// app.use(express.json());
 			// app.use(express.urlencoded({ extended: true }));
@@ -203,7 +245,6 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 			//
 			console.log("");
 			console.log("*************** APP INFO ***************");
-			// console.log(`CONFIGURATION: ${JSON.stringify(config,null,1)}`);
 			console.log(`CONFIGURATION:`);
 			let maxLength = 0; 
 			for(let key in config){ if(key.length > maxLength) { maxLength = key.length; } }
