@@ -1,6 +1,6 @@
 {
 	"environment" : "local",
-	"htmlPath"    : "./_WebUI/Html",
+	"htmlPath"    : "_WebUI/Html",
 	"dataPath"    : "DEVICE_DATA/xochitl/",
 	"imagesPath"  : "DEVICE_DATA_IMAGES/",
 	"scriptsPath" : "./scripts",

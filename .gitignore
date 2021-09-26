@@ -14,3 +14,4 @@ _WebUI/*
 scripts/updateRemoteDemo.resps.json
 scripts/demo_files.json
 scripts/updateRemoteDemo.filter
+scripts/OLD/*

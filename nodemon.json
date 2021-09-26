@@ -16,12 +16,8 @@
 	"watch": [
 		"nodemon.json",
 		"configFile.json", 
-		"timeIt.js",
 		"_backend.js", 
-		"config.js", 
-		"funcs.js", 
-		"updateAll2.js", 
-		"webApi.js" 
+		"modules/*.js"
 	],
 	"env": {
 		"NODE_ENV": "development"

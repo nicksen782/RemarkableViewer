@@ -7,35 +7,30 @@ const fs              = require('fs');
 const fkill           = require('fkill');
 
 // Personal libraries/frameworks.
-const timeIt = require('./timeIt.js');
-const webApi = require('./webApi.js').webApi;
-const config = require('./config.js').config;
-const funcs  = require('./funcs.js').funcs;
+// const timeIt = require('./modules/timeIt.js');
+const webApi = require('./modules/webApi.js').webApi;
+const config = require('./modules/config.js').config;
+const funcs  = require('./modules/funcs.js').funcs;
+// const updateFromDevice  = require('./modules/updateFromDevice.js').updateFromDevice;
 
 // WEB UI - ROUTES
 app.get('/getFilesJson'       , async (req, res) => {
 	// console.log("\nroute: getFilesJson:", req.query);
 	
+	fs.unlinkSync( config.htmlPath + "/files.json" );
+
 	let returnValue;
-	try{ returnValue = await webApi.getFilesJson(); } catch(e){ console.log("ERROR:", e); res.send(JSON.stringify(e)); return; }
-
-	// The web UI does not need the "pages" within .content so remove them. 
-	for(let key in returnValue.DocumentType){
-		let rec = returnValue.DocumentType[key];
-
-		// Save the only the first page. 
-		if(!rec.extra._firstPageId){
-			console.log("Adding missing rec.extra._firstPageId");
-			rec.extra._firstPageId = rec.content.pages[0];
-		}
-		else{
-			// console.log("Already exists: rec.extra._firstPageId");
-		}
-
-		// Delete the pages key. (~35% decrease in file size. The pages key will continue to be part of files.json but they won't be sent.)
-		delete rec.content.pages;
+	try{ 
+		// Call with false so that we do not get the full version of files.json.
+		returnValue = await funcs.getExistingJsonFsData(false);
+		returnValue = returnValue.files;
+	} 
+	catch(e){ 
+		console.log("ERROR:", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
 	}
-
+	
 	// Should be JSON already.
 	res.send(returnValue);
 });
@@ -112,8 +107,8 @@ app.post('/updateSettings'    ,express.json(), async (req, res) => {
 });
 
 // WEB UI - ROUTES (local only)
-app.get('/updateAll2'             , async (req, res) => {
-	console.log("\nroute: updateAll2:", req.query);
+app.get('/updateFromDevice'          , async (req, res) => {
+	console.log("\nroute: updateFromDevice:", req.query);
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
@@ -121,17 +116,23 @@ app.get('/updateAll2'             , async (req, res) => {
 		return; 
 	}
 
+	let options = {
+		interface      : req.query.interface     , 
+		doSync         : req.query.doSync         || false, 
+		doConversions  : req.query.doConversions  || false, 
+		doOptimization : req.query.doOptimization || false
+	};
+	
 	try{ 
-		returnValue = await webApi.updateAll2( { req: req, res: res, interface: req.query.interface } ); 
-		// returnValue = await updateAll2.updateAll2( { req: req, res: res, interface: req.query.interface } ); 
+		returnValue = await webApi.updateFromDevice( { req: req, res: res, options } ); 
 	} 
 	catch(e){
 		// ?
 	}
 
-	// No return response here. It is handled by webApi.updateAll2 instead. 
+	// No return response here. It is handled by webApi.updateFromDevice instead. 
 });
-app.get('/debug/updateRemoteDemo' , async (req, res) => {
+app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 	console.log("/debug/updateRemoteDemo");
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
@@ -202,7 +203,14 @@ app.get('/debug/updateRemoteDemo' , async (req, res) => {
 			//
 			console.log("");
 			console.log("*************** APP INFO ***************");
-			console.log(`CONFIGURATION: ${JSON.stringify(config,null,1)}`);
+			// console.log(`CONFIGURATION: ${JSON.stringify(config,null,1)}`);
+			console.log(`CONFIGURATION:`);
+			let maxLength = 0; 
+			for(let key in config){ if(key.length > maxLength) { maxLength = key.length; } }
+			for(let key in config){
+				console.log(`  ${key.padEnd(maxLength, " ")} : ${config[key]}`);
+			}
+
 			console.log(`App listening at http://${config.host}:${config.port}`);
 			console.log("SERVER STARTED:", `${new Date().toString().split(" GMT")[0]} `) ;
 			console.log("*************** APP INFO ***************");

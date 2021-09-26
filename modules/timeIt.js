@@ -72,5 +72,5 @@ module.exports = {
 	getStampString    : getStampString,
 	clearTimeItStamps : clearTimeItStamps,
 	stamp             : stamp,
-	_version          : function(){ return "Version 2021-08-30"; }
+	_version          : function(){ return "Version 2021-09-24"; }
 };

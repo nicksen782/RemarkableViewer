@@ -15,13 +15,18 @@
 # https://newbedev.com/rsync-difference-between-size-only-and-ignore-times
 
 # Make sure that correct arguments have been passed.
+CMD=
+# CMD2=
 SRC=
+# SRC2=
 DEST=
+# DEST2=
 SSHALIAS=
 case $1 in
 	tolocal) 
 		if [ "$1" == "tolocal" ]; then
-			DEST="../DEVICE_DATA/"
+			DEST="../DEVICE_DATA/";
+			# DEST2="../DEVICE_DATA/templates/";
 		fi
 		;;
 	*)
@@ -31,11 +36,13 @@ esac
 case $2 in
 	wifi|usb)
 		if [ "$2" == "wifi" ]; then
-			SRC="remarkablewifi:/home/root/.local/share/remarkable/";
 			SSHALIAS=remarkablewifi;
+			SRC="$SSHALIAS:/home/root/.local/share/remarkable/";
+			# SRC2="$SSHALIAS:/usr/share/remarkable/templates/";
 		elif [ $2 == "usb" ]; then
-			SRC="remarkableusb:/home/root/.local/share/remarkable/"
 			SSHALIAS=remarkableusb;
+			SRC="$SSHALIAS:/home/root/.local/share/remarkable/"
+			# SRC2="$SSHALIAS:/usr/share/remarkable/templates/";
 		fi
 		;;
 	*)
@@ -50,18 +57,18 @@ if [[ $STATUS != ok ]] ; then
 fi
 
 EXCLUDES="--exclude '.cache/' --exclude 'webusb' --exclude 'templates'"
-# ARGS='--delete -r -v --stats' 
-# ARGS='--delete -r -v --stats -t --checksum' 
-# ARGS='--delete -r -v --stats -t --size-only'
-ARGS='--delete -r -v -a --stats'
+ARGS='--delete -r -v -a --stats '
 
 # Create the command. 
 CMD="time rsync $ARGS $EXCLUDES $SRC $DEST"
+# CMD2="time rsync $ARGS          $SRC2 $DEST2"
 echo 
 
 # Run the command.
 eval $CMD
+# eval $CMD2
 echo 
 
 # Display what the full command was.
 echo "CMD: $CMD";
+# echo "CMD2: $CMD2";

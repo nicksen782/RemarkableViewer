@@ -178,21 +178,21 @@ const createJsonFsData         = async function(writeFile){
 		
 								// DEBUG: Remove keys
 								if(newObj.metadata.type == "CollectionType"){
-									delete newObj.metadata.deleted;
+									// delete newObj.metadata.deleted;
 									// delete newObj.metadata.modified;
 									// delete newObj.metadata.pinned;
 									// delete newObj.metadata.synced;
-									delete newObj.metadata.metadatamodified;
+									// delete newObj.metadata.metadatamodified;
 
 									// delete newObj.metadata.lastModified;
 									// delete newObj.metadata.version;
 								}
 								else if(newObj.metadata.type == "DocumentType"){
-									delete newObj.metadata.deleted;
+									// delete newObj.metadata.deleted;
 									// delete newObj.metadata.modified;
 									// delete newObj.metadata.pinned;
 									// delete newObj.metadata.synced;
-									delete newObj.metadata.metadatamodified;
+									// delete newObj.metadata.metadatamodified;
 									// delete newObj.metadata.lastOpened;     
 									// delete newObj.metadata.lastOpenedPage; 
 
@@ -206,7 +206,6 @@ const createJsonFsData         = async function(writeFile){
 
 								// newObj.extra["_thisFileId"] = file.replace(".metadata", "");
 		
-								
 								// Get the .content file too.
 								let content_filename = path.join(basePath, file.replace(".metadata", ".content") );
 								fs.readFile(content_filename, function (err, file_buffer2) {
@@ -250,10 +249,10 @@ const createJsonFsData         = async function(writeFile){
 										res1(); return; // Resolve.
 									}
 									// Ignore trash.
-									else if(check3){
-										// console.log("Skipping trash.");
-										res1(); return; // Resolve.
-									}
+									// else if(check3){
+									// 	// console.log("Skipping trash.");
+									// 	res1(); return; // Resolve.
+									// }
 									// Add the completed record.
 									else {
 										// Get the .pagedata file too if it exists.
@@ -289,7 +288,7 @@ const createJsonFsData         = async function(writeFile){
 		
 				Promise.all(proms).then(
 					function(success){
-						// console.log("SUCCESS: createJsonFsData: ", success.length, "files.");
+						console.log("SUCCESS: createJsonFsData: ", success.length, "files.");
 						res(json);
 					},
 					function(error){
@@ -304,15 +303,18 @@ const createJsonFsData         = async function(writeFile){
 				let dirs = {};
 				let files = {};
 		
-				// Creates "dirs"
-				// console.log(fileList.CollectionType["546a43d3-59ae-4a23-95ac-ba8218866e64"]);
-				// console.log(fileList.DocumentType["546a43d3-59ae-4a23-95ac-ba8218866e64"]);
-				// console.log(fileList.CollectionType);
-				// console.log(fileList.DocumentType);
-
+				// Creates "directories"
 				fileList["CollectionType"].forEach(function(d){
-					// Skip trash.
-					if(d.metadata.parent == "trash"){ return; }
+					// // Skip deleted.
+					// if(d.metadata.deleted == true){ 
+					// 	console.log("Skip deleted", d); 
+					// 	return;
+					// }
+					// // Skip trash.
+					// if(d.metadata.parent == "trash"){ 
+					// 	console.log("Skip trash", d); 
+					// 	return; 
+					// }
 
 					// Create the object if it doesn't exist.
 					if(!dirs[d.metadata.parent]){
@@ -334,8 +336,16 @@ const createJsonFsData         = async function(writeFile){
 		
 				// Creates "files"
 				fileList["DocumentType"].forEach(function(d){
-					// Skip trash.
-					if(d.metadata.parent == "trash"){ return; }
+					// // Skip deleted.
+					// if(d.metadata.deleted == true){ 
+					// 	console.log("Skip deleted", d); 
+					// 	return;
+					// }
+					// // Skip trash.
+					// if(d.metadata.parent == "trash"){ 
+					// 	console.log("Skip trash", d); 
+					// 	return; 
+					// }
 
 					// Create the object if it doesn't exist.
 					if(!files[d.metadata.parent]){
@@ -356,6 +366,58 @@ const createJsonFsData         = async function(writeFile){
 					};
 				});
 		
+				// Create a "directory" for trash.
+				// Create the object if it doesn't exist.
+				if(!dirs["trash"]){
+					dirs["trash"] = {};
+				}
+	
+				// Add to the object.
+				dirs["trash"] = {
+					metadata: {
+						"deleted": false,
+						"lastModified": "0",
+						"metadatamodified": false,
+						"modified": false,
+						"parent": "",
+						"pinned": false,
+						"synced": true,
+						"type": "CollectionType",
+						"version": 1,
+						"visibleName": "trash"
+					},
+					content: {},
+					extra: {
+						"_thisFileId": "trash"
+					},
+
+					// DEBUG
+					path: [],
+					name: "trash"
+				};
+				dirs["deleted"] = {
+					metadata: {
+						"deleted": false,
+						"lastModified": "0",
+						"metadatamodified": false,
+						"modified": false,
+						"parent": "",
+						"pinned": false,
+						"synced": true,
+						"type": "CollectionType",
+						"version": 1,
+						"visibleName": "deleted"
+					},
+					content: {},
+					extra: {
+						"_thisFileId": "deleted"
+					},
+
+					// DEBUG
+					path: [],
+					name: "deleted"
+				};
+
 				let fin = {
 					"CollectionType":dirs,
 					"DocumentType":files,
@@ -376,19 +438,17 @@ const createJsonFsData         = async function(writeFile){
 			});
 		};
 
+		// Get a list of all the files in the xochitil folder.
 		let files = await getItemsInDir(config.dataPath, "files");
+		// Filter that list to only include the .metadata files. 
 		files = files.filter(function(d){
 			if(d.filepath.indexOf(".metadata") != -1){ return true; }
 		})
-		.map(
-			function(d){
-				let base = d.filepath.replace(config.dataPath, "");
-				return base;
-			})
-		;
-
+		// Further filter each anem to remove the full config.dataPath.
+		.map( function(d){ 
+			return d.filepath.replace(config.dataPath, ""); 
+		} );
 		files = await getAllJson(files, config.dataPath);
-
 		files = await createDirectoryStructure(files);
 		
 		if(writeFile){
@@ -400,24 +460,58 @@ const createJsonFsData         = async function(writeFile){
 		resolve(files);
 	});
 };
-const getExistingJsonFsData    = async function(recreateIfMissing = true){
+const getExistingJsonFsData    = async function(fullVersion=true){
 	return new Promise(async function(resolve,reject){
 		let files;
 		let recreateall = false;
 		if( !fs.existsSync(config.htmlPath + "/files.json") ){
-			// if(recreateIfMissing){
-				// console.log("getExistingJsonFsData: no existing data. Creating it now.");
-				try{ files = await createJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
-			// }
-			// else{
-				// console.log("getExistingJsonFsData: no existing data. recreateIfMissing was set to false. Not creating data.");
-			// }
+			try{ 
+				files = await createJsonFsData(true); 
+			} 
+			catch(e){ 
+				console.log("ERROR:", e); 
+				reject(JSON.stringify(e)); 
+				return; 
+			}
 			recreateall = true;
 		}
 		else{
-			// console.log("getExistingJsonFsData: Data exists, retrieving it.");
 			files = fs.readFileSync(config.htmlPath + "/files.json");
 			files = JSON.parse(files);
+		}
+
+		if(!fullVersion){
+			// Remove some data from the CollectionTypes.
+			for(let key in files.CollectionType){
+				let rec = files.CollectionType[key];
+				
+				// Delete from object root:
+				delete rec.name;
+			}
+			
+			// Remove some data from the DocumentTypes.
+			for(let key in files.DocumentType){
+				let rec = files.DocumentType[key];
+
+				// Save the only the first page. 
+				if(!rec.extra._firstPageId){
+					console.log("Adding missing rec.extra._firstPageId");
+					rec.extra._firstPageId = rec.content.pages[0];
+				}
+
+				// Delete from .content:
+				let keys_content = Object.keys(rec.content);
+				let keep_content = ["pageCount", "fileType", "textScale", "orientation", "margins"];
+				keys_content.forEach(function(d){
+					if(keep_content.indexOf(d) == -1){
+						delete rec.content[d];
+					}
+				});
+				delete rec.content.pages;
+
+				// Delete from object root:
+				delete rec.name;
+			}
 		}
 
 		resolve({recreateall:recreateall, files:files});
@@ -439,7 +533,7 @@ const updateRemoteDemo         = async function(){
 		 */
 
 		let files;
-		try{ files = await getExistingJsonFsData(); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+		try{ files = await getExistingJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
 		files = files.files;
 
 		// Get a list of all files and directories within "Remarkable Page Turner"
@@ -533,14 +627,6 @@ module.exports = {
 		getExistingJsonFsData   : getExistingJsonFsData   ,
 		updateRemoteDemo        : updateRemoteDemo        ,
 	},
-	// getLastValueOfArray     : getLastValueOfArray     ,
-	// getItemsInDir           : getItemsInDir           ,
-	// getParentDirName        : getParentDirName        ,
-	// getParentPath           : getParentPath           ,
-	// runCommand_exec_progress: runCommand_exec_progress,
-	// createJsonFsData        : createJsonFsData        ,
-	// getExistingJsonFsData   : getExistingJsonFsData   ,
-	// updateRemoteDemo        : updateRemoteDemo        ,
 	
-	_version          : function(){ return "Version 2021-09-23"; }
+	_version          : function(){ return "Version 2021-09-24"; }
 };
