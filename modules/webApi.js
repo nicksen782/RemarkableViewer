@@ -4,10 +4,32 @@ const path             = require('path');
 const funcs            = require('./funcs.js').funcs;
 const config           = require('./config.js').config;
 const updateFromDevice = require('./updateFromDevice').updateFromDevice;
+const optimizeSvg      = require('./updateFromDevice').optimizeSvg;
 
 const webApi = {
+	//
 	updateFromDevice    : updateFromDevice,
-	getSvgs             : function(notebookId, notebookTemplatesAs, notebookPagesAs){
+	//
+	updateFromDeviceTemplates : function(){
+		return new Promise(async function(resolve_top,reject_top){
+			// Get the /usr/share/remarkable/templates directory from the device.
+			
+			// scripts/syncTemplates.sh
+			// optimizeSvg
+			// const optimizeSvg = function(changeRec, fileRec, totalCount){
+			// let obj = {
+			// 	docId      : key, // docId: 'af6beacb-ddea-4ada-91da-bb63bcb38ef3',
+			// 	name       : rec.metadata.visibleName, // name: 'To do',
+			// 	pageFile   : d, // pageFile: ffe8551c-c0c9-4c4c-bd42-0a8a0817c691
+			// 	fileType   : rec.content.fileType, // fileType: 'notebook',
+			// 	srcFile    : config.dataPath + key + "/" + d +".rm", // path: 'xochitl/af6beacb-ddea-4ada-91da-bb63bcb38ef3/ffe8551c-c0c9-4c4c-bd42-0a8a0817c691.rm',
+			// 	changeType : "updated", // changeType: 'updated'
+			// };
+
+		});
+	},
+	//
+	getSvgs             : function(notebookId){
 		return new Promise(async function(resolve_top,reject_top){
 			// Get files.json.
 			let files ;
@@ -21,77 +43,83 @@ const webApi = {
 				return;
 			}
 
-			let fileType = files.DocumentType[notebookId].content.fileType;
+			let visibleName = files.DocumentType[notebookId].metadata.visibleName;
+			let fileType    = files.DocumentType[notebookId].content.fileType;
+			let pages       = files.DocumentType[notebookId].content.pages;
 			let layers;
-			let pages = files.DocumentType[notebookId].content.pages;
+
+			let fileDir      = config.imagesPath + "" + notebookId + "/";
+			// let templatesDir = config.templatesPath; 
 
 			if(fileType == "pdf"){
-				let annotatedPages = [];
-				let fileDir = config.imagesPath + "" + notebookId + "/annotations/";
+				// let annotationsDir = config.imagesPath + "" + notebookId + "/annotations/";
 
-				pages.forEach(function(d){
-					let findThis1 = fileDir + d + ".svg";
-					let findThis2 = fileDir + d + ".min.svg";
+				// PDF PAGES.
+				let temp1 = [];
+				pages.forEach(function(d, i){
+					let findThis1 = fileDir + d + ".min.svg";
+					let findThis2 = fileDir + d + ".svg";
+					let findThis3 = fileDir + d + ".png";
+					let findThis4 = `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`;
 					
-					if( fs.existsSync(findThis1) ){
-						annotatedPages.push(findThis1);
-					}
-					else if( fs.existsSync(findThis2) ){
-						annotatedPages.push(findThis2);
-					}
-					else{
-						annotatedPages.push("");
-					}
+					if     ( fs.existsSync(findThis1) ){ temp1.push(findThis1); console.log("PDF L1: .min.svg", visibleName, i); }
+					else if( fs.existsSync(findThis2) ){ temp1.push(findThis2); console.log("PDF L1: .svg", visibleName, i); }
+					else if( fs.existsSync(findThis3) ){ temp1.push(findThis3); console.log("PDF L1: .png", visibleName, i); }
+					else if( fs.existsSync(findThis4) ){ temp1.push(findThis4); console.log("PDF L1: .jpg", visibleName, i); }
+					else{ temp1.push(""); console.log("PDF L2: Could not find page file.", visibleName, i); }
 				});
 
-				// Get the notebook svgs.
+				// ANNOTATION PAGES.
 				let temp2 = [];
-				dirFiles.forEach(function(d){
-					let filename = `${d.filepath}`
-					temp2.push(filename);
+				pages.forEach(function(d, i){
+					let findThis1 = fileDir + d + ".min.svg"; 
+					let findThis2 = fileDir + d + ".svg";
+					let findThis3 = fileDir + d + ".png";
+					let findThis4 = `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`;
+
+					if     ( fs.existsSync(findThis1) ){ temp2.push(findThis1); console.log("ANOTATION L2: .min.svg", visibleName, i); }
+					else if( fs.existsSync(findThis2) ){ temp2.push(findThis2); console.log("ANOTATION L2: .svg", visibleName, i); }
+					else if( fs.existsSync(findThis3) ){ temp2.push(findThis3); console.log("ANOTATION L2: .png", visibleName, i); }
+					else if( fs.existsSync(findThis4) ){ temp2.push(findThis4); console.log("ANOTATION L2: .jpg", visibleName, i); }
+					else{ temp2.push(""); console.log("ANOTATION L2: Could not find page file.", visibleName, i); }
 				});
 
 				layers = {
 					// PDF pages.
-					"layer1":temp2,
+					"layer1":temp1,
 
 					// Annotations of PDF pages.
-					"layer2":annotatedPages,
+					"layer2":temp2,
 				};
 			}
-			else if(fileType == "notebook"){
-				let fileDir = config.imagesPath + "" + notebookId + "/";
 
+			else if(fileType == "notebook"){
 				// Get the templates. 
 				let temp1 = [];
-				files.DocumentType[notebookId].pagedata.forEach(function(d){
-					let findThis1 = `DEVICE_DATA/templates/${d}.min.svg`;
-					let findThis2 = `DEVICE_DATA/templates/${d}.svg`;
-					let findThis3 = `DEVICE_DATA/templates/${d}.png`;
-					// console.log("findThis1:", findThis1);
-					// console.log("findThis2:", findThis2);
-					// console.log("findThis3:", findThis3); 
-					// console.log();
-					if     ( fs.existsSync(findThis1) ){ temp1.push(findThis1); }
-					else if( fs.existsSync(findThis2) ){ temp1.push(findThis2); }
-					else if( fs.existsSync(findThis3) ){ temp1.push(findThis3); }
-					else{ temp1.push(""); }
+				files.DocumentType[notebookId].pagedata.forEach(function(d, i){
+					let findThis1 = config.templatesPath + d + ".min.svg"; 
+					let findThis2 = config.templatesPath + d + ".svg";
+					let findThis3 = config.templatesPath + d + ".png";
+
+					if     ( fs.existsSync(findThis1) ){ temp1.push(findThis1); console.log("TEMPLATE L1: .min.svg", visibleName, i); }
+					else if( fs.existsSync(findThis2) ){ temp1.push(findThis2); console.log("TEMPLATE L1: .svg", visibleName, i); }
+					else if( fs.existsSync(findThis3) ){ temp1.push(findThis3); console.log("TEMPLATE L1: .png", visibleName, i); }
+					else{ temp1.push(""); console.log("TEMPLATE L1: Could not find template file.", visibleName, i); }
 				});
 
-				// Get the notebook svgs.
+				// Get the notebook pages.
 				let temp2 = [];
-				pages.forEach(function(d){
+				pages.forEach(function(d, i){
 					let findThis1 = fileDir + d + ".min.svg"; 
-					let findThis2 = fileDir + d + ".svg";     
-					let findThis3 = fileDir + d + ".png";     
-					// console.log("findThis1:", findThis1);
-					// console.log("findThis2:", findThis2);
-					// console.log("findThis3:", findThis3); 
-					// console.log();
-					if     ( fs.existsSync(findThis1) ){ temp2.push(findThis1); }
-					else if( fs.existsSync(findThis2) ){ temp2.push(findThis2); }
-					else if( fs.existsSync(findThis3) ){ temp2.push(findThis3); }
-					else{ temp2.push(""); }
+					let findThis2 = fileDir + d + ".svg";
+					let findThis3 = fileDir + d + ".png";
+					let findThis4 = `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`;
+
+					if     ( fs.existsSync(findThis1) ){ temp2.push(findThis1); console.log("NOTEBOOK L2: .min.svg", visibleName, i); }
+					else if( fs.existsSync(findThis2) ){ temp2.push(findThis2); console.log("NOTEBOOK L2: .svg", visibleName, i); }
+					else if( fs.existsSync(findThis3) ){ temp2.push(findThis3); console.log("NOTEBOOK L2: .png", visibleName, i); }
+					else if( fs.existsSync(findThis4) ){ temp2.push(findThis4); console.log("NOTEBOOK L2: .jpg", visibleName, i); }
+					else{ temp2.push(""); console.log("NOTEBOOK L2: Could not find page file.", visibleName, i); }
 				});
 
 				layers = {
@@ -111,7 +139,7 @@ const webApi = {
 						// "__DEBUG": {
 						// 	"notebookId": notebookId,
 							// "dirFiles": dirFiles,
-						// 	"ARGS": [notebookId, notebookTemplatesAs, notebookPagesAs],
+						// 	"ARGS": [notebookId],
 						// },
 						
 						// DATA
@@ -127,20 +155,7 @@ const webApi = {
 			);
 		});
 	},
-	
-	NEWgetSvgs             : function(notebookId){
-		return new Promise(async function(resolve_top,reject_top){
-			// Get files.json.
-
-			// Get handle to the document's object.
-
-			// Get handle to content.pages.
-
-			// Get those page file names and paths - templates, annotations, pdf images
-
-			// Return data as a layer object - change layers based on content.fileType.
-		});
-	},
+	//
 	getGlobalUsageStats : function(){
 		return new Promise(async function(resolve_top,reject_top){
 			// Get files.json.
@@ -237,7 +252,8 @@ const webApi = {
 			}, null, 1));
 		});
 	},
-	getThumbnails       : function(parentId, thumbnailPagesAs){
+	//
+	getThumbnails       : function(parentId){
 		return new Promise(async function(resolve_top,reject_top){
 			let getThumbnail = function(notebookId, existingFilesJson){
 				//. Use notebookId to get the folder, use .pages to get the page ids (in order.)
@@ -245,8 +261,8 @@ const webApi = {
 	
 				// Need to check that the directory exists.
 				if(!fs.existsSync(targetPath)){ 
-					console.log("targetPath does not exist.", targetPath); 
-					throw "targetPath does not exist." + targetPath ; 
+					console.log("ERROR: getThumbnail: targetPath does not exist.", targetPath); 
+					throw "ERROR: getThumbnail: targetPath does not exist." + targetPath ; 
 					return; 
 				};
 
@@ -256,23 +272,14 @@ const webApi = {
 				// Check that the file exists. 
 				let firstThumbnail_path = path.join(targetPath, firstPageId+".jpg");
 				if(!fs.existsSync(firstThumbnail_path)){ 
-					console.log("firstThumbnail_path does not exist.", firstThumbnail_path); 
-					throw "firstThumbnail_path does not exist." + firstThumbnail_path; 
+					console.log("ERROR: getThumbnail: firstThumbnail_path does not exist.", firstThumbnail_path); 
+					throw "ERROR: getThumbnail: firstThumbnail_path does not exist." + firstThumbnail_path; 
 					return; 
 				};
 				
 				// Retrieve the file as base64.
 				let firstThumbnail;
-				if(thumbnailPagesAs == "filename"){
-					firstThumbnail = firstThumbnail_path;
-				}
-				else if(thumbnailPagesAs == "base64"){
-					// Read the file. 
-					firstThumbnail = fs.readFileSync( firstThumbnail_path, 'base64');
-
-					// Convert to data url.
-					firstThumbnail = 'data:image/jpg;base64,' + firstThumbnail;
-				}
+				firstThumbnail = firstThumbnail_path;
 				
 				return firstThumbnail ;
 			};
@@ -284,7 +291,7 @@ const webApi = {
 				existingFilesJson = existingFilesJson.files; 
 			} 
 			catch(e){ 
-				console.log("ERROR:", e); 
+				console.log("ERROR: getThumbnails:", e); 
 				reject_top();
 				return;
 			}
@@ -293,14 +300,15 @@ const webApi = {
 			let recs = {};
 			for(let key in existingFilesJson.DocumentType){
 				let rec = existingFilesJson.DocumentType[key];
-				if(rec.metadata.parent == parentId){ 
+
+				// If the record's parent is the passed parentId, or the passed parentId is "deleted":
+				if(rec.metadata.parent == parentId || parentId == "deleted"){ 
 					let data;
-					let notebookId = rec.extra._thisFileId;
-					try { data = getThumbnail(notebookId, existingFilesJson); } catch(e){ console.log("ERROR:", e); reject_top(JSON.stringify(e)); return; }	
+					try { data = getThumbnail(rec.extra._thisFileId, existingFilesJson); } catch(e){ console.log("ERROR: getThumbnail:", e); reject_top(JSON.stringify(e)); return; }	
 					recs[key] = data; 
 				}
 			}
-			
+
 			resolve_top(JSON.stringify(recs, null, 0));
 		});
 	},

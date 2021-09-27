@@ -48,6 +48,7 @@ elif [ $1 == 'part5' ]; then
 	cd ..
 	scp recent.json nicksen782@dev2.nicksen782.net:/home/nicksen782/workspace/websites/LIVE/nicksen782.net/RemarkableViewer/SERVER/DEVICE_DATA/recent.json;
 	
+	# Rsync the templates.
 	rsync --delete -r -v --stats --checksum templates/ nicksen782@dev2.nicksen782.net:/home/nicksen782/workspace/websites/LIVE/nicksen782.net/RemarkableViewer/SERVER/DEVICE_DATA/templates/;
 	
 	cd $SCRIPTPATH;

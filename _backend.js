@@ -136,7 +136,7 @@ app.post('/updateSettings'    ,express.json(), async (req, res) => {
 	}
 
 	// Return the response.
-	res.json("updated");
+	res.json("Settings have been updated.");
 });
 
 // WEB UI - ROUTES (local only)
@@ -151,10 +151,11 @@ app.get('/updateFromDevice'          , async (req, res) => {
 
 	let options = {
 		interface      : req.query.interface     , 
-		doSync         : req.query.doSync         || false, 
-		doConversions  : req.query.doConversions  || false, 
-		doOptimization : req.query.doOptimization || false
+		recreateAll    : req.query.recreateAll == 'false' ? false : true , 
 	};
+
+	// DEBUG:
+	// options.recreateAll = true;
 	
 	try{ 
 		returnValue = await webApi.updateFromDevice( { req: req, res: res, options } ); 
@@ -165,8 +166,31 @@ app.get('/updateFromDevice'          , async (req, res) => {
 		return; 
 	}
 
+	// Return the response.
+	res.json("Templates have been updated");
+});
+
+app.get('/updateFromDeviceTemplates' , async (req, res) => {
+	// console.log("\nroute: updateFromDeviceTemplates:", req.query);
+	
+	if(config.environment != "local"){ 
+		console.log("Function is not available in the demo version."); 
+		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		return; 
+	}
+
+	try{ 
+		returnValue = await webApi.updateFromDeviceTemplates(); 
+	} 
+	catch(e){
+		console.log("ERROR:", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
+	}
+
 	// No return response here. It is handled by webApi.updateFromDevice instead. 
 });
+
 app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 	console.log("/debug/updateRemoteDemo");
 	if(config.environment != "local"){ 

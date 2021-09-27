@@ -4,9 +4,12 @@ const { spawn }       = require('child_process');
 const config          = require('./config.js').config;
 
 // UTILITY FUNCTIONS - SHARED.
+
+//
 const getLastValueOfArray      = function(arr){
 	return arr[arr.length-1];
 };
+//
 const getItemsInDir            = async function(targetPath, type, ext=""){
 	if(["files", "dirs"].indexOf(type) == -1){
 		let msg = "";
@@ -73,6 +76,7 @@ const getParentDirName         = function(file, files, returnNameAndId=false){
 		}
 	}
 };
+//
 const getParentPath            = function(id, type, files){
 	let fullPath = [];
 
@@ -129,7 +133,7 @@ const runCommand_exec_progress = async function(cmd, expectedExitCode=0, progres
 			stdErrHist += data;
 		});
 
-		proc.on('close', (code) => {
+		proc.on('exit', (code) => {
 			if(code == expectedExitCode){ 
 				cmd_res({
 					"stdOutHist": stdOutHist,
@@ -138,7 +142,9 @@ const runCommand_exec_progress = async function(cmd, expectedExitCode=0, progres
 			}
 			else{
 				console.log(`  child process exited with code ${code}`);
+				console.log(`  cmd: ${cmd}`);
 				cmd_rej({
+					"cmd": cmd,
 					"stdOutHist": stdOutHist,
 					"stdErrHist": stdErrHist,
 				});
@@ -150,6 +156,8 @@ const runCommand_exec_progress = async function(cmd, expectedExitCode=0, progres
 };
 
 // FUNCTIONS - SHARED.
+
+//
 const createJsonFsData         = async function(writeFile){
 	return new Promise(async function(resolve, reject){
 		const getAllJson = function(fileList, basePath){
@@ -288,7 +296,7 @@ const createJsonFsData         = async function(writeFile){
 		
 				Promise.all(proms).then(
 					function(success){
-						console.log("SUCCESS: createJsonFsData: ", success.length, "files.");
+						// console.log("SUCCESS: createJsonFsData: ", success.length, "files.");
 						res(json);
 					},
 					function(error){
@@ -440,14 +448,17 @@ const createJsonFsData         = async function(writeFile){
 
 		// Get a list of all the files in the xochitil folder.
 		let files = await getItemsInDir(config.dataPath, "files");
+		
 		// Filter that list to only include the .metadata files. 
 		files = files.filter(function(d){
 			if(d.filepath.indexOf(".metadata") != -1){ return true; }
-		})
+		});
+
 		// Further filter each anem to remove the full config.dataPath.
-		.map( function(d){ 
+		files = files.map( function(d){ 
 			return d.filepath.replace(config.dataPath, ""); 
-		} );
+		});
+
 		files = await getAllJson(files, config.dataPath);
 		files = await createDirectoryStructure(files);
 		
@@ -460,6 +471,7 @@ const createJsonFsData         = async function(writeFile){
 		resolve(files);
 	});
 };
+//
 const getExistingJsonFsData    = async function(fullVersion=true){
 	return new Promise(async function(resolve,reject){
 		let files;
@@ -517,6 +529,7 @@ const getExistingJsonFsData    = async function(fullVersion=true){
 		resolve({recreateall:recreateall, files:files});
 	});
 };
+//
 const updateRemoteDemo         = async function(){
 	return new Promise(async function(resolve,reject){
 		/**

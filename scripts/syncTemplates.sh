@@ -19,10 +19,11 @@ CMD=
 SRC=
 DEST=
 SSHALIAS=
+
 case $1 in
 	tolocal) 
 		if [ "$1" == "tolocal" ]; then
-			DEST="../DEVICE_DATA/";
+			DEST="../DEVICE_DATA/templates/";
 		fi
 		;;
 	*)
@@ -33,10 +34,10 @@ case $2 in
 	wifi|usb)
 		if [ "$2" == "wifi" ]; then
 			SSHALIAS=remarkablewifi;
-			SRC="$SSHALIAS:/home/root/.local/share/remarkable/";
+			SRC="$SSHALIAS:/usr/share/remarkable/templates/";
 		elif [ $2 == "usb" ]; then
 			SSHALIAS=remarkableusb;
-			SRC="$SSHALIAS:/home/root/.local/share/remarkable/"
+			SRC="$SSHALIAS:/usr/share/remarkable/templates/";
 		fi
 		;;
 	*)
