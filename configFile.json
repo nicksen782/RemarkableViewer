@@ -6,5 +6,6 @@
 	"imagesPath"    : "DEVICE_DATA_IMAGES/",
 	"scriptsPath"   : "./scripts",
 	"port"          : 3100,
-	"host"          : "0.0.0.0"
+	"host"          : "0.0.0.0",
+	"https"         : false
 }
