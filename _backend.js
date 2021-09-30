@@ -8,10 +8,10 @@ const fkill           = require('fkill');
 
 // Personal libraries/frameworks.
 // const timeIt = require('./modules/timeIt.js');
-const webApi = require('./modules/webApi.js').webApi;
-const config = require('./modules/config.js').config;
-const funcs  = require('./modules/funcs.js').funcs;
-// const updateFromDevice  = require('./modules/updateFromDevice.js').updateFromDevice;
+const webApi           = require('./modules/webApi.js').webApi;
+const config           = require('./modules/config.js').config;
+const funcs            = require('./modules/funcs.js').funcs;
+const updateFromDevice = require('./modules/updateFromDevice.js');
 
 // WEB UI - ROUTES
 app.get('/getFilesJson'       , async (req, res) => {
@@ -23,11 +23,11 @@ app.get('/getFilesJson'       , async (req, res) => {
 	let returnValue;
 	try{ 
 		// Call with false so that we do not get the full version of files.json.
-		returnValue = await funcs.getExistingJsonFsData(false);
+		returnValue = await funcs.getExistingJsonFsData(false).catch(function(e) { throw e; });
 		returnValue = returnValue.files;
 	} 
 	catch(e){ 
-		console.log("ERROR:", e); 
+		console.trace("ERROR: /getFilesJson:", e); 
 		res.send(JSON.stringify(e)); 
 		return; 
 	}
@@ -40,10 +40,10 @@ app.get('/getGlobalUsageStats', async (req, res) => {
 	
 	let returnValue;
 	try{ 
-		returnValue = await webApi.getGlobalUsageStats(); 
+		returnValue = await webApi.getGlobalUsageStats().catch(function(e) { throw e; }); 
 	}
 	catch(e){ 
-		console.log("ERROR:", e); 
+		console.trace("ERROR: /getGlobalUsageStats:", e); 
 		res.send(JSON.stringify(e));
 		return; 
 	}
@@ -56,10 +56,10 @@ app.get('/getSvgs'            , async (req, res) => {
 	let arg1 = req.query.notebookId;
 
 	try{ 
-		returnValue = await webApi.getSvgs(arg1); 
+		returnValue = await webApi.getSvgs(arg1).catch(function(e) { throw e; }); 
 	} 
 	catch(e){ 
-		console.log("ERROR:", e); 
+		console.trace("ERROR: /getSvgs:", e); 
 		res.send(JSON.stringify(e));
 		return; 
 	}
@@ -70,10 +70,10 @@ app.get('/getSvgs'            , async (req, res) => {
 app.get('/getThumbnails'      , async (req, res) => {
 	let returnValue;
 	try{ 
-		returnValue = await webApi.getThumbnails(req.query.parentId); 
+		returnValue = await webApi.getThumbnails(req.query.parentId).catch(function(e) { throw e; }); 
 	} 
 	catch(e){ 
-		console.log("ERROR:", e); 
+		console.trace("ERROR: /getThumbnails:", e); 
 		res.send(JSON.stringify(e)); 
 		return; 
 	}
@@ -91,7 +91,7 @@ app.get('/getSettings'        , async (req, res) => {
 			settings = fs.readFileSync(config.htmlPath + "/settings.json"); 
 		} 
 		catch(e){ 
-			console.log("ERROR:", e); 
+			console.trace("ERROR: /getSettings:", e); 
 			res.send(JSON.stringify(e)); 
 			return; 
 		}
@@ -102,7 +102,7 @@ app.get('/getSettings'        , async (req, res) => {
 			settings = fs.readFileSync(config.htmlPath + "/settingsDEMO.json"); 
 		} 
 		catch(e){ 
-			console.log("ERROR:", e); 
+			console.trace("ERROR: /getSettings:", e); 
 			res.send(JSON.stringify(e)); 
 			return; 
 		}
@@ -130,12 +130,13 @@ app.post('/updateSettings'    ,express.json(), async (req, res) => {
 		fs.writeFileSync(config.htmlPath + "/settings.json", JSON.stringify(req.body,null,1) );
 	}
 	catch(e){ 
-		console.log("ERROR:", e); 
+		console.trace("ERROR: /updateSettings:", e); 
 		res.send(JSON.stringify(e)); 
 		return; 
 	}
 
 	// Return the response.
+	// console.log("Settings have been updated.");
 	res.json("Settings have been updated.");
 });
 
@@ -158,10 +159,10 @@ app.get('/updateFromDevice'          , async (req, res) => {
 	// options.recreateAll = true;
 	
 	try{ 
-		returnValue = await webApi.updateFromDevice( { req: req, res: res, options } ); 
+		returnValue = await webApi.updateFromDevice( { req: req, res: res, options } ).catch(function(e) { throw e; }); 
 	} 
 	catch(e){
-		console.log("ERROR:", e); 
+		console.trace("ERROR: /updateFromDevice:", e); 
 		res.send(JSON.stringify(e)); 
 		return; 
 	}
@@ -180,13 +181,127 @@ app.get('/updateFromDeviceTemplates' , async (req, res) => {
 	}
 
 	try{ 
-		returnValue = await webApi.updateFromDeviceTemplates(); 
+		returnValue = await webApi.updateFromDeviceTemplates().catch(function(e) { throw e; }); 
 	} 
 	catch(e){
-		console.log("ERROR:", e); 
+		console.trace("ERROR: /updateFromDeviceTemplates:", e); 
 		res.send(JSON.stringify(e)); 
 		return; 
 	}
+	
+	// No return response here. It is handled by webApi.updateFromDevice instead. 
+	res.send(JSON.stringify(returnValue)); 
+});
+
+app.get('/debug/rebuildServerStorage', async (req, res) => {
+	// console.log("\nroute: rebuildServerStorage:", req.query);
+	
+	if(config.environment != "local"){ 
+		console.log("Function is not available in the demo version."); 
+		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		return; 
+	}
+
+	// Fix the query string values to be boolean.
+	req.query.pdf         = req.query.pdf         == "true" ? true : false;
+	req.query.rmtosvg     = req.query.rmtosvg     == "true" ? true : false;
+	req.query.optimizesvg = req.query.optimizesvg == "true" ? true : false;
+	console.log("\nroute: rebuildServerStorage:\nreq.query:\n" + JSON.stringify(req.query,null,1));
+
+	// Make sure at least one of the arguments are true.
+	if(!req.query.pdf && !req.query.rmtosvg &&!req.query.optimizesvg){
+		res.send("ERROR: Invalid arguments: debug/rebuildServerStorage:\nreq.query:" + JSON.stringify(req.query,null,1)); return;
+		return; 
+	}
+
+	let files;
+	try{ 
+		files = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });
+		files = files.files;
+	} 
+	catch(e){ 
+		console.trace("ERROR: /rebuildServerStorage:", e); 
+		res.end("Error in getExistingJsonFsData,", JSON.stringify(e)); 
+		return; 
+	}
+
+	// Manually set ids.
+	let ids = [];
+	let setManual = true;
+	// let setManual = false;
+	if(setManual){
+		ids = [
+			// PDFs
+			"54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf", // The Black Bass (not debug.)
+			// "29f25ff1-ded9-449b-83be-9dd480896082", // The Black Bass (debug.)
+			// "1ad4e8de-c66c-45e3-b31a-8c301f7bd7e8", // Joust
+			// "6d58c0b4-1fc6-424c-95ad-968085bdeccb", // How To Develop and Build Angular App With NodeJS
+
+			// NOTEBOOKS
+		];
+	}
+	else{
+		// Get all PDF file ids. 
+		for(let key in files.DocumentType){
+			let id      = key;
+			let dirPath = config.imagesPath + id + "/";
+			let fileRec = files.DocumentType[key];
+
+			if(req.query.pdf == true && rec.content.fileType == "pdf"){
+				// Add the id for the pdf. 
+				if(ids.indexOf(rec.extra._thisFileId) == -1) { ids.push(rec.extra._thisFileId); }
+			}
+			if(req.query.rmtosvg == true && rec.content.fileType == "notebook"){
+				// Add each page of the notebook.
+				// if(ids.indexOf(rec.extra._thisFileId) == -1) { ids.push(rec.extra._thisFileId); }
+				// xochitl/9b07473e-5a5f-4fc3-8faa-7ff6001b5bea/9494a82f-ceb7-4e57-81fe-1fb3d54a4fa8.rm
+			}
+			if(req.query.optimizesvg == true && rec.content.fileType == "notebook"){
+				// Add each page of the notebook.
+				// if(ids.indexOf(rec.extra._thisFileId) == -1) { ids.push(rec.extra._thisFileId); }
+			}
+		}
+	}
+	
+	let totalCount = ids.length;
+	for(let index=0; index<ids.length; index+=1){
+		let id = ids[index];
+		let dirPath = config.imagesPath + id + "/";
+		let fileRec    = files.DocumentType[id];
+		let changeRec  = {
+			index     : index + 1 ,
+			ext       : "pdf" ,
+			docId     : id ,
+			srcFile   : "DEVICE_DATA/xochitl/"+ id + ".pdf" ,
+			rec       : files.DocumentType[id] ,
+			destFile  : "" ,
+			destFile2 : "" ,
+			pageFile  : "" ,
+			changeType: "updated" , // @TODO Need to check for updated vs deleted.
+		};
+
+		try{ 
+			// console.log("Working on:", changeRec.rec.metadata.visibleName);
+			if( fs.existsSync(dirPath + "pages/") ){
+				// console.log("Removing:", dirPath + "pages/");
+				fs.rmdirSync(dirPath + "pages/", { recursive: true }); 
+				// console.log("Removed :", dirPath + "pages/");
+			}
+
+			returnValue = await updateFromDevice.createPdfImages(changeRec, fileRec, totalCount).catch(function(e) { throw e; }); 
+
+			// console.log("Completed: ", changeRec.rec.metadata.visibleName);
+			console.log();
+		} 
+		catch(e){
+			console.trace("ERROR: /rebuildServerStorage:", e); 
+			res.send(JSON.stringify(e)); 
+			return; 
+		}
+	}
+
+	console.log("***** DONE *****");
+	res.send("***** DONE *****");
 
 	// No return response here. It is handled by webApi.updateFromDevice instead. 
 });
@@ -203,10 +318,10 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 	let timeItIndex = timeIt.stamp("route: updateRemoteDemo", null);
 	let returnValue;
 	try{ 
-		returnValue = await funcs.updateRemoteDemo();
+		returnValue = await funcs.updateRemoteDemo().catch(function(e) { throw e; });
 	} 
 	catch(e){ 
-		console.log("ERROR: funcs.updateRemoteDemo: ", e); 
+		console.trace("ERROR: /debug/updateRemoteDemo: ", e); 
 		res.send(JSON.stringify(e)); 
 		return; 
 	}
@@ -222,12 +337,33 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 	res.send(returnValue);
 });
 
+// if(!sse || !sse.write){ 
+// 	var sse = {
+// 		write: function(data){ console.log("*** Fake sse.write:", data);},
+// 	}
+// }
+// sse.write("test");
+
 // START THE SERVER.
-(async () => {
+(async function startServer() {
 	// Make sure the process on the server port is removed before trying to listen on that port. 
 	try { 
-		await fkill(`:${config.port}`); 
-		console.log(`Process using tcp port ${config.port} has been REMOVED`); 
+		// Remove process that is using the config.port. 
+		await fkill(`:${config.port}`).catch(function(e) { throw e; }); 
+
+		// Output message.
+		let msg = `Process using tcp port ${config.port} has been REMOVED`;
+		console.log("-".repeat(msg.length));
+		console.log(msg); 
+		console.log("-".repeat(msg.length));
+
+		// Wait 2 seconds. 
+		await new Promise((resolve) => {
+			setTimeout(resolve, 2000);
+		}).catch(function(e) { throw e; });
+
+		// Done.
+		// console.log("done");
 	} 
 	catch(e){ 
 		// console.log(`Process using tcp port ${config.port} does not exist.`); 
@@ -254,32 +390,78 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 	
 			// app.use(express.json());
 			// app.use(express.urlencoded({ extended: true }));
-	
+			
 			process.once('SIGUSR2', function () {
-				console.log("====== SIGUSR2 ======", process.pid);
+				console.log(`Removing process ${process.pid} due to SIGUSR2 (restart) signal from nodemon.`);
 				process.kill(process.pid, 'SIGUSR2');
 			});
-			
+
 			process.once('SIGINT', function () {
 				// this is only called on ctrl+c, not restart
-				console.log("====== SIGINT ======", process.pid);
+				console.log(`Removing process ${process.pid} due to SIGINT signal... (EX: CTRL+C)`);
 				process.kill(process.pid, 'SIGINT');
 			});
-	
-			//
-			console.log("");
-			console.log("*************** APP INFO ***************");
-			console.log(`CONFIGURATION:`);
-			let maxLength = 0; 
-			for(let key in config){ if(key.length > maxLength) { maxLength = key.length; } }
-			for(let key in config){
-				console.log(`  ${key.padEnd(maxLength, " ")} : ${config[key]}`);
-			}
 
-			console.log(`App listening at http://${config.host}:${config.port}`);
-			console.log("SERVER STARTED:", `${new Date().toString().split(" GMT")[0]} `) ;
-			console.log("*************** APP INFO ***************");
-			console.log("");
+			let errors = function(type, error){
+				console.log("");
+				console.log("***************************");
+				console.log(type, error);
+				console.trace("BACKTRACE:");
+				console.log("***************************");
+				console.log("");
+			};
+
+			process.on('uncaughtException' , function(e){ errors("uncaughtException", e); });
+			process.on('unhandledRejection', function(e){ errors("unhandledRejection", e); });
+	
+			// Display the server start message
+			(function serverStartMessage(){
+				// Format and display config/server data.
+				let outputText = "";
+				
+				// Determine the max key length.
+				let maxLength = 0; 
+				for(let key in config)      { if(key == "extra"){ continue; } if(key.length > maxLength) { maxLength = key.length; } }
+				for(let key in config.extra){ if(key.length > maxLength) { maxLength = key.length; } }
+				
+
+				// Display the keys/values in config (skip 'extra'.)
+				outputText += `CONFIGURATION:\n`;
+				for(let key in config){
+					if(key == "extra"){ continue; }
+					outputText += `  ${key.padEnd(maxLength, " ")} : ${config[key]}\n` ;
+				}
+	
+				// Display the keys/values in config.extra.
+				outputText += "\n";
+				outputText += "SERVER:\n";
+				let i=0;
+				let extraKeysLength = Object.keys(config.extra).length; 
+				for(let key in config.extra){
+					outputText += `  ${key.padEnd(maxLength, " ")} : ${config.extra[key]}`;
+					i += 1;
+					if(i != extraKeysLength){ outputText += "\n"; }
+				}
+	
+				// Find the longest line. 
+				let longestLine = 0;
+				outputText.split("\n").forEach(function(d){
+					if(d.length > longestLine) { longestLine = d.length; }
+				});
+	
+				// Create the separator.
+				let heading   = "SERVER START";
+				let starLen   =  (longestLine - heading.length - ((longestLine - heading.length) % 2) )/2;
+				let separator = `${"*".repeat(starLen)} ${heading} ${"*".repeat(starLen)}`;
+				
+				// OUTPUT:
+				console.log("\n");
+				console.log(separator);
+				console.log(outputText);
+				console.log(separator);
+				console.log("\n");
+			})();
+
 		}
 	);
 })();
