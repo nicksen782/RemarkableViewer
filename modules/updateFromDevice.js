@@ -72,10 +72,7 @@ const sse = {
 const rejectionFunction = function(title, e, rejectFunction){
 	let msg = `ERROR in ${title}: ${e}`;
 	console.log(msg); 
-	sse.write(msg);
-	
-	// Send the rejection error.
-	sse.write(e);
+	sse.write(JSON.stringify(msg));
 	
 	//
 	msg = `FAILED: updateFromDevice\n`;
@@ -86,7 +83,7 @@ const rejectionFunction = function(title, e, rejectFunction){
 	sse.end();
 
 	// REJECT AND RETURN.
-	rejectFunction(e); 
+	rejectFunction(JSON.stringify(e)); 
 };
 
 const sleep = function(ms){
@@ -129,6 +126,16 @@ const rsyncDown = function(interface){
 						let split = data.split("\n");
 						split.forEach(function(d){
 							if(d.indexOf(".pdf") != -1){
+								rmChanges.push(d);
+							}
+						});
+					}
+
+					// Looking for lines containing ".epub"
+					if(data.indexOf(".epub") != -1){
+						let split = data.split("\n");
+						split.forEach(function(d){
+							if(d.indexOf(".epub") != -1){
 								rmChanges.push(d);
 							}
 						});
@@ -192,6 +199,161 @@ const rsyncDown = function(interface){
 		
 			});
 		};
+		const parseChanges = async function(rmChanges){
+			return new Promise(async function(res_parseChanges, rej_parseChanges){
+				let changes = [];
+				
+				// Generate new files.json data (don't save yet.)
+				new_filesjson = await funcs.createJsonFsData(false).catch(function(e) { throw e; }); 
+
+				// let debug_basefilename     = "./rmChanges_" + new Date().getTime() + "";
+				let debug_basefilename     = "./rmChanges_" + "_DEBUG_" + "";
+				let debug_filename1        = debug_basefilename + "_A.json";
+				let debug_filename2        = debug_basefilename + "_B.json";
+				let debug_filename3        = debug_basefilename + "_C.json";
+				let debug_basefilename_nfs = debug_basefilename + "_nfj.json";
+				
+				// Write new_filesjson to debug_basefilename_nfs.
+				// fs.writeFileSync( debug_basefilename_nfs, JSON.stringify(new_filesjson.DocumentType, null, 1) );
+
+				// Write the starting rmChanges to debug_filename1.
+				// fs.writeFileSync( debug_filename1, JSON.stringify(rmChanges, null, 1) );
+				
+				// Get epub ids. (Any file related to an epub file id.)
+				let epubIds = [];
+				rmChanges.forEach(function(d){
+					if(d.lastIndexOf(".epubindex") != -1) {
+						// Found an epubindex file. Get the file id.
+						let splits = d.split("/");
+						let file = splits[1];
+						let id = file.split(".")[0];
+
+						// Add the epub file id to epubIds if it isn't already there. 
+						if(epubIds.indexOf(id) == -1){ epubIds.push(id); }
+					}
+					else if(d.lastIndexOf(".epub") != -1) {
+						// Found an epub file. Get the file id.
+						let splits = d.split("/");
+						let file = splits[1];
+						let id = file.split(".")[0];
+
+						// Add the epubindex file id to epubIds if it isn't already there. 
+						if(epubIds.indexOf(id) == -1){ epubIds.push(id); }
+					}
+				});
+
+				// Filter out all epub related files by using the epubIds list.
+				let temp_rmChanges = [];
+				rmChanges.forEach(function(d){
+					// Skip any file that contains ".epubindex" or ".epub".
+					if(d.lastIndexOf(".epubindex") != -1 || d.lastIndexOf(".epub") != -1) {
+						// console.log("Skipping epub/epubindex", d);
+						return; 
+					}
+					
+					// pdf file.
+					else if(d.lastIndexOf(".pdf") != -1){
+						let splits = d.split("/");
+						docId   = splits[1].replace(/.pdf/, "");
+						
+						// Make sure this file id is not within epubIds.
+						if(epubIds.indexOf(docId) == -1){ 
+							// console.log("pdf: Adding record: ", d);
+							temp_rmChanges.push(d); 
+						}
+						else{
+							// Skip record (don't add it.)
+							// console.log("pdf: Skipping record: ", d);
+						}
+					}
+
+					// rm file. 
+					else if(d.lastIndexOf(".rm") != -1){
+						let splits = d.split("/");
+						docId   = splits[1];
+
+						// Make sure this file id is not within epubIds.
+						if(epubIds.indexOf(docId) == -1){ 
+							// console.log("rm: Adding record: ", d);
+							temp_rmChanges.push(d); 
+						}
+						else{
+							// Skip record (don't add it.)
+							// console.log("rm: Skipping record: ", d);
+						}
+					}
+				});
+
+				// Update rmChanges with our new filtered list. 
+				rmChanges = temp_rmChanges;
+
+				// Write the filtered rmChanges file to debug_filename2.
+				// fs.writeFileSync( debug_filename2, JSON.stringify(rmChanges, null, 1) );
+
+				// Create the changes array of objects.
+				rmChanges.forEach(function(d){
+					let ext;
+					let docId;
+					let destFile;
+					let destFile2;
+					let rec = {};
+					let pageFile;
+					
+					if     (d.lastIndexOf(".pdf") != -1){ 
+						ext = "pdf";
+						let splits = d.split("/");
+						docId     = splits[1].replace(/.pdf/, "");
+						srcFile   = config.dataPath + splits[1];
+						rec       = new_filesjson["DocumentType"][docId];
+						destFile  = "";
+						destFile2 = "";
+						pageFile  = "";
+					}
+					else if(d.lastIndexOf(".rm") != -1) { 
+						ext = "rm";
+						let splits = d.split("/");
+						docId    = splits[1];
+						srcFile  = config.dataPath + splits[1] + "/" + splits[2];
+						rec      = new_filesjson["DocumentType"][docId];
+						destFile = config.imagesPath + splits[1] + "/" + splits[2].split(".")[0] + ".svg";
+						destFile2= config.imagesPath + splits[1] + "/" + splits[2].split(".")[0] + ".min.svg";
+						pageFile = splits[2].split(".")[0];
+					}
+					else if(d.lastIndexOf(".epub") != -1) { 
+						// console.log("Skipping epub", d);
+						return; 
+					}
+					else if(d.lastIndexOf(".epubindex") != -1) { 
+						// console.log("Skipping epubindex", d);
+						return; 
+					}
+
+					// Add the object to the changes array.
+					changes.push({
+						ext       : ext       ,
+						docId     : docId     ,
+						srcFile   : srcFile   ,
+						rec       : rec       ,
+						destFile  : destFile  ,
+						destFile2 : destFile2 ,
+						pageFile  : pageFile  ,
+						changeType: "updated" , // @TODO Need to check for updated vs deleted.
+					});
+				});
+
+				// Write the completed changes file to debug_filename3.
+				// fs.writeFileSync( debug_filename3, JSON.stringify(changes, null, 1) );
+
+				// Resolve and return data.
+				res_parseChanges(
+					{
+						changes      : changes, 
+						new_filesjson: new_filesjson, 
+					}
+				);
+		
+			});
+		};
 
 		// Make sure the interface is correct.
 		if( ["wifi", "usb"].indexOf(interface) == -1 ) {
@@ -204,58 +366,28 @@ const rsyncDown = function(interface){
 		let cmd = `cd ${path.join(path.resolve("./"), "scripts")} && ./syncRunner.sh tolocal ${interface}`;
 		let resp;
 		try{ 
-			resp = await runCmd(cmd, false, 0); 
-			let rmChanges = resp[1];
-			let changes = [];
-			
-			// Generate new files.json data (don't save yet.)
-			new_filesjson = await funcs.createJsonFsData(false); 
+			let rmChanges;
 
-			rmChanges.forEach(function(d){
-				let docId   ;
-				let fileType;
-				try{
-					let lines      = d.split("/");
-					let filename;
-					let name;
-					let pageFile;
-					
-					if     (d.indexOf(".pdf") != -1){ 
-						docId      = lines[1].replace(/.pdf/g, "");
-						filename   = lines[1];
-						fileType = "pdf"; 
-						pageFile   = filename.replace(/.pdf/g, "");
-						// console.log("docId   :", docId);
-						// console.log("filename:", filename);
-						// console.log("fileType:", fileType);
-						// console.log("pageFile:", pageFile);
-					}
-					else if(d.indexOf(".rm")  != -1){ 
-						docId      = lines[1];
-						filename   = lines[2];
-						fileType = "notebook"; 
-						pageFile   = filename.replace(/.rm/g, "");
-					}
+			// This file will exist if the program failed to finish.
+			// If it exists then use it for changes and skip the rsync.
+			if(fs.existsSync("./rmChanges_.json")){
+				rmChanges = fs.readFileSync("");
+				rmChanges = JSON.parse(rmChanges);
+			}
 
-					name       = new_filesjson.DocumentType[docId].metadata.visibleName;
-					
-					let changeType = d.indexOf("deleting ") != -1 ? "deleted" : "updated";
-					
-					// console.log("rmChanges:", "fileType:", fileType, ", name:", name, ", docId:", docId, ", rmFile:", rmFile, ", path:", d);
-					
-					changes.push({
-						docId     : docId     ,
-						name      : name      ,
-						pageFile  : pageFile  ,
-						fileType  : fileType  ,
-						srcFile   : d.replace(/xochitl\//g, config.dataPath),
-						changeType: changeType,
-					});
-				}
-				catch(e){
-					console.log("ERROR: The file was not found in new_filesjson. Was it actually synced?", docId, fileType);
-				}
-			});
+			// File didn't exist. Do a rsync.
+			else{
+				// run the sync command. 
+				resp = await runCmd(cmd, false, 0).catch(function(e) { throw e; }); 
+
+				// Get the changes. 
+				rmChanges = resp[1];
+
+				// Write the rmChanges.
+				fs.writeFileSync( "./rmChanges_.json", JSON.stringify(rmChanges, null, 1) );
+			}
+
+			let { changes, new_filesjson } = await parseChanges(rmChanges).catch(function(e) { throw e; });
 
 			// Resolve.
 			resolve_sync({
@@ -272,54 +404,46 @@ const rsyncDown = function(interface){
 	});
 };
 
-const convertAndOptimize = function(changes, new_filesjson){
+const convertAndOptimize = function(changes){
 	return new Promise(async function(resolve_convertAndOptimize, reject_convertAndOptimize){
-		// Remove some of the changes if their srcFile does not exist. (needed for PDF and for recreateAll.)
-		// PDFs have .content.pages populated but the actual file only exists if that page has been written on.
-		let tmp_changes = [];
-		for(let index = changes.length-1; index>=0; index-=1){
-			let changeRec = changes[index];
+		// @TODO Confirm that ALL srcFile within changes exist. Filter them out if they do not exist. 
+		//
 
-			if( fs.existsSync(changeRec.srcFile) ){ 
-				tmp_changes.push(changeRec);
-			}
-
-		}
-		changes = tmp_changes.reverse();
+		let changesRm  = changes.filter(function(d){ return d.ext == "rm"; }).length;
+		let changesPdf = changes.filter(function(d){ return d.ext == "pdf"; }).length;
+		let totalChanges = (changesRm * 2) + changesPdf;
+		let currentPage = 1;
 
 		let convert = async function(which){
 			for(let index = 0; index<changes.length; index+=1){
 				let changeRec = changes[index];
-				changeRec.index = index + 1;
-				let fileRec = new_filesjson.DocumentType[changeRec.docId];
+				let fileRec = changeRec.rec;
 				
 				if(changeRec.changeType == "updated"){
-					if(changeRec.fileType == "notebook"){
-						// Run rM2svg.py.
-						if(which == "rmToSvg"){
-							await rmToSvg(changeRec, fileRec, changes.length);
-						}
-						
-						// Run svgo.
-						if(which == "optimizeSvg"){
-							await optimizeSvg(changeRec, fileRec, changes.length);
-						}
-					}
-					
-					else if(changeRec.fileType == "pdf"){
+					if(changeRec.ext == "pdf"){
 						// Create pdf images if there are any. 
-						// try{ await createPdfImages(cmdList); } catch(e){ console.log("failure: createPdfImages", e); }
-
+						if(which == "createPdfImages"){
+							changeRec.index = currentPage;
+							await createPdfImages(changeRec, fileRec, totalChanges).catch(function(e) { throw e; }); 
+							currentPage += 1;
+						}
+					}
+					else if(changeRec.ext == "rm"){
 						// Run rM2svg.py.
 						if(which == "rmToSvg"){
-							await rmToSvg(changeRec, fileRec, changes.length);
+							changeRec.index = currentPage;
+							await rmToSvg(changeRec, fileRec, totalChanges).catch(function(e) { throw e; });
+							currentPage += 1;
 						}
 						
 						// Run svgo.
 						if(which == "optimizeSvg"){
-							await optimizeSvg(changeRec, fileRec, changes.length);
+							changeRec.index = currentPage;
+							await optimizeSvg(changeRec, fileRec, totalChanges).catch(function(e) { throw e; });
+							currentPage += 1;
 						}
 					}
+
 				}
 				else if(changeRec.changeType == "deleted"){
 					console.log("changeType of deleted is not supported yet.");
@@ -327,18 +451,27 @@ const convertAndOptimize = function(changes, new_filesjson){
 			}
 		};
 
-		// Do rmToSvg conversion first.
+		// Do rmToSvg conversion.
 		try{ 
-			await convert("rmToSvg");
+			await convert("rmToSvg").catch(function(e) { throw e; });
 		} 
 		catch(e){ 
 			rejectionFunction("convertAndOptimize/rmToSvg", e, reject_convertAndOptimize)
 			return; 
 		} 
 
-		// Do optimizeSvg next.
+		// Do createPdfImages conversion.
 		try{ 
-			await convert("optimizeSvg");
+			await convert("createPdfImages").catch(function(e) { throw e; });
+		} 
+		catch(e){ 
+			rejectionFunction("convertAndOptimize/createPdfImages", e, reject_convertAndOptimize)
+			return; 
+		} 
+
+		// Do optimizeSvg.
+		try{ 
+			await convert("optimizeSvg").catch(function(e) { throw e; });
 		} 
 		catch(e){ 
 			rejectionFunction("convertAndOptimize/optimizeSvg", e, reject_convertAndOptimize)
@@ -348,46 +481,59 @@ const convertAndOptimize = function(changes, new_filesjson){
 		resolve_convertAndOptimize();
 	});
 };
-const createPdfImages = function(cmdList){
-	return new Promise(function(res_createPdfImages, rej_createPdfImages){
-		let pdfToPngs = function(documentId){
+const createPdfImages = function(changeRec, fileRec, totalCount){
+	return new Promise(async function(res_createPdfImages, rej_createPdfImages){
+		let pdfToPngs = function(){
 			return new Promise(async function(res_pdfToPngs, rej_pdfToPngs){
-				// Get the files.json file. 
-				let files;
-				try{ 
-					console.log("webApi:", webApi);
-					files = await require('./webApi.js').webApi.getFilesJson(); 
-					console.log("got getFilesJson");
-				} 
-				catch(e){ 
-					console.log("ERROR:", e); 
-					res.send(JSON.stringify(e)); 
-					return; 
-				}
-		
-				let data = files.DocumentType[documentId];
-				let fileDir = config.dataPath + documentId + "/";
-				let destDir = config.imagesPath + documentId + "/";
-				let destDirAnnotations = config.imagesPath + documentId + "/annotations/";
+				let documentId = changeRec.docId;
+				let destDir      = config.imagesPath + documentId + "/";
 				let destDirPages = config.imagesPath + documentId + "/pages/";
-				let file         = config.dataPath + documentId + ".pdf";
-
-				if( !fs.existsSync(destDirAnnotations) ){ 
-					fs.mkdirSync(destDirAnnotations); 
+				let msg;
+		
+				// Make sure that the directories exist. 
+				if( !fs.existsSync(destDir) ){ 
+					fs.mkdirSync(destDir); 
 				}
-
 				if( !fs.existsSync(destDirPages) ){ 
 					fs.mkdirSync(destDirPages); 
 				}
-		
+
 				let getPdfDimensions = function(fullFilePath){
+					return new Promise(async function(res_getPdfDimensions, rej_getPdfDimensions){
+						// https://unix.stackexchange.com/a/495956
+						let cmd = `pdfinfo ${fullFilePath} | grep "Page size"`;
+						let results;
+						try{ 
+							results = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
+							results = results.stdOutHist
+								.replace(/Page size:/g, "")
+								.replace(/ /g, "")
+								.replace(/pts/g, "")
+								.trim()
+								.split("x");
+						} 
+						catch(e){ 
+							console.log("Command failed:", e); 
+							rej_getPdfDimensions("fail"); 
+							return; 
+						}
+		
+						// results = results.stdOutHist;
+						// results = results.trim().split("\n");
+						
+						res_getPdfDimensions({
+							width : Math.ceil( results[0] ), // 
+							height: Math.ceil( results[1] ), // 
+						});
+					});
+				};
+				let OLDgetPdfDimensions = function(fullFilePath){
 					return new Promise(async function(res_getPdfDimensions, rej_getPdfDimensions){
 						// https://unix.stackexchange.com/a/495956
 						let cmd = `pdfinfo ${fullFilePath} | grep "Page size" | grep -Eo '[-+]?[0-9]*\.?[0-9]+' | awk -v x=0.3528 '{print $1*x}'`;
 						let results;
-						
 						try{ 
-							results = await funcs.runCommand_exec_progress(cmd, 0, false); 
+							results = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
 						} 
 						catch(e){ 
 							console.log("Command failed:", e); 
@@ -405,7 +551,7 @@ const createPdfImages = function(cmdList){
 					});
 				};
 				let dims;
-				try { dims = await getPdfDimensions( file ); console.log("Got getPdfDimensions"); }
+				try { dims = await getPdfDimensions( changeRec.srcFile ).catch(function(e) { throw e; }); }
 				catch(e){
 					console.log("Command failed:", e); 
 					rej_pdfToPngs();
@@ -413,102 +559,251 @@ const createPdfImages = function(cmdList){
 				let isLandscape = false; 
 				if(dims.width > dims.height){ isLandscape = true; }
 		
-				console.log("Getting new PDFImage...");
-				var pdfImage = new PDFImage(file,
-					{
-						pdfFileBaseName: data.metadata.visibleName, // string | undefined;
+				// DEVICE_DATA/xochitl/54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf.pdf 
+				// pdfinfo DEVICE_DATA/xochitl/54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf.pdf | grep "Page size" | grep -Eo '[-+]?[0-9]*.?[0-9]+' | awk -v x=0.3528 '{print $1*x}'
+
+				// image_dims="{
+				// 	"w1": 185,
+				// 	"h1": 144,
+				// }"
+				// 185 and 247
+
+				// To get the width based on the height:
+				//  w = h * (3/4).
+				//  h = h
+				// :: 144 * (3/4) = 
+				
+				// To get the height bsed on the width:
+				//  h = w / (3/4)
+				//  w = w
+				// :: 185 / (3/4)
+
+				// Note: the transform entry stores the transformations to the viewport subsequent to a crop action while reading the document. m11 stores the scaling factor of the height / vertical axis, and m22 stores the scaling factor of the width / horizontal axis. All the other values are unused. Values smaller than 1 lead to a zoom out, with white space around the image. Negative values are not accepted / lead to no display whatsoever.
+
+				var pdfImage = new PDFImage(changeRec.srcFile, {
+						pdfFileBaseName: fileRec.metadata.visibleName, // string | undefined;
 						// convertOptions: {},      // ConvertOptions | undefined;
 						// convertExtension: "",    // convertExtension?: string | undefined;
 						// graphicsMagick: false,   // graphicsMagick?:   boolean | undefined;
 						// outputDirectory: ".",       // string | undefined;
-						outputDirectory: destDir,       // string | undefined;
 						outputDirectory: destDirPages,       // string | undefined;
 		
 						combinedImage: false, 
 						convertOptions: {
-							// "-resize": "1404x1872\!",
+							// "-resize": "x1872\!",
 							"-rotate": isLandscape ? "270" : "0",
-							// "-quality": "5",
+							// "-resize": "1872x\!",
+							// "-resize": "525x700\!",
+							// "-resize": "700x525\!",
+							// "-resize": "x1872^",
+							// "-adaptive-resize": "x1872",
+							// "-resize": "x1872",
+							// "-geometry": "x1872",
+							// "-rotate": isLandscape ? "-90" : "0",
+
+							// "-define": "png:compression-filter=2",
+							// "-define": "png:compression-level=9",
+							// "-define": "png:compression-strategy=1",
+							
+							// "-define": "png:compression-level=0",  
+							// "-define": "png:compression-filter=5",  
+							// "-define": "png:compression-strategy=2", 
+							
+							// "-define": "png:compression-level=9",
+							// "-define": "png:format=8",
+							// "-define": "png:color-type=0",
+							// "-define": "png:bit-depth=8",
+							
+							// "-quality": "100" ,
+							"-strip": "",
+							"-depth": "8" ,
+							"-alpha": "remove",
+							// "-colors" : "255",
+							"-colors" : "8",
+							"-flatten" : "",
+							// "-colorize": "0%",
+							"-normalize": "",
+							// "-compress": "BZip",
+							// "-colorspace": "Gray",
+							// "+antialias":"",
+							"-antialias":"",
+							
+							// "-define": "png:color-type=3",
+							// "-define": "png:color-type=3",
+							// "+dither" : "",
+							// "type": "Palette", // crashes
 						}
 					}
 				);
-		
-				pdfImage.convertFile().then(function (imagePaths) {
-					imagePaths.forEach(function(d, i){
-						// console.log(pdfImage.getOutputImagePathForPage(i));
-						let h = 1872;
-						let w = h * (3/4);
-						// w = dims.width;
-						
-						// Get the file and encode to base64.
-						// destDirPages
-						base64 = fs.readFileSync( d, 'base64');
-						base64 = 'data:image/jpg;base64,' + base64;
+				
+				try{
+					let proms = [];
+					let pages = fileRec.content.pages;
+					let currentCount = 0; 
+					for(let index=0; index<pages.length; index+=1){
+						proms.push(
+							new Promise(async function(res_prom, rej_prom){
+								let pngFile = await pdfImage.convertPage(index).catch(function(e) { throw e; });
 
-						let svgFile = `` +
-						`<svg height="1872" width="1404" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg">\n`+
-						` <image height="${h}" x="0" y="0" href="${base64}" />\n`+
-						`</svg>\n`
-						;
-						
-						let filename = destDir + (d.split(destDirPages)[1].split(".png")[0] + ".svg");
-						console.log("Creating svg for ", d);
-						console.log("Creating svg for ", filename);
-						// console.log("Creating svg for ", destDir+filename);
-						fs.writeFileSync(filename, svgFile);
-						// console.log(svgFile);
-					});
-					res_pdfToPngs();
-				});
+								let msg;
+								let pageId = fileRec.content.pages[index];
+								
+								let h = 1872;
+								let w = h * (3/4);
+								// w = dims.width;
+								let testDims = {
+									w1 :dims.width,
+									h1 :dims.height,
+									w2: dims.height * (3/4),
+									h2: dims.height,
+								};
+								   
+								// Get the file and encode to base64.
+								base64 = fs.readFileSync( pngFile, 'base64');
+								base64 = 'data:image/jpg;base64,' + base64;
+
+								let svgFile = `` +
+								`<svg xmlns="http://www.w3.org/2000/svg" height="1872" width="1404">\n`+
+								` <!-- image_dims="${JSON.stringify(testDims,null,1)}" -->\n` +
+								` <!-- h=${h} w=${w} -->\n` +
+								` <!-- isLandscape="${isLandscape}"-->\n` +
+								`	<g style="display:inline;">\n` +
+								`		<image height="${h}" x="0" y="0" href="${base64}" />\n`+
+								`	</g>\n` +
+								`</svg>\n`
+								;
+
+								let svgFileTEST = `` +
+								`<svg xmlns="http://www.w3.org/2000/svg" height="1872" width="1404">\n`+
+								`	<defs>\n` +
+								`		<style>\n`+
+								`			<![CDATA[ \n` +
+								`				\n` +
+								`				.test{ background-image:url('${base64}'); }\n` +
+								`				\n` +
+								`				/* .g_cont { display: none; } */\n` +
+								`				/* .g_cont:target { display: inline; border:1px solid green; }\n */` +
+								`			]]> \n` +
+								`		</style>\n`+
+								`	</defs>\n` +
+								`	<g class="test">\n` +
+								`		<!-- <image class="test" height="${h}" x="0" y="0" href="" /> -->\n`+
+								`	</g>\n` +
+								`</svg>\n`
+								;
+								// `		<image width="${dims.width}" height="${dims.height}" x="0" y="0" href="${base64}" />\n`+
+								// `		<image height="${h}" x="0" y="0" href="${base64}" />\n`+
+								// `		<image height="${h}" width="${w}" x="0" y="0" href="${base64}" />\n`+
+
+								// Write the .svg file.
+								let filenameSvg = destDirPages + pageId + ".svg";
+								let filenameSvgTEST = destDirPages + "TEST_" + pageId + ".svg";
+								fs.writeFileSync(filenameSvg, svgFile);
+								fs.writeFileSync(filenameSvgTEST, svgFileTEST);
+								
+								
+								// Rename the .png file.
+								// DEVICE_DATA_IMAGES/54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf/pages/Black Bass-0.png
+								let baseName = path.basename(pngFile).split(".");
+								let filenamePng2 = destDirPages + pageId + "." + baseName[1];
+								// msg = `  Renaming .png: ${pngFile} :: ${filenamePng2}`;
+								// sse.write(msg);
+								// console.log(msg);
+								fs.renameSync(pngFile, filenamePng2);
+								fs.copyFileSync(filenamePng2, pngFile);
+								
+								// Remove the .png file. 
+								// msg = `  Removing .png: ${pngFile}`;
+								// sse.write(msg);
+								// console.log(msg);
+								// fs.unlinkSync( pngFile );
+
+								currentCount += 1;
+								msg = `  ` + 
+								`PAGE ${(currentCount).toString().padStart(4, "_")} of ${pages.length.toString().padStart(4, "_")} has been processed for: ` +
+								`${fileRec.metadata.visibleName}: ` +
+								``;
+								sse.write(msg);
+								console.log(msg);
+
+								res_prom(pngFile);
+							})
+						);
+					}
+
+					Promise.all(proms).then(
+						function(results){
+							res_pdfToPngs(); 
+							return;
+						},
+						function(error){
+							console.log("ERROR:, error");
+							rej_pdfToPngs();
+						}
+					);
+				}
+				catch(e){
+					console.log("broken???");
+				}
 			});
 		};
 
-		let uniqueIds = [];
-		cmdList.forEach(function(d){
-			if(d.fileType == "pdf"){
-				if(uniqueIds.indexOf(d.key) == -1){
-					uniqueIds.push(d.key);
-					// uniqueIds_data.push(d);
-				}
+		// In case sse is not activated.
+		if(!sse || !sse.write){ 
+			var sse = {
+				write: function(data){ return; console.log(data, "***");},
 			}
-		});
+			sse.write("*** createPdfImages: Using fake sse.write.");
+		}
 
-		let proms = [];
-		uniqueIds.forEach( function(d){
-			proms.push(
-				new Promise(async function(resolve, reject){
-					try{
-						console.log("id:", d);
-						await pdfToPngs(d);
-						resolve(uniqueIds);
-					} 
-					catch(e){
-						console.log("Failure in pdfToPngs with:", d);
-						reject(uniqueIds);
-					}
-				})
-			);
-		});
+		// Run the command. 
+		let response;
+		let msg;
+		try { 
+			msg = `convertAndOptimize/createPdfImages: ` + 
+			`${changeRec.index.toString().padStart(4, "_")}/${totalCount.toString().padStart(4, "_")} ` +
+			`\n  LOADING FILE: "${fileRec.path + fileRec.metadata.visibleName}"` +
+			`(${fileRec.content.pages.length.toString().padStart(4, "_")} pages)`;
 
-		Promise.all(proms).then(
-			function(data){ 
-				console.log("SUCCESS:", data); 
-				res_createPdfImages(data);
-			},
-			function(data){ 
-				console.log("ERROR:", data); 
-				rej_createPdfImages(data);
-			}
-		);
+			console.log(msg);
+			sse.write(msg);
+			
+			response = await pdfToPngs(changeRec).catch(function(e) { throw e; });
 
+			msg = `COMPLETE`;
+
+			console.log(msg);
+			sse.write(msg);
+
+			res_createPdfImages();
+		} 
+		catch(e){ 
+			msg = `convertAndOptimize/createPdfImages: ` + 
+			`FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"` +
+			``;
+			console.log(msg, e);
+			sse.write(msg);
+
+			rejectionFunction("svgo", e, rej_createPdfImages)
+			return; 
+		} 
+		
 	});
 };
 const rmToSvg = function(changeRec, fileRec, totalCount){
 	return new Promise(async function(res_rmToSvg, rej_rmToSvg){
+		// In case sse is not activated.
+		if(!sse || !sse.write){ 
+			var sse = {
+				write: function(data){ return; console.log(data, "***");},
+			}
+			sse.write("*** createPdfImages: Using fake sse.write.");
+		}
+
 		// Create the command. 
 		let srcFile  = changeRec.srcFile; 
 		let destDir  = `${config.imagesPath + changeRec.docId}`;
-		let destFile = `${config.imagesPath + changeRec.docId + "/" + changeRec.pageFile}.svg`;
+		let destFile = changeRec.destFile;
 		let cmd      = `python3 scripts/rM2svg.py -i ${srcFile} -o ${destFile}` ;
 		
 		// Make sure the destination directory exists.
@@ -521,12 +816,6 @@ const rmToSvg = function(changeRec, fileRec, totalCount){
 			return; 
 		} 
 		
-		// Make sure that the specified srcFile exists. 
-		if( !fs.existsSync(srcFile) ){ 
-			rejectionFunction("existsSync: srcFile NOT found.", null, rej_rmToSvg)
-			return; 
-		}
-
 		// Create the destination directory if it does not exist. 
 		if( !dir_existsSync ){
 			let dir_mkdirSync;
@@ -538,38 +827,53 @@ const rmToSvg = function(changeRec, fileRec, totalCount){
 				return; 
 			} 
 		}
+
+		// Make sure that the specified srcFile exists. 
+		if( !fs.existsSync(srcFile) ){ 
+			rejectionFunction("existsSync: srcFile NOT found.", null, rej_rmToSvg)
+			return; 
+		}
 		
 		// Run the command. 
 		let response;
 
 		try { 
-			response = await funcs.runCommand_exec_progress(cmd, 0, false);
+			response = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; });
+
+			// Handle the response.
+			if(response.stdOutHist.trim().length) { console.log("stdOutHist:", response.stdOutHist); }
+			if(response.stdErrHist.trim().length) { console.log("stdErrHist:", response.stdErrHist); }
+			let msg = `convertAndOptimize/rmToSvg: ` + 
+			`${changeRec.index.toString().padStart(4, "_")}/${totalCount.toString().padStart(4, "_")} ` +
+			`DONE: ` +
+			`PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, "_")}` +
+			` of file: ` +
+			`"${fileRec.path + fileRec.metadata.visibleName}"` +
+			``;
+	
+			sse.write(msg);
+			console.log(msg);
+	
+			res_rmToSvg();
 		} 
 		catch(e){ 
 			rejectionFunction("rM2svg.py", e, rej_rmToSvg)
 			return; 
 		} 
-		// Handle the response.
-		if(response.stdOutHist.trim().length) { console.log("stdOutHist:", response.stdOutHist); }
-		if(response.stdErrHist.trim().length) { console.log("stdErrHist:", response.stdErrHist); }
-		let msg = `convertAndOptimize/rmToSvg: ` + 
-		`${changeRec.index.toString().padStart(4, " ")}/${totalCount.toString().padStart(4, " ")} ` +
-		`DONE: ` +
-		`PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(3, " ")}` +
-		` of file: ` +
-		`"${fileRec.path + changeRec.name}"` +
-		``;
-
-		sse.write(msg);
-		console.log(msg);
-
-		res_rmToSvg();
 	});
 };
 const optimizeSvg = function(changeRec, fileRec, totalCount){
 	return new Promise(async function(res_optimizeSvg, rej_optimizeSvg){
-		let srcFile  = `${config.imagesPath + changeRec.docId + "/" + changeRec.pageFile}.svg`;
-		let destFile = `${config.imagesPath + changeRec.docId + "/" + changeRec.pageFile}.min.svg`;
+		// In case sse is not activated.
+		if(!sse || !sse.write){ 
+			var sse = {
+				write: function(data){ return; console.log(data, "***");},
+			}
+			sse.write("*** createPdfImages: Using fake sse.write.");
+		}
+
+		let srcFile  = changeRec.destFile;  // `${config.imagesPath + changeRec.docId + "/" + changeRec.pageFile}.svg`;
+		let destFile = changeRec.destFile2; // `${config.imagesPath + changeRec.docId + "/" + changeRec.pageFile}.min.svg`;
 		let cmd1 = `node_modules/svgo/bin/svgo --config="scripts/svgo.config.json" -i ${srcFile} -o ${destFile} `;
 		// let cmd2 = `rm ${srcFile}`;
 		// let cmd = `${cmd1} && ${cmd2}`
@@ -577,9 +881,9 @@ const optimizeSvg = function(changeRec, fileRec, totalCount){
 
 		if( !fs.existsSync(srcFile) ){ 
 			let msg = `WARNING: Skipping this missing file: ` +
-			`PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(3, " ")}` +
+			`PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, "_")}` +
 			` of file: ` +
-			`${changeRec.name} ` +
+			`${fileRec.metadata.visibleName} ` +
 			`(${srcFile}).` +
 			``;
 			sse.write(msg);
@@ -591,7 +895,7 @@ const optimizeSvg = function(changeRec, fileRec, totalCount){
 		// Run the command. 
 		let response;
 		try { 
-			response = await funcs.runCommand_exec_progress(cmd, 0, false);
+			response = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; });
 		} 
 		catch(e){ 
 			rejectionFunction("svgo", e, rej_optimizeSvg)
@@ -604,37 +908,40 @@ const optimizeSvg = function(changeRec, fileRec, totalCount){
 			let respLines = response.stdOutHist.split("\n");
 			try{
 				msg = `convertAndOptimize/svgo   : ` + 
-				`${changeRec.index.toString().padStart(4, " ")}/${totalCount.toString().padStart(4, " ")} ` +
+				`${changeRec.index.toString().padStart(4, "_")}/${totalCount.toString().padStart(4, "_")} ` +
 				`DONE: ` +
-				`PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(3, " ")}` +
+				`PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, "_")}` +
 				` of file: ` +
-				`"${fileRec.path + changeRec.name}" ` +
+				`"${fileRec.path + fileRec.metadata.visibleName}" ` +
 				`(${respLines[3].split(" - ")[1].split("%")[0]}% reduction)` +
 				``;
 
 				sse.write(msg);
 				console.log(msg);
+
+				res_optimizeSvg();
 			}
 			catch(e){
 				msg = `convertAndOptimize/svgo   : ` +
-				`${changeRec.index.toString().padStart(3, " ")}/${totalCount.toString().padStart(3, " ")} `
+				`${changeRec.index.toString().padStart(4, "_")}/${totalCount.toString().padStart(4, "_")} `
 				``;
 				sse.write(msg);
 				// console.log(msg);
+				
+				rej_optimizeSvg();
 			}	
 		}
 		if(response.stdErrHist.trim().length) { console.log("stdErrHist:", response.stdErrHist); }
 
 		// https://ourcodeworld.com/articles/read/659/how-to-decrease-shrink-svg-file-size-with-svgo-in-nodejs
-		// svgo_config = await loadConfig("scripts/svgo.config.json", process.cwd());
+		// svgo_config = await loadConfig("scripts/svgo.config.json", process.cwd()).catch(function(e) { throw e; });
 		// let svg = Promise.resolve(content);
 		// if (svgoConfig !== false) {
 		//   svg = new SVGO(svgoConfig)
 		// 	.optimize(content, { path: svgoPath })
 		// 	.then((result) => result.data);
 		// }
-
-		res_optimizeSvg();
+		
 	});
 };
 
@@ -658,7 +965,7 @@ const updateFromDevice = function(obj){
 			let resp;
 			try{ 
 				// Rsync.
-				resp = await rsyncDown( interface ); 
+				resp = await rsyncDown( interface ).catch(function(e) { throw e; }); 
 				changes = resp.changes;
 				new_filesjson = resp.new_filesjson;
 			} 
@@ -668,41 +975,9 @@ const updateFromDevice = function(obj){
 			}
 			sse.write("== END RSYNC ==\n");
 
-			// If this flag is set then all existing documents (not any new ones) will have their svgs/pdfs/pngs recreated.
-			if(recreateAll){
-				let existingFilesJson;
-				try{ 
-					existingFilesJson = await funcs.getExistingJsonFsData(true); 
-					existingFilesJson = existingFilesJson.files;
-				} 
-				catch(e){ 
-					rejectionFunction("recreateAll", e, rej_top);
-					return; 
-				}
-				changes = [];
-				for(let key in existingFilesJson.DocumentType){
-					let rec = existingFilesJson.DocumentType[key];
-					if(rec.content.fileType == "epub"    ) { continue; }
-					// if(rec.content.fileType == "notebook") { continue; }
-					// if(rec.content.fileType == "pdf"     ) { continue; }
-
-					rec.content.pages.forEach(function(d){
-						let obj = {
-							docId      : key, // docId: 'af6beacb-ddea-4ada-91da-bb63bcb38ef3',
-							name       : rec.metadata.visibleName, // name: 'To do',
-							pageFile   : d, // pageFile: ffe8551c-c0c9-4c4c-bd42-0a8a0817c691
-							fileType   : rec.content.fileType, // fileType: 'notebook',
-							srcFile    : config.dataPath + key + "/" + d +".rm", // path: 'xochitl/af6beacb-ddea-4ada-91da-bb63bcb38ef3/ffe8551c-c0c9-4c4c-bd42-0a8a0817c691.rm',
-							changeType : "updated", // changeType: 'updated'
-						};
-						changes.push(obj);
-					});
-				}
-			}
-
 			sse.write("== START CONVERSIONS / OPTIMIZATIONS ==");
 			try{ 
-				await convertAndOptimize(changes, new_filesjson); 
+				await convertAndOptimize(changes).catch(function(e) { throw e; }); 
 			} 
 			catch(e){ 
 				rejectionFunction("convertAndOptimize", e, rej_top);
@@ -713,7 +988,11 @@ const updateFromDevice = function(obj){
 
 			sse.write("== START CREATEJSONFSDATA ==\n");
 			try{ 
-				// await funcs.createJsonFsData(true); 
+				// Create the new files.json to save it.
+				await funcs.createJsonFsData(true).catch(function(e) { throw e; }); 
+
+				// Remove the rmChanges_.json file.
+				fs.unlinkSync( "./rmChanges_.json" );
 			} 
 			catch(e){ 
 				rejectionFunction("createJsonFsData", e, rej_top);
@@ -722,6 +1001,7 @@ const updateFromDevice = function(obj){
 			sse.write("== END CREATEJSONFSDATA ==\n");
 
 			// sse.write(`changes: ${JSON.stringify(changes,null,1)}\n`);
+
 			sse.write("== END SSE ==\n");
 			let msg = "COMPLETE: updateFromDevice (args: " + `interface: ${interface})\n`;
 			sse.end( msg );
@@ -735,7 +1015,8 @@ const updateFromDevice = function(obj){
 };
 
 module.exports = {
-	updateFromDevice: updateFromDevice,
-	optimizeSvg: optimizeSvg,
+	updateFromDevice: updateFromDevice , // Expected use by webApi.js
+	optimizeSvg     : optimizeSvg      , // Expected use by webApi.js
+	createPdfImages : createPdfImages  , // Expected use by _backend.js (DEBUG)
 	_version  : function(){ return "Version 2021-09-23"; }
 };
