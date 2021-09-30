@@ -8,10 +8,11 @@ const optimizeSvg      = require('./updateFromDevice').optimizeSvg;
 
 const webApi = {
 	//
-	updateFromDevice    : updateFromDevice,
+	updateFromDevice          : updateFromDevice,
 	//
 	updateFromDeviceTemplates : function(){
 		return new Promise(async function(resolve_top,reject_top){
+			resolve_top("NOT READY YET"); return;
 			// Get the /usr/share/remarkable/templates directory from the device.
 			
 			// scripts/syncTemplates.sh
@@ -29,13 +30,13 @@ const webApi = {
 		});
 	},
 	//
-	getSvgs             : function(notebookId){
+	getSvgs                   : function(notebookId){
 		return new Promise(async function(resolve_top,reject_top){
 			// Get files.json.
-			let files ;
+			let fileData ;
 			try{ 
-				files = await funcs.getExistingJsonFsData(true); 
-				files = files.files; 
+				fileData = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });
+				fileData = fileData.files; 
 			} 
 			catch(e){ 
 				console.log("ERROR:", e); 
@@ -43,120 +44,212 @@ const webApi = {
 				return;
 			}
 
-			let visibleName = files.DocumentType[notebookId].metadata.visibleName;
-			let fileType    = files.DocumentType[notebookId].content.fileType;
-			let pages       = files.DocumentType[notebookId].content.pages;
-			let layers;
+			let visibleName = fileData.DocumentType[notebookId].metadata.visibleName;
+			let fileType    = fileData.DocumentType[notebookId].content.fileType;
+			let fileDir     = config.imagesPath + "" + notebookId + "/";
+			let layers = {
+				layer1 : [],
+				layer2 : [],
+			};
 
-			let fileDir      = config.imagesPath + "" + notebookId + "/";
-			// let templatesDir = config.templatesPath; 
-
-			if(fileType == "pdf"){
-				// let annotationsDir = config.imagesPath + "" + notebookId + "/annotations/";
-
-				// PDF PAGES.
-				let temp1 = [];
-				pages.forEach(function(d, i){
-					let findThis1 = fileDir + d + ".min.svg";
-					let findThis2 = fileDir + d + ".svg";
-					let findThis3 = fileDir + d + ".png";
-					let findThis4 = `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`;
+			// Generate and return a list of the files required for the document's fileType.
+			let getFilenames = function(){
+				// Object for layer 1.
+				let layer1_files = {
+					info: { baseText: "", showNotFoundText: false, showFoundText: false },
+					data: [],
+				};
+				// Object for layer 2.
+				let layer2_files = {
+					info: { baseText: "", showNotFoundText: false, showFoundText: false },
+					data: [],
+				};
+			
+				// Generate a list of files for each page based on the fileType and by layer..
+				if     (fileType == "pdf")     {
+					// Layer 1: info
+					layer1_files.info.baseText = "PDF L1";
+					layer1_files.info.showNotFoundText = true;
+					layer1_files.info.showFoundText = true;
 					
-					if     ( fs.existsSync(findThis1) ){ temp1.push(findThis1); console.log("PDF L1: .min.svg", visibleName, i); }
-					else if( fs.existsSync(findThis2) ){ temp1.push(findThis2); console.log("PDF L1: .svg", visibleName, i); }
-					else if( fs.existsSync(findThis3) ){ temp1.push(findThis3); console.log("PDF L1: .png", visibleName, i); }
-					else if( fs.existsSync(findThis4) ){ temp1.push(findThis4); console.log("PDF L1: .jpg", visibleName, i); }
-					else{ temp1.push(""); console.log("PDF L2: Could not find page file.", visibleName, i); }
-				});
+					// Layer 2: info
+					layer2_files.info.baseText = "PDF L2";
+					layer2_files.info.showNotFoundText = false;
+					layer2_files.info.showFoundText = true;
+					
+					// Layer 1: Pdf images: Get layer1_files.
+					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+						layer1_files.data.push(
+							[
+								{ file: `${fileDir}pages/${d}.min.svg`                         , pageNum: i+1, showText: true, text: `TYPE: A: (.min.svg)` },
+								{ file: `${fileDir}pages/${d}.svg`                             , pageNum: i+1, showText: true, text: `TYPE: B: (.svg)    ` },
+								{ file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, showText: true, text: `TYPE: C: (.png)    ` },
+								{ file: `${fileDir}pages/${visibleName}-${i}.png`              , pageNum: i+1, showText: true, text: `TYPE: D: (.png)    ` },
+								{ file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, showText: true, text: `TYPE: E: (.svg)    ` },
+								{ file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i+1, showText: true, text: `TYPE: F: (.jpg)    ` },
+							]
+						);
+					});
 
-				// ANNOTATION PAGES.
-				let temp2 = [];
-				pages.forEach(function(d, i){
-					let findThis1 = fileDir + d + ".min.svg"; 
-					let findThis2 = fileDir + d + ".svg";
-					let findThis3 = fileDir + d + ".png";
-					let findThis4 = `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`;
+					// Layer 2: Notebook annotations: Get layer2_files.
+					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+						layer2_files.data.push(
+							[
+								{ file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
+								{ file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
+								// { file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i, text: `(c): .jpg    ` },
+							]
+						);
+					});
+				}
+				else if(fileType == "epub")    {
+					// Layer 1: info
+					layer1_files.info.baseText = "EPUB L1";
+					layer1_files.info.showNotFoundText = true;
+					layer1_files.info.showFoundText = true;
+					
+					// Layer 2: info
+					layer2_files.info.baseText = "EPUB L2";
+					layer2_files.info.showNotFoundText = false;
+					layer2_files.info.showFoundText = true;
 
-					if     ( fs.existsSync(findThis1) ){ temp2.push(findThis1); console.log("ANOTATION L2: .min.svg", visibleName, i); }
-					else if( fs.existsSync(findThis2) ){ temp2.push(findThis2); console.log("ANOTATION L2: .svg", visibleName, i); }
-					else if( fs.existsSync(findThis3) ){ temp2.push(findThis3); console.log("ANOTATION L2: .png", visibleName, i); }
-					else if( fs.existsSync(findThis4) ){ temp2.push(findThis4); console.log("ANOTATION L2: .jpg", visibleName, i); }
-					else{ temp2.push(""); console.log("ANOTATION L2: Could not find page file.", visibleName, i); }
-				});
+					// Layer 1: EPUB images: Get layer1_files.
+					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+						layer1_files.data.push(
+							[
+								{ file: `${fileDir}pages/${d}.min.svg`                         , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
+								{ file: `${fileDir}pages/${d}.svg`                             , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
+								{ file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, text: `TYPE: C: (.png)    ` },
+								{ file: `${fileDir}pages/${visibleName}-${i}.png`              , pageNum: i+1, text: `TYPE: D: (.png)    ` },
+								{ file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, text: `TYPE: E: (.svg)    ` },
+								{ file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i+1, text: `TYPE: F: (.jpg)    ` },
+							]
+						);
+					});
 
-				layers = {
-					// PDF pages.
-					"layer1":temp1,
+					// Layer 2: Notebook annotations: Get layer2_files.
+					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+						layer2_files.data.push(
+							[
+								{ file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
+								{ file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
+								// { file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i, text: `(c): .jpg    ` },
+							]
+						);
+					});
+				}
+				else if(fileType == "notebook"){
+					// Layer 1: info
+					layer1_files.info.baseText = "NOTEBOOK L1";
+					layer1_files.info.showNotFoundText = true;
+					layer1_files.info.showFoundText = true;
 
-					// Annotations of PDF pages.
-					"layer2":temp2,
-				};
-			}
-
-			else if(fileType == "notebook"){
-				// Get the templates. 
-				let temp1 = [];
-				files.DocumentType[notebookId].pagedata.forEach(function(d, i){
-					let findThis1 = config.templatesPath + d + ".min.svg"; 
-					let findThis2 = config.templatesPath + d + ".svg";
-					let findThis3 = config.templatesPath + d + ".png";
-
-					if     ( fs.existsSync(findThis1) ){ temp1.push(findThis1); console.log("TEMPLATE L1: .min.svg", visibleName, i); }
-					else if( fs.existsSync(findThis2) ){ temp1.push(findThis2); console.log("TEMPLATE L1: .svg", visibleName, i); }
-					else if( fs.existsSync(findThis3) ){ temp1.push(findThis3); console.log("TEMPLATE L1: .png", visibleName, i); }
-					else{ temp1.push(""); console.log("TEMPLATE L1: Could not find template file.", visibleName, i); }
-				});
-
-				// Get the notebook pages.
-				let temp2 = [];
-				pages.forEach(function(d, i){
-					let findThis1 = fileDir + d + ".min.svg"; 
-					let findThis2 = fileDir + d + ".svg";
-					let findThis3 = fileDir + d + ".png";
-					let findThis4 = `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`;
-
-					if     ( fs.existsSync(findThis1) ){ temp2.push(findThis1); console.log("NOTEBOOK L2: .min.svg", visibleName, i); }
-					else if( fs.existsSync(findThis2) ){ temp2.push(findThis2); console.log("NOTEBOOK L2: .svg", visibleName, i); }
-					else if( fs.existsSync(findThis3) ){ temp2.push(findThis3); console.log("NOTEBOOK L2: .png", visibleName, i); }
-					else if( fs.existsSync(findThis4) ){ temp2.push(findThis4); console.log("NOTEBOOK L2: .jpg", visibleName, i); }
-					else{ temp2.push(""); console.log("NOTEBOOK L2: Could not find page file.", visibleName, i); }
-				});
-
-				layers = {
-					// Template svgs.
-					"layer1":temp1,
-
-					// Notebook svgs.
-					"layer2":temp2,
-				};
-
-				// pageData = files.DocumentType[notebookId].pagedata;
-			}
-
-			resolve_top(
-				JSON.stringify(
-					{
-						// "__DEBUG": {
-						// 	"notebookId": notebookId,
-							// "dirFiles": dirFiles,
-						// 	"ARGS": [notebookId],
-						// },
+					// Layer 2: info
+					layer2_files.info.baseText = "NOTEBOOK L2";
+					layer2_files.info.showNotFoundText = true;
+					layer2_files.info.showFoundText = true;
+					
+					// Layer 1: Background templates: Get layer1_files.
+					fileData.DocumentType[notebookId].pagedata.forEach(function(d, i){
+						layer1_files.data.push(
+							[
+								{ file: `${config.templatesPath}${d}.min.svg`                  , pageNum: i+1, text: `TYPE A: (.min.svg)` },
+								{ file: `${config.templatesPath}${d}.svg`                      , pageNum: i+1, text: `TYPE B: (.svg)    ` },
+								{ file: `${config.templatesPath}${d}.png`                      , pageNum: i+1, text: `TYPE C: (.png)    ` },
+							]
+						);
+					});
 						
-						// DATA
-						// "templateFiles": templateFiles,
-						// "pageFiles"    : pageFiles,
-						// "pagedata"     : pageData,
-						"layers"       : layers,
-						"notebookTitle": files.DocumentType[notebookId].metadata.visibleName,
-						"type"         : files.DocumentType[notebookId].content.fileType,
+					// Layer 2: Notebook pages: Get layer2_files.
+					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+						layer2_files.data.push(
+							[
+								{ file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE A: (.min.svg)` },
+								{ file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE B: (.svg)    ` },
+								{ file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i+1, text: `TYPE C: (.jpg)    ` },
+							]
+						);
+					});
+				}
+			
+				// Return the files by layer.
+				return {
+					layer1_files : layer1_files,
+					layer2_files : layer2_files,
+				};
+			};
 
-					}, 
-				null, 0)
-			);
+			let findingFunction = function(layerFiles){
+				// Look through the list of files.
+				// Try to find the file. If found then add it, break, and set the found flag.
+				// File not found? Add "".
+				// Return the value.
+				
+				let arrDest = [];
+				let fileFound ; 
+				
+				// Break-out the data and info.
+				let data = layerFiles.data;
+				let info = layerFiles.info;
+
+				let padStartNum = data.length.toString().split("").length;
+				for(let thisPage=0; thisPage<data.length; thisPage +=1 ){
+					let page = data[thisPage];
+					
+					fileFound = false; 
+					for(let thisFile=0; thisFile<page.length; thisFile +=1 ){
+						let rec = page[thisFile];
+
+						if(fs.existsSync(rec.file)){
+							// Show file found text? 
+							if(info.showFoundText){
+								console.log(`  FOUND    : ${info.baseText}: ${rec.text} PAGE #${rec.pageNum.toString().padStart(padStartNum, "0")}, `, rec.file);
+							}
+							
+							// Add the file to the list. 
+							arrDest.push(rec.file); 
+
+							// Set the filefound flag.
+							fileFound = true; 
+
+							// Break the for loop.
+							break; 
+						}
+					}
+					// Show file not found text? 
+					if(!fileFound){
+						// Show file found text? 
+						if(info.showNotFoundText){
+							console.log(`  NOT FOUND: ${info.baseText} PAGE #${thisPage.toString().padStart(padStartNum, "0")}`);
+						}
+
+						// Add a blank entry to the list for this file. 
+						arrDest.push(""); 
+					}
+				}
+				
+				// Return the array.
+				return arrDest;
+			};
+
+			// Perform the actions.
+			console.log(`Retrieving page files for: ${visibleName} (${fileType})`);
+			let layerFiles = getFilenames();
+			layers.layer1 = findingFunction(layerFiles.layer1_files);
+			layers.layer2 = findingFunction(layerFiles.layer2_files);
+			console.log(`DONE`);
+
+			// Resolve. All done!
+			let obj = {
+				"layers"       : layers,
+				"notebookTitle": visibleName,
+				"type"         : fileType,
+			};
+			resolve_top( JSON.stringify(obj, null, 0) );
 		});
 	},
 	//
-	getGlobalUsageStats : function(){
+	getGlobalUsageStats       : function(){
 		return new Promise(async function(resolve_top,reject_top){
 			// Get files.json.
 			let files ;
@@ -173,8 +266,11 @@ const webApi = {
 			// Filter and sort.
 			const filterAndSort = function(sortKey, type, filterKey, maxRecords){
 				const formatDate = function(date) {
+					// Create a date out of the argument. 
 					let d = new Date(date);
 					if(d == "Invalid Date"){ return d; }
+
+					// Break-out the parts of the date. 
 					let month   = (d.getMonth() + 1);
 					let day     = d.getDate();
 					let year    = d.getFullYear();
@@ -183,6 +279,7 @@ const webApi = {
 					let seconds = d.getSeconds();
 					let ampm    = hours < 12 ? "AM" : "PM";
 
+					// Reformat/pad the values. 
 					if(month  <= 10) { month   = month  .toString().padStart(2, "0"); }
 					if(day    <= 10) { day     = day    .toString().padStart(2, "0"); }
 					if(hours  >= 13) { hours   -= 12; }
@@ -190,9 +287,11 @@ const webApi = {
 					if(minutes < 10) { minutes = minutes.toString().padStart(2, "0"); }
 					if(seconds < 10) { seconds = seconds.toString().padStart(2, "0"); }
 				
+					// Create the date/time string. 
 					let dateString = [year, month, day].join('-');
 					dateString += ` ${hours}:${minutes}:${seconds} ${ampm}`;
 
+					// Return the date/time string. 
 					return dateString;
 				}
 
@@ -212,7 +311,8 @@ const webApi = {
 
 				// Take only the first 'maxRecords' records. 
 				if(maxRecords !== true){
-					dataset = dataset.slice(0, maxRecords);
+					// dataset = dataset.slice(0, maxRecords);
+					dataset.splice(maxRecords);
 				}
 
 				// Create the data.
@@ -221,7 +321,6 @@ const webApi = {
 					let rec = files[type][id];
 					let obj = {
 						type         : type,
-						// lastModified : rec.metadata.lastModified,
 						lastOpened   : rec.metadata.lastOpened,
 						id           : rec.extra._thisFileId,
 						name         : rec.metadata.visibleName,
@@ -242,18 +341,19 @@ const webApi = {
 			let favorites_results_file = filterAndSort("name"        , "DocumentType"  , "pinned", 20);
 			let favorites_results_dir  = filterAndSort("name"        , "CollectionType", "pinned", 20);
 
-			resolve_top(JSON.stringify({
+			let obj = {
 				byLastOpened  : byLastOpened_results  ,
 				byLastModified: byLastModified_results,
 				favorites     : {
 					files: favorites_results_file ,
 					dirs : favorites_results_dir  ,
 				},
-			}, null, 1));
+			}
+			resolve_top(JSON.stringify(obj, null, 1));
 		});
 	},
 	//
-	getThumbnails       : function(parentId){
+	getThumbnails             : function(parentId){
 		return new Promise(async function(resolve_top,reject_top){
 			let getThumbnail = function(notebookId, existingFilesJson){
 				//. Use notebookId to get the folder, use .pages to get the page ids (in order.)
@@ -261,8 +361,9 @@ const webApi = {
 	
 				// Need to check that the directory exists.
 				if(!fs.existsSync(targetPath)){ 
-					console.log("ERROR: getThumbnail: targetPath does not exist.", targetPath); 
-					throw "ERROR: getThumbnail: targetPath does not exist." + targetPath ; 
+					let msg = "ERROR: getThumbnail: targetPath does not exist." + targetPath;
+					console.log(msg); 
+					throw msg ; 
 					return; 
 				};
 
@@ -270,17 +371,15 @@ const webApi = {
 				let firstPageId = existingFilesJson.DocumentType[notebookId].content.pages[0];
 				
 				// Check that the file exists. 
-				let firstThumbnail_path = path.join(targetPath, firstPageId+".jpg");
-				if(!fs.existsSync(firstThumbnail_path)){ 
-					console.log("ERROR: getThumbnail: firstThumbnail_path does not exist.", firstThumbnail_path); 
-					throw "ERROR: getThumbnail: firstThumbnail_path does not exist." + firstThumbnail_path; 
+				let firstThumbnail = path.join(targetPath, firstPageId+".jpg");
+				if(!fs.existsSync(firstThumbnail)){ 
+					let msg = "ERROR: getThumbnail: firstThumbnail_path does not exist. " + firstThumbnail;
+					console.log(msg); 
+					throw msg; 
 					return; 
 				};
 				
-				// Retrieve the file as base64.
-				let firstThumbnail;
-				firstThumbnail = firstThumbnail_path;
-				
+				// Send the file.
 				return firstThumbnail ;
 			};
 
