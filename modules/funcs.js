@@ -18,13 +18,13 @@ const getItemsInDir            = async function(targetPath, type, ext=""){
 		return ;
 	}
 
-	const files = await fs.promises.readdir(targetPath);
+	const files = await fs.promises.readdir(targetPath).catch(function(e) { throw e; });
 	const fetchedFiles = [];
 
 	for (let file of files) {
 		try {
 			const filepath = path.join(targetPath, file);
-			const stats = await fs.promises.lstat(filepath);
+			const stats = await fs.promises.lstat(filepath).catch(function(e) { throw e; });
 	
 			if(type=="files"){
 				if (stats.isFile() && file.lastIndexOf(ext) != -1) {
@@ -166,14 +166,22 @@ const createJsonFsData         = async function(writeFile){
 					"CollectionType": [],
 					"DocumentType": [],
 				};
+
 				let proms = [];
-				fileList.forEach(function(file){
+				// fileList.forEach(function(file){
+				for(let index = 0; index<fileList.length; index+=1){
+					let file = fileList[index];
+
 					proms.push(
 						new Promise(function(res1, rej1){
+							// Generate the .metadata filename. 
 							let metadata_filename = path.join(basePath, file);
+
+							// Read in the .metadata file. 
 							fs.readFile(metadata_filename, function (err, file_buffer) {
+								// Handle error.
 								if (err) {
-									console.log("ERROR READING FILE 1", metadata_filename, err); 
+									console.log("ERROR READING .metadata file:", metadata_filename, err); 
 									rej1([metadata_filename, err]); 
 									return;
 								}
@@ -183,6 +191,9 @@ const createJsonFsData         = async function(writeFile){
 		
 								// Create metadata.
 								newObj.metadata = JSON.parse(file_buffer);
+
+								// Create content.
+								newObj.content = {};
 		
 								// DEBUG: Remove keys
 								if(newObj.metadata.type == "CollectionType"){
@@ -212,13 +223,14 @@ const createJsonFsData         = async function(writeFile){
 								newObj.extra = {};
 								newObj.extra["_thisFileId"] = file.replace(".metadata", "");
 
-								// newObj.extra["_thisFileId"] = file.replace(".metadata", "");
-		
-								// Get the .content file too.
+								// Generate the .content filename. 
 								let content_filename = path.join(basePath, file.replace(".metadata", ".content") );
+
+								// Read in the .content file. 
 								fs.readFile(content_filename, function (err, file_buffer2) {
+									// Handle error.
 									if (err) {
-										console.log("ERROR READING FILE 2", content_filename, err); 
+										console.log("ERROR READING .content file:", content_filename, err); 
 										rej1([content_filename, err]); 
 										return;
 									}
@@ -228,50 +240,41 @@ const createJsonFsData         = async function(writeFile){
 		
 									// ********** NEW PRE-FILTERING **********
 									let check0 = newObj.metadata.type         == "CollectionType";
-									let check1 = newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
+									let check1 = false; //newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
 									let check2 = newObj.content.dummyDocument != false;
 									let check3 = newObj.metadata.parent       == "trash";
 
-									// Remove the remaining unneeded keys.
-									delete newObj.content.coverPageNumber;
-									delete newObj.content.documentMetadata;
-									delete newObj.content.extraMetadata;
-									delete newObj.content.fontName;
-									delete newObj.content.lineHeight;
-									delete newObj.content.transform;
-									
 									// Allow all CollectionType.
 									if(check0){
 										json[newObj.metadata.type].push(newObj);
-
 										res1(); return; // Resolve.
 									}
+
 									// Only compare notebooks. 
 									else if(check1){
 										// console.log("Skipping non-notebook.");
 										res1(); return; // Resolve.
 									}
+
 									// Ignore dummyDocument true.
 									else if(check2){
 										// console.log("Skipping dummyDocument.");
 										res1(); return; // Resolve.
 									}
-									// Ignore trash.
-									// else if(check3){
-									// 	// console.log("Skipping trash.");
-									// 	res1(); return; // Resolve.
-									// }
+									
 									// Add the completed record.
 									else {
 										// Get the .pagedata file too if it exists.
 										let pagedata_filename = path.join(basePath, file.replace(".metadata", ".pagedata") );
 										if( fs.existsSync(pagedata_filename) ) {
 											fs.readFile(pagedata_filename, function (err, file_buffer3) {
+												// Handle error.
 												if (err) {
 													console.log("ERROR READING FILE 3", pagedata_filename, err); 
 													rej1([pagedata_filename, err]); 
 													return;
 												}
+
 												newObj.pagedata = file_buffer3.toString().trim().split("\n");
 												newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
 												json[newObj.metadata.type].push(newObj);
@@ -292,7 +295,8 @@ const createJsonFsData         = async function(writeFile){
 							});
 						})
 					);
-				});
+				}
+				// );
 		
 				Promise.all(proms).then(
 					function(success){
@@ -313,17 +317,6 @@ const createJsonFsData         = async function(writeFile){
 		
 				// Creates "directories"
 				fileList["CollectionType"].forEach(function(d){
-					// // Skip deleted.
-					// if(d.metadata.deleted == true){ 
-					// 	console.log("Skip deleted", d); 
-					// 	return;
-					// }
-					// // Skip trash.
-					// if(d.metadata.parent == "trash"){ 
-					// 	console.log("Skip trash", d); 
-					// 	return; 
-					// }
-
 					// Create the object if it doesn't exist.
 					if(!dirs[d.metadata.parent]){
 						dirs[d.extra._thisFileId] = {};
@@ -332,8 +325,8 @@ const createJsonFsData         = async function(writeFile){
 					// Add to the object
 					dirs[d.extra._thisFileId] = {
 						metadata: d.metadata,
-						content: d.content,
-						extra: d.extra,
+						content : d.content,
+						extra   : d.extra,
 						
 						// DEBUG
 						path: [],
@@ -344,17 +337,6 @@ const createJsonFsData         = async function(writeFile){
 		
 				// Creates "files"
 				fileList["DocumentType"].forEach(function(d){
-					// // Skip deleted.
-					// if(d.metadata.deleted == true){ 
-					// 	console.log("Skip deleted", d); 
-					// 	return;
-					// }
-					// // Skip trash.
-					// if(d.metadata.parent == "trash"){ 
-					// 	console.log("Skip trash", d); 
-					// 	return; 
-					// }
-
 					// Create the object if it doesn't exist.
 					if(!files[d.metadata.parent]){
 						// Save the the id of this file.. 
@@ -364,8 +346,8 @@ const createJsonFsData         = async function(writeFile){
 					// Add to the object
 					files[d.extra._thisFileId] = {
 						metadata: d.metadata,
-						content: d.content,
-						extra: d.extra,
+						content : d.content,
+						extra   : d.extra,
 						pagedata: d.pagedata,
 						
 						// DEBUG
@@ -375,12 +357,6 @@ const createJsonFsData         = async function(writeFile){
 				});
 		
 				// Create a "directory" for trash.
-				// Create the object if it doesn't exist.
-				if(!dirs["trash"]){
-					dirs["trash"] = {};
-				}
-	
-				// Add to the object.
 				dirs["trash"] = {
 					metadata: {
 						"deleted": false,
@@ -394,8 +370,8 @@ const createJsonFsData         = async function(writeFile){
 						"version": 1,
 						"visibleName": "trash"
 					},
-					content: {},
-					extra: {
+					content : {},
+					extra   : {
 						"_thisFileId": "trash"
 					},
 
@@ -403,6 +379,7 @@ const createJsonFsData         = async function(writeFile){
 					path: [],
 					name: "trash"
 				};
+				// Create a "directory" for deleted.
 				dirs["deleted"] = {
 					metadata: {
 						"deleted": false,
@@ -416,8 +393,8 @@ const createJsonFsData         = async function(writeFile){
 						"version": 1,
 						"visibleName": "deleted"
 					},
-					content: {},
-					extra: {
+					content : {},
+					extra   : {
 						"_thisFileId": "deleted"
 					},
 
@@ -447,7 +424,7 @@ const createJsonFsData         = async function(writeFile){
 		};
 
 		// Get a list of all the files in the xochitil folder.
-		let files = await getItemsInDir(config.dataPath, "files");
+		let files = await getItemsInDir(config.dataPath, "files").catch(function(e) { throw e; });
 		
 		// Filter that list to only include the .metadata files. 
 		files = files.filter(function(d){
@@ -459,8 +436,8 @@ const createJsonFsData         = async function(writeFile){
 			return d.filepath.replace(config.dataPath, ""); 
 		});
 
-		files = await getAllJson(files, config.dataPath);
-		files = await createDirectoryStructure(files);
+		files = await getAllJson(files, config.dataPath).catch(function(e) { throw e; });
+		files = await createDirectoryStructure(files).catch(function(e) { throw e; });
 		
 		if(writeFile){
 			fs.writeFileSync(config.htmlPath + "/files.json", JSON.stringify(files,null,0), function(err){
@@ -473,12 +450,13 @@ const createJsonFsData         = async function(writeFile){
 };
 //
 const getExistingJsonFsData    = async function(fullVersion=true){
+	// throw "TEST1";
 	return new Promise(async function(resolve,reject){
 		let files;
 		let recreateall = false;
 		if( !fs.existsSync(config.htmlPath + "/files.json") ){
 			try{ 
-				files = await createJsonFsData(true); 
+				files = await createJsonFsData(true).catch(function(e) { throw e; }); 
 			} 
 			catch(e){ 
 				console.log("ERROR:", e); 
@@ -521,6 +499,14 @@ const getExistingJsonFsData    = async function(fullVersion=true){
 				});
 				delete rec.content.pages;
 
+				// Remove the remaining unneeded keys.
+				// delete newObj.content.coverPageNumber;
+				// delete newObj.content.documentMetadata;
+				// delete newObj.content.extraMetadata;
+				// delete newObj.content.fontName;
+				// delete newObj.content.lineHeight;
+				// delete newObj.content.transform;
+
 				// Delete from object root:
 				delete rec.name;
 			}
@@ -546,7 +532,7 @@ const updateRemoteDemo         = async function(){
 		 */
 
 		let files;
-		try{ files = await getExistingJsonFsData(true); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
+		try{ files = await getExistingJsonFsData(true).catch(function(e) { throw e; }); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
 		files = files.files;
 
 		// Get a list of all files and directories within "Remarkable Page Turner"
@@ -604,12 +590,12 @@ const updateRemoteDemo         = async function(){
 		let cmd;
 		cmd = `cd scripts && ./updateRemoteDemo.sh `;
 		let resp1, resp2, resp3, resp4, resp5, resp6;
-		try{ console.log("(SERVER)             - part1: "); resp1 = await runCommand_exec_progress(cmd + " part1", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part1", e); reject(); }
-		try{ console.log("(configFile.json)    - part2: "); resp2 = await runCommand_exec_progress(cmd + " part2", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part2", e); reject(); }
-		try{ console.log("(Html)               - part3: "); resp3 = await runCommand_exec_progress(cmd + " part3", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part3", e); reject(); }
-		try{ console.log("(files.json)         - part4: "); resp4 = await runCommand_exec_progress(cmd + " part4", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part4", e); reject(); }
-		try{ console.log("(DEVICE_DATA)        - part5: "); resp5 = await runCommand_exec_progress(cmd + " part5", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part5", e); reject(); }
-		try{ console.log("(DEVICE_DATA_IMAGES) - part6: "); resp6 = await runCommand_exec_progress(cmd + " part6", 0, false); } catch(e){ console.log("Error in updateRemoteDemo: part6", e); reject(); }
+		try{ console.log("(SERVER)             - part1: "); resp1 = await runCommand_exec_progress(cmd + " part1", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part1", e); reject(); }
+		try{ console.log("(configFile.json)    - part2: "); resp2 = await runCommand_exec_progress(cmd + " part2", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part2", e); reject(); }
+		try{ console.log("(Html)               - part3: "); resp3 = await runCommand_exec_progress(cmd + " part3", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part3", e); reject(); }
+		try{ console.log("(files.json)         - part4: "); resp4 = await runCommand_exec_progress(cmd + " part4", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part4", e); reject(); }
+		try{ console.log("(DEVICE_DATA)        - part5: "); resp5 = await runCommand_exec_progress(cmd + " part5", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part5", e); reject(); }
+		try{ console.log("(DEVICE_DATA_IMAGES) - part6: "); resp6 = await runCommand_exec_progress(cmd + " part6", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part6", e); reject(); }
 
 		let retObj = {
 			"part1": resp1 ,
