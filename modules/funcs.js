@@ -240,9 +240,10 @@ const createJsonFsData         = async function(writeFile){
 		
 									// ********** NEW PRE-FILTERING **********
 									let check0 = newObj.metadata.type         == "CollectionType";
-									let check1 = false; //newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
+									// let check1 = false; //newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
+									let check1 = newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
 									let check2 = newObj.content.dummyDocument != false;
-									let check3 = newObj.metadata.parent       == "trash";
+									// let check3 = newObj.metadata.parent       == "trash";
 
 									// Allow all CollectionType.
 									if(check0){

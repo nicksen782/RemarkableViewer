@@ -12,6 +12,7 @@ const webApi = {
 	//
 	updateFromDeviceTemplates : function(){
 		return new Promise(async function(resolve_top,reject_top){
+			reject_top("NOT READY YET"); return;
 			resolve_top("NOT READY YET"); return;
 			// Get the /usr/share/remarkable/templates directory from the device.
 			
@@ -83,9 +84,9 @@ const webApi = {
 							[
 								{ file: `${fileDir}pages/${d}.min.svg`                         , pageNum: i+1, showText: true, text: `TYPE: A: (.min.svg)` },
 								{ file: `${fileDir}pages/${d}.svg`                             , pageNum: i+1, showText: true, text: `TYPE: B: (.svg)    ` },
-								{ file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, showText: true, text: `TYPE: C: (.png)    ` },
-								{ file: `${fileDir}pages/${visibleName}-${i}.png`              , pageNum: i+1, showText: true, text: `TYPE: D: (.png)    ` },
-								{ file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, showText: true, text: `TYPE: E: (.svg)    ` },
+								// { file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, showText: true, text: `TYPE: C: (.png)    ` },
+								// { file: `${fileDir}pages/${visibleName}-${i}.png`              , pageNum: i+1, showText: true, text: `TYPE: D: (.png)    ` },
+								// { file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, showText: true, text: `TYPE: E: (.svg)    ` },
 								{ file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i+1, showText: true, text: `TYPE: F: (.jpg)    ` },
 							]
 						);
@@ -95,8 +96,8 @@ const webApi = {
 					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
 						layer2_files.data.push(
 							[
-								{ file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
-								{ file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
+								// { file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
+								// { file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
 								// { file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i, text: `(c): .jpg    ` },
 							]
 						);
@@ -254,7 +255,7 @@ const webApi = {
 			// Get files.json.
 			let files ;
 			try{ 
-				files = await funcs.getExistingJsonFsData(true); 
+				files = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });; 
 				files = files.files; 
 			} 
 			catch(e){ 
@@ -386,7 +387,7 @@ const webApi = {
 			// Get files.json.
 			let existingFilesJson ;
 			try{ 
-				existingFilesJson = await funcs.getExistingJsonFsData(true); 
+				existingFilesJson = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });; 
 				existingFilesJson = existingFilesJson.files; 
 			} 
 			catch(e){ 
