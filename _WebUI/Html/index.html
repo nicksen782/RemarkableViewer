@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Remarkable Viewer (Html v3)</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  
+  <script src="js/index.js"></script>
+  <link rel="stylesheet" href="css/index.css">
+  
+  <!-- Page Flip -->
+  <script src="js/pageflip.js"></script>
+</head>
+<body>
+	<div id="rpt_full_wrapper">
+
+		<!-- TITLE BAR -->
+		<div id="rpt_title_bar">
+			Remarkable Viewer
+		</div>
+
+		<!-- NAV BAR -->
+		<div id="rpt_nav_bar">
+			<span id="rpt_nav_bar_button_filesystem"  class="rpt_nav_bar_button active" onclick="rpt.nav.changeView('filesystem');">File-system</span>
+			<span id="rpt_nav_bar_button_settings"    class="rpt_nav_bar_button"        onclick="rpt.nav.changeView('settings')  ;">Settings</span>
+			<span id="rpt_nav_bar_button_notebook"    class="rpt_nav_bar_button"        onclick="rpt.nav.changeView('document')  ;">Document View</span>
+		</div>
+		
+		<!-- MAIN VIEW BOX -->
+		<div id="rpt_main_box">
+			<!-- NAV BOX -->
+			<div id="rpt_nav_bar_view_filesystem" class="views active">
+				<!-- rpt_nav_box -->
+
+				<!-- LEFT -->
+				<div id="rpt_nav_box_left">
+					<div id="rpt_nav_box_left_breadcrumbs"></div>
+					<div id="rpt_nav_box_left_filesystem_container">
+						<div id="rpt_nav_box_left_filesystem_dirs"></div>
+						<div id="rpt_nav_box_left_filesystem_files"></div>
+					</div>
+
+				</div>
+				
+				<!-- RIGHT -->
+				<div id="rpt_nav_box_right">
+					<div id="rpt_nav_box_right_metadata1">
+						Last 20 notebooks opened on device: 
+						<br>
+						<select id="rpt_nav_box_right_metadata1_select1">
+							<option value="">Choose...</option>
+						</select>
+						<br>
+						<br>
+						
+						Last 20 notebooks modified on device:
+						<br>
+						<select id="rpt_nav_box_right_metadata1_select2">
+							<option value="">Choose...</option>
+						</select>
+						<br>
+						<br>
+						
+						Favorites:
+						<br>
+						<select id="rpt_nav_box_right_metadata1_select3">
+							<option value="">Choose...</option>
+						</select>
+						<br>
+						<br>
+						
+						Storage:
+						<br>
+						&nbsp;<span id="diskFree"></span>
+						<br>
+						<br>
+
+						<!-- Quick links -->
+						<button id="view_myfiles">View My files</button>
+						<button id="view_trash">View Trash</button>
+						<button id="view_deleted">View Deleted</button>
+
+					</div>
+					<div id="rpt_nav_box_right_metadata2"></div>
+				</div>
+
+				<div style="clear:both;"></div>
+			</div>
+			
+			<!-- PAGE BOX -->
+			<div id="rpt_nav_bar_view_notebook" class="views">
+				<div id="rpt_nav_bar_view_notebook_pageview"></div>
+				
+			</div>
+
+			<!-- SETTINGS -->
+			<div id="rpt_nav_bar_view_settings" class="views">
+				<table class="controls_table1">
+					<tr> 
+						<td>Sync Remarkable to the server:</td> 
+						<td>
+							<button onclick="rpt.apis.updateFromDevice()">Sync</button>
+						</td> 
+						<td>
+							Sync your Remarkable tablet data to the local server and optimize images for viewing.
+						</td>
+					</tr>
+
+					<tr> 
+						<td>Sync templates to the server:</td> 
+						<td>
+							<button onclick="rpt.apis.updateFromDeviceTemplates()">Sync</button>
+						</td> 
+						<td>
+							Sync/optimize your Remarkable templates to the local server.
+						</td>
+					</tr>
+
+					<tr> 
+						<td>Sync interface:<br>&nbsp;&nbsp;default: USB</td> 
+						<td>
+							<label><input type="radio" name="syncInterface" value="WIFI">WiFi</label>
+							<br>
+							<label><input type="radio" name="syncInterface" value="USB">USB</label>
+						</td> 
+						<td>
+							Using "wifi" will use the WiFi interface on the Remarkable.<br>
+							Using "usb" will use the USB interface on the Remarkable.
+						</td> 
+					</tr>
+
+					<tr> 
+						<td>Open notebooks in auto-size view:<br>&nbsp;&nbsp;default: YES</td> 
+						<td>
+							<label><input type="radio" name="open_document_fullscreen" value="YES">YES</label>
+							<br>
+							<label><input type="radio" name="open_document_fullscreen" value="NO">NO</label>
+						</td> 
+						<td>
+							Setting to "YES" will fit the document images into the default size parent.<br>
+							Setting to "NO" will adapt the Document View to be wider and taller based on the screen size.
+
+						</td> 
+					</tr>
+
+					<tr> 
+						<td>addDirIdToUrl:<br>&nbsp;&nbsp;default: NO</td> 
+						<td>
+							<label><input type="radio" name="addDirIdToUrl" value="YES">YES</label>
+							<br>
+							<label><input type="radio" name="addDirIdToUrl" value="NO">NO</label>
+						</td> 
+						<td>
+							If set to "YES" then the dirId will be part of the URL and will be used on page load.<br>
+							If set to "NO" then the dirId will NOT be part of the URL<br>
+						</td> 
+					</tr>
+
+					<tr> 
+						<td>addDocumentdIdToUrl:<br>&nbsp;&nbsp;default: NO</td> 
+						<td>
+							<label><input type="radio" name="addDocumentdIdToUrl" value="YES">YES</label>
+							<br>
+							<label><input type="radio" name="addDocumentdIdToUrl" value="NO">NO</label>
+						</td> 
+						<td>
+							If set to "YES" then the documentId will be part of the URL and will be used on page load.<br>
+							If set to "NO" then the documentId will NOT be part of the URL<br>
+						</td> 
+					</tr>
+					
+					<tr>
+						<td>View PDF annotations<br>&nbsp;&nbsp;default: NO</td>
+						<td>
+							<label><input type="radio" name="view_pdf_annotations" value="NO">NO</label>
+							<br>
+							<label><input type="radio" name="view_pdf_annotations" value="YES">YES</label>
+						</td>
+						<td>
+							If set to "YES" then the pdf annotations will be shown.<br>
+							If set to "NO" then the pdf annotations will NOT be shown.<br>
+						</td> 
+					</tr>
+
+
+				</table>
+				<br>
+				<!-- <div id="rpt_nav_bar_view_settings_sync_progress" class="box hide"> -->
+				<div id="rpt_nav_bar_view_settings_sync_progress" class="box">
+					<div class="row header">Sync Progress</div>
+					<div class="row content"></div>
+					<div class="row footer">Sync Progress</div>
+				</div>
+			</div>
+		</div>
+
+		<div style="clear:both;"></div>
+		<div id="rpt_footer_bar">
+			<span style="float: left;">Remarkable Viewer: (c) 2021 Nickolas Andersen (nicksen782)</span>
+			<span style="float: right;">Github: <a href="https://github.com/nicksen782/RemarkableViewer" target="_blank">https://github.com/nicksen782/RemarkableViewer</a></span>
+		</div>
+	</div>
+</body>
+</html>
+

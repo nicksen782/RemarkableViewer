@@ -1,0 +1,36 @@
+#rpt_nav_bar{
+	/* min-height:1em; */
+	/* padding-top:5px; */
+	padding-left:5px;
+	/* border-bottom: 1px solid black; */
+	margin-top: 2px;
+}
+#rpt_nav_bar .rpt_nav_bar_button{
+	border-radius: 5px 5px 0px 0px;
+	border: 1px solid #b1b1b1;
+	border-bottom: none;
+	text-align: center;
+	width: 150px;
+	height: 30px;
+	display: inline-block;
+	line-height: 30px;
+	position: relative;
+	top: 1px;
+}
+#rpt_nav_bar .rpt_nav_bar_button:hover{
+	border-radius: 4px 4px 0px 0px;
+	background-color: #c9c9c9;
+	cursor: pointer;
+	border-bottom-color: black;
+	border-bottom-style: solid;
+	border-bottom-width: 1px;
+	top: 1px;
+}
+#rpt_nav_bar .rpt_nav_bar_button.active{
+	background-color: #efefef;
+	border: 1px solid black;
+	text-decoration: underline;
+	font-weight: bold;
+	border-bottom: 1px solid #efefef;
+	top: 1px;
+}
