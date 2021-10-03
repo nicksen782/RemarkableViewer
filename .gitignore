@@ -1,5 +1,7 @@
 DEVICE_DATA/*
 !DEVICE_DATA/.gitkeep
+!DEVICE_DATA/xochitl/.gitkeep
+!DEVICE_DATA/templates/.gitkeep
 
 DEVICE_DATA_IMAGES/*
 !DEVICE_DATA_IMAGES/.gitkeep
@@ -10,8 +12,8 @@ debug/*
 
 _WebUI/*
 !_WebUI/.gitkeep
-; !_WebUI/Html
-; _WebUI/Html/oldcode/*
+!_WebUI/Html
+_WebUI/Html/oldcode/*
 
 scripts/updateRemoteDemo.resps.json
 scripts/demo_files.json
