@@ -30,17 +30,17 @@ case $1 in
 esac
 
 case $2 in
-	wifi|usb)
-		if [ "$2" == "wifi" ]; then
+	WIFI|USB)
+		if [ "$2" == "WIFI" ]; then
 			SSHALIAS=remarkablewifi;
 			SRC="$SSHALIAS:/home/root/.local/share/remarkable/";
-		elif [ $2 == "usb" ]; then
+		elif [ $2 == "USB" ]; then
 			SSHALIAS=remarkableusb;
 			SRC="$SSHALIAS:/home/root/.local/share/remarkable/"
 		fi
 		;;
 	*)
-		echo "Argument 2 is INVALID (Valid options: wifi, usb)"; exit;
+		echo "Argument 2 is INVALID (Valid options: WIFI, USB)"; exit;
 esac
 
 # CONNECTION CHECK.
@@ -60,6 +60,11 @@ echo
 # Run the command.
 eval $CMD
 echo 
+
+CMD_DF_2P1="ssh $SSHALIAS 'df | grep /dev/mmcblk2p1'";
+CMD_DF_2P4="ssh $SSHALIAS 'df | grep /dev/mmcblk2p4'";
+eval $CMD_DF_2P1
+eval $CMD_DF_2P4
 
 # Display what the full command was.
 echo "CMD: $CMD";

@@ -16,7 +16,7 @@ const webApi = {
 			resolve_top("NOT READY YET"); return;
 			// Get the /usr/share/remarkable/templates directory from the device.
 			
-			// scripts/syncTemplates.sh
+			// ${config.scriptsPath}/syncTemplates.sh
 			// optimizeSvg
 			// const optimizeSvg = function(changeRec, fileRec, totalCount){
 			// let obj = {
@@ -31,7 +31,7 @@ const webApi = {
 		});
 	},
 	//
-	getSvgs                   : function(notebookId){
+	getSvgs                   : function(documentId){
 		return new Promise(async function(resolve_top,reject_top){
 			// Get files.json.
 			let fileData ;
@@ -45,9 +45,9 @@ const webApi = {
 				return;
 			}
 
-			let visibleName = fileData.DocumentType[notebookId].metadata.visibleName;
-			let fileType    = fileData.DocumentType[notebookId].content.fileType;
-			let fileDir     = config.imagesPath + "" + notebookId + "/";
+			let visibleName = fileData.DocumentType[documentId].metadata.visibleName;
+			let fileType    = fileData.DocumentType[documentId].content.fileType;
+			let fileDir     = config.imagesPath + "" + documentId + "/";
 			let layers = {
 				layer1 : [],
 				layer2 : [],
@@ -79,26 +79,26 @@ const webApi = {
 					layer2_files.info.showFoundText = true;
 					
 					// Layer 1: Pdf images: Get layer1_files.
-					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+					fileData.DocumentType[documentId].content.pages.forEach(function(d, i){
 						layer1_files.data.push(
 							[
-								{ file: `${fileDir}pages/${d}.min.svg`                         , pageNum: i+1, showText: true, text: `TYPE: A: (.min.svg)` },
-								{ file: `${fileDir}pages/${d}.svg`                             , pageNum: i+1, showText: true, text: `TYPE: B: (.svg)    ` },
+								// { file: `${fileDir}pages/${d}.min.svg`                         , pageNum: i+1, showText: true, text: `TYPE: A: (.min.svg)` },
+								// { file: `${fileDir}pages/${d}.svg`                             , pageNum: i+1, showText: true, text: `TYPE: B: (.svg)    ` },
 								// { file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, showText: true, text: `TYPE: C: (.png)    ` },
 								// { file: `${fileDir}pages/${visibleName}-${i}.png`              , pageNum: i+1, showText: true, text: `TYPE: D: (.png)    ` },
-								// { file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, showText: true, text: `TYPE: E: (.svg)    ` },
-								{ file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i+1, showText: true, text: `TYPE: F: (.jpg)    ` },
+								{ file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, showText: true, text: `TYPE: E: (.svg)    ` },
+								{ file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i+1, showText: true, text: `TYPE: F: (.jpg)    ` },
 							]
 						);
 					});
 
 					// Layer 2: Notebook annotations: Get layer2_files.
-					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+					fileData.DocumentType[documentId].content.pages.forEach(function(d, i){
 						layer2_files.data.push(
 							[
 								// { file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
 								// { file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
-								// { file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i, text: `(c): .jpg    ` },
+								// { file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i, text: `(c): .jpg    ` },
 							]
 						);
 					});
@@ -115,7 +115,7 @@ const webApi = {
 					layer2_files.info.showFoundText = true;
 
 					// Layer 1: EPUB images: Get layer1_files.
-					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+					fileData.DocumentType[documentId].content.pages.forEach(function(d, i){
 						layer1_files.data.push(
 							[
 								{ file: `${fileDir}pages/${d}.min.svg`                         , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
@@ -123,18 +123,18 @@ const webApi = {
 								{ file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, text: `TYPE: C: (.png)    ` },
 								{ file: `${fileDir}pages/${visibleName}-${i}.png`              , pageNum: i+1, text: `TYPE: D: (.png)    ` },
 								{ file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, text: `TYPE: E: (.svg)    ` },
-								{ file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i+1, text: `TYPE: F: (.jpg)    ` },
+								{ file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i+1, text: `TYPE: F: (.jpg)    ` },
 							]
 						);
 					});
 
 					// Layer 2: Notebook annotations: Get layer2_files.
-					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+					fileData.DocumentType[documentId].content.pages.forEach(function(d, i){
 						layer2_files.data.push(
 							[
 								{ file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
 								{ file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
-								// { file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i, text: `(c): .jpg    ` },
+								// { file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i, text: `(c): .jpg    ` },
 							]
 						);
 					});
@@ -151,7 +151,7 @@ const webApi = {
 					layer2_files.info.showFoundText = true;
 					
 					// Layer 1: Background templates: Get layer1_files.
-					fileData.DocumentType[notebookId].pagedata.forEach(function(d, i){
+					fileData.DocumentType[documentId].pagedata.forEach(function(d, i){
 						layer1_files.data.push(
 							[
 								{ file: `${config.templatesPath}${d}.min.svg`                  , pageNum: i+1, text: `TYPE A: (.min.svg)` },
@@ -162,12 +162,12 @@ const webApi = {
 					});
 						
 					// Layer 2: Notebook pages: Get layer2_files.
-					fileData.DocumentType[notebookId].content.pages.forEach(function(d, i){
+					fileData.DocumentType[documentId].content.pages.forEach(function(d, i){
 						layer2_files.data.push(
 							[
 								{ file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE A: (.min.svg)` },
 								{ file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE B: (.svg)    ` },
-								{ file: `DEVICE_DATA/xochitl/${notebookId}.thumbnails/${d}.jpg`, pageNum: i+1, text: `TYPE C: (.jpg)    ` },
+								{ file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i+1, text: `TYPE C: (.jpg)    ` },
 							]
 						);
 					});
@@ -349,16 +349,34 @@ const webApi = {
 					files: favorites_results_file ,
 					dirs : favorites_results_dir  ,
 				},
+				diskFree: {
+					"total" : {
+					},
+				},
 			}
+
+			// Get the diskFree data.
+			if(!fs.existsSync(config.diskFree)){ 
+				obj.diskFree['Used']       = "??";
+				obj.diskFree['1K-blocks']  = "??";
+				obj.diskFree['Available%'] = "??";
+			}
+			else{
+				obj.diskFree = JSON.parse(fs.readFileSync(config.diskFree).toString()).total;
+				obj.diskFree['Used']       = (((obj.diskFree['Used']      /1000) * 1024) / 1000000).toFixed(2) + "GB";
+				obj.diskFree['1K-blocks']  = (((obj.diskFree['1K-blocks'] /1000) * 1024) / 1000000).toFixed(2) + "GB";
+				obj.diskFree['Available%'] = (100 - parseFloat(obj.diskFree['Use%'])) + "%";
+			}
+
 			resolve_top(JSON.stringify(obj, null, 1));
 		});
 	},
 	//
 	getThumbnails             : function(parentId){
 		return new Promise(async function(resolve_top,reject_top){
-			let getThumbnail = function(notebookId, existingFilesJson){
-				//. Use notebookId to get the folder, use .pages to get the page ids (in order.)
-				let targetPath = config.dataPath + "" + notebookId + ".thumbnails";
+			let getThumbnail = function(documentId, existingFilesJson){
+				//. Use documentId to get the folder, use .pages to get the page ids (in order.)
+				let targetPath = config.dataPath + "" + documentId + ".thumbnails";
 	
 				// Need to check that the directory exists.
 				if(!fs.existsSync(targetPath)){ 
@@ -369,7 +387,7 @@ const webApi = {
 				};
 
 				// Get the first page id.
-				let firstPageId = existingFilesJson.DocumentType[notebookId].content.pages[0];
+				let firstPageId = existingFilesJson.DocumentType[documentId].content.pages[0];
 				
 				// Check that the file exists. 
 				let firstThumbnail = path.join(targetPath, firstPageId+".jpg");

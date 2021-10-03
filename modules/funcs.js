@@ -433,15 +433,17 @@ const createJsonFsData         = async function(writeFile){
 		});
 
 		// Further filter each anem to remove the full config.dataPath.
-		files = files.map( function(d){ 
-			return d.filepath.replace(config.dataPath, ""); 
+		files = files.map( function(d){
+			let filename = d.filepath.split("/");
+			filename = filename[filename.length-1];
+			return filename; 
 		});
 
 		files = await getAllJson(files, config.dataPath).catch(function(e) { throw e; });
 		files = await createDirectoryStructure(files).catch(function(e) { throw e; });
 		
 		if(writeFile){
-			fs.writeFileSync(config.htmlPath + "/files.json", JSON.stringify(files,null,0), function(err){
+			fs.writeFileSync(config.filesjson, JSON.stringify(files,null,0), function(err){
 				if (err) { console.log("ERROR: ", err); reject(err); }
 			});
 		}
@@ -455,7 +457,7 @@ const getExistingJsonFsData    = async function(fullVersion=true){
 	return new Promise(async function(resolve,reject){
 		let files;
 		let recreateall = false;
-		if( !fs.existsSync(config.htmlPath + "/files.json") ){
+		if( !fs.existsSync(config.filesjson) ){
 			try{ 
 				files = await createJsonFsData(true).catch(function(e) { throw e; }); 
 			} 
@@ -467,7 +469,7 @@ const getExistingJsonFsData    = async function(fullVersion=true){
 			recreateall = true;
 		}
 		else{
-			files = fs.readFileSync(config.htmlPath + "/files.json");
+			files = fs.readFileSync(config.filesjson);
 			files = JSON.parse(files);
 		}
 
@@ -568,7 +570,7 @@ const updateRemoteDemo         = async function(){
 		newFilesJson.DocumentType["78f004b5-c3ec-44f6-b624-0f47d1eacb0c"].metadata.parent = "";
 		
 		// Create a demo_files.json with only that data.
-		fs.writeFileSync(config.scriptsPath + "/demo_files.json", JSON.stringify(newFilesJson,null,1), function(err){
+		fs.writeFileSync(config.demo_filesjson, JSON.stringify(newFilesJson,null,1), function(err){
 			if (err) { console.log("ERROR: ", err); reject(err); }
 		});
 
@@ -583,13 +585,13 @@ const updateRemoteDemo         = async function(){
 		filterText.push("");
 		filterText.push("- /*");
 		// Write the include/filter file.
-		fs.writeFileSync(config.scriptsPath + "/updateRemoteDemo.filter", filterText.join("\n"), function(err){
+		fs.writeFileSync(config.demo_filter, filterText.join("\n"), function(err){
 			if (err) { console.log("ERROR: ", err); reject(err); }
 		});
 		
 		// Break up the script into parts (easier to debug.)
 		let cmd;
-		cmd = `cd scripts && ./updateRemoteDemo.sh `;
+		cmd = `cd ${config.scriptsPath} && ./updateRemoteDemo.sh `;
 		let resp1, resp2, resp3, resp4, resp5, resp6;
 		try{ console.log("(SERVER)             - part1: "); resp1 = await runCommand_exec_progress(cmd + " part1", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part1", e); reject(); }
 		try{ console.log("(configFile.json)    - part2: "); resp2 = await runCommand_exec_progress(cmd + " part2", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part2", e); reject(); }
@@ -608,7 +610,7 @@ const updateRemoteDemo         = async function(){
 		};
 
 		// Write the file with the resps in it.
-		fs.writeFileSync(config.scriptsPath + "/updateRemoteDemo.resps.json", JSON.stringify(retObj,null,1), function(err){
+		fs.writeFileSync(config.demo_resps, JSON.stringify(retObj,null,1), function(err){
 			if (err) { console.log("ERROR: ", err); reject(err); }
 		});
 

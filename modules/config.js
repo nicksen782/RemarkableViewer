@@ -9,22 +9,25 @@ config.extra = {
 	serverStarted  : `${new Date().toString().split(" GMT")[0]} `, // Thu Sep 30 2021 17:04:35
 };
 
-// Methods to display directory
-// console.log("0000000000000000000000000000000000000000");
-// console.log("__dirname:    ", __dirname);
-// console.log("process.cwd() : ", process.cwd());
-// console.log("./ : ", path.resolve("./"));
-// console.log("filename: ", __filename);
-// console.log("0000000000000000000000000000000000000000");
+// for(let key in config){
+// 	if(key == "extra") { continue; }
+// 	let stats;
+// 	let absolutePath = "" ;
+// 	if(fs.existsSync(config[key])){ 
+// 		absolutePath = path.resolve(config[key]); //+ "///////" + stats.isFile ? "" : "/";
+// 		stats = fs.statSync( absolutePath );
+		
+// 		config[key] = path.relative(process.cwd(), absolutePath);
 
-// Change the relative paths in the configFile to be absolute paths. 
-// config.htmlPath    = `${path.join(path.resolve("./"), config.htmlPath)}`    ;
-// config.dataPath    = `${path.join(path.resolve("./"), config.dataPath)}`    ;
-// config.imagesPath  = `${path.join(path.resolve("./"), config.imagesPath)}`  ;
-// config.scriptsPath = `${path.join(path.resolve("./"), config.scriptsPath)}` ;
+// 		if( !stats.isFile() && stats.isDirectory() ){
+// 			config[key] += "/";
+// 		}
+
+// 		console.log(key.padEnd(20, " "), "F:", stats.isFile() ? "1" : "0", "D:", stats.isDirectory() ? "1" : "0", process.cwd()+"/");
+// 	}
+// }
 
 module.exports = {
 	config     :config,
-
 	_version          : function(){ return "Version 2021-09-24"; }
 };

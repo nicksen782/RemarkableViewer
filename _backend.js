@@ -18,7 +18,7 @@ app.get('/getFilesJson'       , async (req, res) => {
 	// console.log("\nroute: getFilesJson:", req.query);
 	
 	// FOR DEBUG.
-	// fs.unlinkSync( config.htmlPath + "/files.json" );
+	// fs.unlinkSync( config.filesjson );
 
 	let returnValue;
 	try{ 
@@ -53,7 +53,7 @@ app.get('/getGlobalUsageStats', async (req, res) => {
 });
 app.get('/getSvgs'            , async (req, res) => {
 	let returnValue;
-	let arg1 = req.query.notebookId;
+	let arg1 = req.query.documentId;
 
 	try{ 
 		returnValue = await webApi.getSvgs(arg1).catch(function(e) { throw e; }); 
@@ -88,7 +88,7 @@ app.get('/getSettings'        , async (req, res) => {
 	// Get the local version settings.
 	if(config.environment == "local"){ 
 		try{ 
-			settings = fs.readFileSync(config.htmlPath + "/settings.json"); 
+			settings = fs.readFileSync(config.local_clientSettings); 
 		} 
 		catch(e){ 
 			console.trace("ERROR: /getSettings:", e); 
@@ -99,7 +99,7 @@ app.get('/getSettings'        , async (req, res) => {
 	// Get the demo version settings.
 	else{
 		try{ 
-			settings = fs.readFileSync(config.htmlPath + "/settingsDEMO.json"); 
+			settings = fs.readFileSync(config.demo_clientSettings); 
 		} 
 		catch(e){ 
 			console.trace("ERROR: /getSettings:", e); 
@@ -127,7 +127,7 @@ app.post('/updateSettings'    ,express.json(), async (req, res) => {
 
 	// Write the new file. 
 	try{
-		fs.writeFileSync(config.htmlPath + "/settings.json", JSON.stringify(req.body,null,1) );
+		fs.writeFileSync(config.local_clientSettings, JSON.stringify(req.body,null,1) );
 	}
 	catch(e){ 
 		console.trace("ERROR: /updateSettings:", e); 
@@ -142,7 +142,7 @@ app.post('/updateSettings'    ,express.json(), async (req, res) => {
 
 // WEB UI - ROUTES (local only)
 app.get('/updateFromDevice'          , async (req, res) => {
-	// console.log("\nroute: updateFromDevice:", req.query);
+	console.log("\nroute: updateFromDevice:", req.query);
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
@@ -182,6 +182,7 @@ app.get('/updateFromDeviceTemplates' , async (req, res) => {
 
 	try{ 
 		returnValue = await webApi.updateFromDeviceTemplates().catch(function(e) { throw e; }); 
+		// returnValue = await webApi.updateFromDeviceTemplates().catch(e => {throw e;} ); 
 	} 
 	catch(e){
 		console.trace("ERROR: /updateFromDeviceTemplates:", e); 
@@ -227,8 +228,8 @@ app.get('/debug/rebuildServerStorage', async (req, res) => {
 
 	// Manually set ids.
 	let ids = [];
-	let setManual = true;
-	// let setManual = false;
+	// let setManual = true;
+	let setManual = false;
 	if(setManual){
 		ids = [
 			// PDFs
@@ -247,18 +248,18 @@ app.get('/debug/rebuildServerStorage', async (req, res) => {
 			let dirPath = config.imagesPath + id + "/";
 			let fileRec = files.DocumentType[key];
 
-			if(req.query.pdf == true && rec.content.fileType == "pdf"){
+			if(req.query.pdf == true && fileRec.content.fileType == "pdf"){
 				// Add the id for the pdf. 
-				if(ids.indexOf(rec.extra._thisFileId) == -1) { ids.push(rec.extra._thisFileId); }
+				if(ids.indexOf(fileRec.extra._thisFileId) == -1) { ids.push(fileRec.extra._thisFileId); }
 			}
-			if(req.query.rmtosvg == true && rec.content.fileType == "notebook"){
+			if(req.query.rmtosvg == true && fileRec.content.fileType == "notebook"){
 				// Add each page of the notebook.
-				// if(ids.indexOf(rec.extra._thisFileId) == -1) { ids.push(rec.extra._thisFileId); }
+				// if(ids.indexOf(fileRec.extra._thisFileId) == -1) { ids.push(fileRec.extra._thisFileId); }
 				// xochitl/9b07473e-5a5f-4fc3-8faa-7ff6001b5bea/9494a82f-ceb7-4e57-81fe-1fb3d54a4fa8.rm
 			}
-			if(req.query.optimizesvg == true && rec.content.fileType == "notebook"){
+			if(req.query.optimizesvg == true && fileRec.content.fileType == "notebook"){
 				// Add each page of the notebook.
-				// if(ids.indexOf(rec.extra._thisFileId) == -1) { ids.push(rec.extra._thisFileId); }
+				// if(ids.indexOf(fileRec.extra._thisFileId) == -1) { ids.push(fileRec.extra._thisFileId); }
 			}
 		}
 	}
@@ -358,9 +359,12 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 		console.log("-".repeat(msg.length));
 
 		// Wait 2 seconds. 
-		await new Promise((resolve) => {
-			setTimeout(resolve, 2000);
-		}).catch(function(e) { throw e; });
+		const sleep = function(ms){
+			return new Promise((resolve) => {
+				setTimeout(resolve, ms);
+			});
+		};
+		await sleep(2000).catch(function(e) { throw e; }); 
 
 		// Done.
 		// console.log("done");
@@ -388,9 +392,6 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 			app.use('/DEVICE_DATA'       , express.static( path.join(__dirname, 'DEVICE_DATA') ));
 			app.use('/DEVICE_DATA_IMAGES', express.static( path.join(__dirname, 'DEVICE_DATA_IMAGES') ));
 	
-			// app.use(express.json());
-			// app.use(express.urlencoded({ extended: true }));
-			
 			process.once('SIGUSR2', function () {
 				console.log(`Removing process ${process.pid} due to SIGUSR2 (restart) signal from nodemon.`);
 				process.kill(process.pid, 'SIGUSR2');

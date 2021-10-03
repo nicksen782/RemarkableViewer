@@ -31,17 +31,17 @@ case $1 in
 esac
 
 case $2 in
-	wifi|usb)
-		if [ "$2" == "wifi" ]; then
+	WIFI|USB)
+		if [ "$2" == "WIFI" ]; then
 			SSHALIAS=remarkablewifi;
 			SRC="$SSHALIAS:/usr/share/remarkable/templates/";
-		elif [ $2 == "usb" ]; then
+		elif [ $2 == "USB" ]; then
 			SSHALIAS=remarkableusb;
 			SRC="$SSHALIAS:/usr/share/remarkable/templates/";
 		fi
 		;;
 	*)
-		echo "Argument 2 is INVALID (Valid options: wifi, usb)"; exit;
+		echo "Argument 2 is INVALID (Valid options: WIFI, USB)"; exit;
 esac
 
 # CONNECTION CHECK.

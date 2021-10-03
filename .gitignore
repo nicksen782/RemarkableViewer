@@ -10,8 +10,16 @@ debug/*
 
 _WebUI/*
 !_WebUI/.gitkeep
+; !_WebUI/Html
+; _WebUI/Html/oldcode/*
 
 scripts/updateRemoteDemo.resps.json
 scripts/demo_files.json
 scripts/updateRemoteDemo.filter
 scripts/OLD/*
+
+diskFree.json
+
+templateEditor/*
+
+files.json
