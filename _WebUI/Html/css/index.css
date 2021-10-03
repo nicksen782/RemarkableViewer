@@ -10,7 +10,6 @@
 	bg3: #e4e4e4 (.collectionType:hover, .file_box:hover, .rpt_nav_bar_button:hover)
 	bg3: #c9c9c9 (.collectionType:hover, .file_box:hover, .rpt_nav_bar_button:hover)
 */
-*/
 
 * { 
 	box-sizing: border-box; 
@@ -28,6 +27,29 @@ body {
 	margin: 0;
 	padding: 0;
 	border: none;
+}
+
+#no_data{
+	text-align: center;
+	display: table-cell;
+	vertical-align: middle;
+	height: 120px;
+	width: 895px;
+}
+#no_data .no_data_box{
+	border-radius: 10px;
+	border: 1px solid black;
+	background-color: #ffffaf;
+	display: inline-block;
+	padding: 10px;
+}
+#no_data .no_data_line1{
+	font-weight:bold;
+	text-decoration:underline;
+	font-size: 250%;
+}
+#no_data .no_data_line2{
+	font-size: 175%;
 }
 
 #rpt_full_wrapper{

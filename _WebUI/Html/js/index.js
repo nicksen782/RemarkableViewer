@@ -1193,13 +1193,26 @@ window.onload = async function(){
 			try{ await rpt.nav.createNavIcons(""); } catch(e){ console.log("ERROR: in createNavIcons", e); return; }
 		}
 	};
-
+	
 	// Get settings.json.
 	try{ await rpt.apis.getSettings();  } catch(e){ console.log("ERROR: getSettings:", e); };
 
 	// Get files.json.
 	try{ await rpt.apis.getFilesJson(); } catch(e){ console.log("ERROR: getFilesJson:", e); };
 	
+	// Is this the first run? If so then dirs would only contain "trash" and "deleted" and files would be empty.
+	if( Object.keys(rpt.globals.files).length == 0 && Object.keys(rpt.globals.dirs).length == 2){
+		console.log("This is the first run!");
+		document.getElementById("rpt_nav_box_left_filesystem_files").innerHTML = "" + 
+			"<div id='no_data'>" +
+			"	<div class='no_data_box'>"+
+			"		<span class='no_data_line1'>NO DATA.</span><br><br>"+
+			"		<span class='no_data_line2'>Please go to the Settings tab and sync your Remarkable device.</span><br><br>"+
+			"		" +
+			"	</div>" +
+			"</div>" ;
+	}
+
 	// Set UI settings.
 	setUiSettings();
 
