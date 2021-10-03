@@ -1,7 +1,12 @@
-DEVICE_DATA/*
-!DEVICE_DATA/.gitkeep
+DEVICE_DATA/recent.json
+
+DEVICE_DATA/xochitl/*
 !DEVICE_DATA/xochitl/.gitkeep
+
+DEVICE_DATA/templates/*
 !DEVICE_DATA/templates/.gitkeep
+
+!DEVICE_DATA/.gitkeep
 
 DEVICE_DATA_IMAGES/*
 !DEVICE_DATA_IMAGES/.gitkeep
@@ -25,3 +30,5 @@ diskFree.json
 templateEditor/*
 
 files.json
+.gitignore
+
