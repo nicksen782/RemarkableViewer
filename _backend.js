@@ -172,7 +172,7 @@ app.get('/updateFromDevice'          , async (req, res) => {
 });
 
 app.get('/updateFromDeviceTemplates' , async (req, res) => {
-	// console.log("\nroute: updateFromDeviceTemplates:", req.query);
+	console.log("\nroute: updateFromDeviceTemplates:", req.query);
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
@@ -181,7 +181,7 @@ app.get('/updateFromDeviceTemplates' , async (req, res) => {
 	}
 
 	try{ 
-		returnValue = await webApi.updateFromDeviceTemplates().catch(function(e) { throw e; }); 
+		returnValue = await webApi.updateFromDeviceTemplates(req.query.interface).catch(function(e) { throw e; }); 
 		// returnValue = await webApi.updateFromDeviceTemplates().catch(e => {throw e;} ); 
 	} 
 	catch(e){

@@ -21,28 +21,19 @@ DEST=
 SSHALIAS=
 
 case $1 in
-	tolocal) 
-		if [ "$1" == "tolocal" ]; then
-			DEST="../DEVICE_DATA/templates/";
-		fi
-		;;
-	*)
-		echo "Argument 1 is INVALID. (Valid options: toremote, tolocal)"; exit;
-esac
-
-case $2 in
 	WIFI|USB)
-		if [ "$2" == "WIFI" ]; then
+		if [ "$1" == "WIFI" ]; then
 			SSHALIAS=remarkablewifi;
-			SRC="$SSHALIAS:/usr/share/remarkable/templates/";
-		elif [ $2 == "USB" ]; then
+		elif [ $1 == "USB" ]; then
 			SSHALIAS=remarkableusb;
-			SRC="$SSHALIAS:/usr/share/remarkable/templates/";
 		fi
 		;;
 	*)
 		echo "Argument 2 is INVALID (Valid options: WIFI, USB)"; exit;
 esac
+
+SRC="$SSHALIAS:/usr/share/remarkable/templates/";
+DEST="../DEVICE_DATA/templates";
 
 # CONNECTION CHECK.
 STATUS=$(ssh -o BatchMode=yes -o ConnectTimeout=2 $SSHALIAS echo ok 2>&1)
@@ -51,7 +42,7 @@ if [[ $STATUS != ok ]] ; then
   exit 1
 fi
 
-EXCLUDES="--exclude '.cache/' --exclude 'webusb' --exclude 'templates'"
+EXCLUDES="--exclude '.gitkeep'"
 ARGS='--delete -r -v -a --stats '
 
 # Create the command. 

@@ -636,7 +636,7 @@ rpt.apis = {
 	// updateFromDeviceTemplates
 	updateFromDeviceTemplates         : function(){
 		return new Promise(function(resolve, reject){
-			rpt.apis.simpleFetch("updateFromDeviceTemplates").then(
+			rpt.apis.simpleFetch("updateFromDeviceTemplates?interface=" + `${rpt.globals.syncInterface}`).then(
 				function(results){
 					resolve(results);
 				}

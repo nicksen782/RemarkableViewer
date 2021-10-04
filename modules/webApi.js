@@ -10,24 +10,28 @@ const webApi = {
 	//
 	updateFromDevice          : updateFromDevice,
 	//
-	updateFromDeviceTemplates : function(){
+	updateFromDeviceTemplates : function(interface){
 		return new Promise(async function(resolve_top,reject_top){
-			reject_top("NOT READY YET"); return;
-			resolve_top("NOT READY YET"); return;
 			// Get the /usr/share/remarkable/templates directory from the device.
-			
-			// ${config.scriptsPath}/syncTemplates.sh
-			// optimizeSvg
-			// const optimizeSvg = function(changeRec, fileRec, totalCount){
-			// let obj = {
-			// 	docId      : key, // docId: 'af6beacb-ddea-4ada-91da-bb63bcb38ef3',
-			// 	name       : rec.metadata.visibleName, // name: 'To do',
-			// 	pageFile   : d, // pageFile: ffe8551c-c0c9-4c4c-bd42-0a8a0817c691
-			// 	fileType   : rec.content.fileType, // fileType: 'notebook',
-			// 	srcFile    : config.dataPath + key + "/" + d +".rm", // path: 'xochitl/af6beacb-ddea-4ada-91da-bb63bcb38ef3/ffe8551c-c0c9-4c4c-bd42-0a8a0817c691.rm',
-			// 	changeType : "updated", // changeType: 'updated'
-			// };
+			// Make sure the interface is correct.
+			if( ["WIFI", "USB"].indexOf(interface) == -1 ) {
+				let msg = "ERROR: Invalid 'interface': " + interface;
+				reject_top( msg );
+				return;
+			}
 
+			let resp1;
+			let cmd = `cd ${path.join(path.resolve("./"), `${config.scriptsPath}`)} && ./syncTemplates.sh ${interface}`;
+			try{ 
+				resp1 = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
+				resolve_top(resp1);
+				return;
+			} 
+			catch(e){ 
+				console.log("Error in updateFromDeviceTemplates:", e); 
+				reject_top(); 
+				return;
+			}
 		});
 	},
 	//
