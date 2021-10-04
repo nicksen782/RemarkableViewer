@@ -172,7 +172,7 @@ app.get('/updateFromDevice'          , async (req, res) => {
 });
 
 app.get('/updateFromDeviceTemplates' , async (req, res) => {
-	console.log("\nroute: updateFromDeviceTemplates:", req.query);
+	// console.log("\nroute: updateFromDeviceTemplates:", req.query);
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 

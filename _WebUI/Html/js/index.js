@@ -638,6 +638,7 @@ rpt.apis = {
 		return new Promise(function(resolve, reject){
 			rpt.apis.simpleFetch("updateFromDeviceTemplates?interface=" + `${rpt.globals.syncInterface}`).then(
 				function(results){
+					document.querySelector("#rpt_nav_bar_view_settings_sync_progress .row.content").innerHTML = "DONE: updateFromDeviceTemplates";
 					resolve(results);
 				}
 			);
@@ -651,7 +652,7 @@ rpt.apis = {
 					rpt.globals.syncInterface            = results.syncInterface; 
 					rpt.globals.open_document_fullscreen = results.open_document_fullscreen; 
 					rpt.globals.addDirIdToUrl            = results.addDirIdToUrl; 
-					rpt.globals.addDocumentdIdToUrl       = results.addDocumentdIdToUrl; 
+					rpt.globals.addDocumentdIdToUrl      = results.addDocumentdIdToUrl; 
 					rpt.globals.view_pdf_annotations     = results.view_pdf_annotations; 
 					rpt.globals.environment              = results.environment;
 
