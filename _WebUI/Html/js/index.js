@@ -1197,10 +1197,15 @@ window.onload = async function(){
 	// Get settings.json.
 	try{ await rpt.apis.getSettings();  } catch(e){ console.log("ERROR: getSettings:", e); };
 
+	// Set UI settings.
+	setUiSettings();
+
 	// Get files.json.
 	try{ await rpt.apis.getFilesJson(); } catch(e){ console.log("ERROR: getFilesJson:", e); };
 	
 	// Is this the first run? If so then dirs would only contain "trash" and "deleted" and files would be empty.
+	// rpt.globals.files = {}
+	// rpt.globals.dirs = {"trash":{}, "deleted":{}, }
 	if( Object.keys(rpt.globals.files).length == 0 && Object.keys(rpt.globals.dirs).length == 2){
 		console.log("This is the first run!");
 		document.getElementById("rpt_nav_box_left_filesystem_files").innerHTML = "" + 
@@ -1212,16 +1217,14 @@ window.onload = async function(){
 			"	</div>" +
 			"</div>" ;
 	}
+	else{
+		// Adjust the parent value for deleted directories.
+		rpt.globals.fixDeletedFiles();
 
-	// Set UI settings.
-	setUiSettings();
+		// Display dir and document (if applicable.)
+		displayStartDirAndNotebook();
+	}
 
 	// Add event listeners.
 	addEventListeners();
-
-	// Adjust the parent value for deleted directories.
-	rpt.globals.fixDeletedFiles();
-
-	// Display dir and document (if applicable.)
-	displayStartDirAndNotebook();
 }

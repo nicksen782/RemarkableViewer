@@ -345,6 +345,7 @@ const rsyncDown          = function(interface){
 						pageFile  : pageFile  ,
 						changeType: changeType, 
 					});
+
 				});
 
 				// Resolve and return data.
@@ -397,10 +398,6 @@ const rsyncDown          = function(interface){
 					diskFree_mmcblk2p1 = diskFree_mmcblk2p1.replace(/\s+/g, " ").split(" ");
 					diskFree_mmcblk2p4 = diskFree_mmcblk2p4.replace(/\s+/g, " ").split(" ");
 
-					// diskFree_mmcblk2p1: [ '/dev/mmcblk2p1', '20422'  , '66'     , '20356'  , '0%' , '/var/lib/uboot' ]
-					// diskFree_mmcblk2p4: [ '/dev/mmcblk2p4', '6722700', '1593584', '4767900', '25%', '/home' ]
-
-
 					diskFree = {
 						"diskFree_mmcblk2p1" : {
 							"Filesystem" : diskFree_mmcblk2p1[0],
@@ -450,6 +447,10 @@ const rsyncDown          = function(interface){
 				
 				// Write the rmChanges.
 				fs.writeFileSync( config.rmChanges, JSON.stringify(rmChanges, null, 1) );
+
+				// Write diskFree.
+				try{ fs.writeFileSync(config.diskFree, JSON.stringify(diskFree,null,1)); }
+				catch(e){ console.log("ERROR: diskFree.json", e); rej_top(e); }
 			}
 
 			let { changes, new_filesjson } = await parseChanges(rmChanges).catch(function(e) { throw e; });
@@ -612,7 +613,7 @@ const createPdfImages    = function(changeRec, fileRec, totalCount){
 						} 
 						catch(e){ 
 							console.log("Command failed:", e); 
-							rej_getPdfDimensions("fail"); 
+							rej_getPdfDimensions(e); 
 							return; 
 						}
 
@@ -665,7 +666,7 @@ const createPdfImages    = function(changeRec, fileRec, totalCount){
 						} 
 						catch(e){ 
 							console.log("Command failed:", e); 
-							rej_getPngDimensions("fail"); 
+							rej_getPngDimensions(e); 
 							return; 
 						}
 
@@ -698,7 +699,7 @@ const createPdfImages    = function(changeRec, fileRec, totalCount){
 						}
 						catch(e){ 
 							console.log("Command failed:", e); 
-							rej_rotatePng("fail"); 
+							rej_rotatePng(e); 
 							return; 
 						}
 						res_rotatePng(); 
@@ -714,7 +715,7 @@ const createPdfImages    = function(changeRec, fileRec, totalCount){
 						}
 						catch(e){ 
 							console.log("Command failed:", e); 
-							rej_resizePng("fail"); 
+							rej_resizePng(e); 
 							return; 
 						}
 						res_resizePng(); 
@@ -725,10 +726,11 @@ const createPdfImages    = function(changeRec, fileRec, totalCount){
 				try { dims = await getPdfDimensions( changeRec.srcFile ).catch(function(e) { throw e; }); }
 				catch(e){
 					console.log("Command failed:", e); 
-					rej_pdfToPngs();
+					rej_pdfToPngs(e);
 				}
 				let isLandscape = dims.isLandscape; 
 		
+				// 'convert -alpha remove -antialias  -colors 128 -depth 8 -flatten  -strip  "./DEVICE_DATA/xochitl/029d4e39-5bd5-47d0-96dd-1808d5fb5b77.pdf[0]" "DEVICE_DATA_IMAGES/029d4e39-5bd5-47d0-96dd-1808d5fb5b77/pages/KOLBE1.pdf-0.png"'
 				let pdfImage = new PDFImage(
 					changeRec.srcFile, {
 						pdfFileBaseName: fileRec.metadata.visibleName, // string | undefined;
@@ -887,7 +889,7 @@ const createPdfImages    = function(changeRec, fileRec, totalCount){
 						},
 						function(error){
 							console.log("ERROR:, error");
-							rej_pdfToPngs();
+							rej_pdfToPngs(error);
 						}
 					);
 				}
@@ -925,7 +927,7 @@ const createPdfImages    = function(changeRec, fileRec, totalCount){
 			console.log(msg, e);
 			sse.write(msg);
 
-			rejectionFunction("svgo", e, rej_createPdfImages)
+			rejectionFunction("createPdfImages", e, rej_createPdfImages)
 			return; 
 		} 
 		
@@ -1164,10 +1166,6 @@ const updateFromDevice = function(obj){
 				// Write new_filesjson instead of just regenerating it again.
 				try{ fs.writeFileSync(config.filesjson, JSON.stringify(new_filesjson,null,0)); }
 				catch(e){ console.log("ERROR: files.json", e); rej_top(e); }
-				
-				// Write diskFree.
-				try{ fs.writeFileSync(config.diskFree, JSON.stringify(diskFree,null,1)); }
-				catch(e){ console.log("ERROR: diskFree.json", e); rej_top(e); }
 				
 				// Remove the rmChanges_.json file.
 				fs.unlinkSync( config.rmChanges );
