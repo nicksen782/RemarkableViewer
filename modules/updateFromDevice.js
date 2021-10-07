@@ -1,10 +1,10 @@
-const { spawn }       = require('child_process');
-const fs              = require('fs');
-const path            = require('path');
-const PDFImage          = require("pdf-image").PDFImage;
-const async_mapLimit  = require('promise-async').mapLimit;
-const { performance } = require('perf_hooks');
-const { optimize, loadConfig  }    = require('svgo');
+const { spawn }                 = require('child_process');
+const fs                        = require('fs');
+const path                      = require('path');
+const PDFImage                  = require("pdf-image").PDFImage;
+const async_mapLimit            = require('promise-async').mapLimit;
+const { performance }           = require('perf_hooks');
+const { optimize, loadConfig  } = require('svgo');
 let svgo_config;
 
 const timeIt = require('./timeIt.js');
@@ -76,24 +76,6 @@ const sse                = {
 			sse.write(data);
 		}
 	},
-};
-
-// Shared function to handle rejections. 
-const rejectionFunction  = function(title, e, rejectFunction){
-	let msg = `ERROR in ${title}: ${e}`;
-	console.log(msg); 
-	sse.write(JSON.stringify(msg));
-	
-	//
-	msg = `FAILED: updateFromDevice\n`;
-	console.log(msg); 
-	sse.write(msg);
-	
-	// END THE SSE STREAM.
-	sse.end();
-
-	// REJECT AND RETURN.
-	rejectFunction(JSON.stringify(e)); 
 };
 
 // Sync from device and determine changes. 
@@ -553,19 +535,36 @@ const convertAndOptimize = function(changes){
 
 		// Do deletion handling.
 		try{ await convert("deleted").catch(function(e) { throw e; }); } 
-		catch(e){ rejectionFunction("convertAndOptimize/fileDeleted", e, reject_convertAndOptimize); return; }
+		catch(e){ funcs.rejectionFunction("convertAndOptimize/fileDeleted", e, reject_convertAndOptimize, sse); return; }
 
 		// Do rmToSvg conversion.
 		try{ await convert("rmToSvg").catch(function(e) { throw e; }); } 
-		catch(e){ rejectionFunction("convertAndOptimize/rmToSvg", e, reject_convertAndOptimize); return; } 
-
-		// Do createPdfImages conversion.
-		try{ await convert("createPdfImages").catch(function(e) { throw e; }); } 
-		catch(e){ rejectionFunction("convertAndOptimize/createPdfImages", e, reject_convertAndOptimize); return; } 
+		catch(e){ funcs.rejectionFunction("convertAndOptimize/rmToSvg", e, reject_convertAndOptimize, sse); return; } 
 
 		// Do optimizeSvg.
 		try{ await convert("optimizeSvg").catch(function(e) { throw e; }); } 
-		catch(e){ rejectionFunction("convertAndOptimize/optimizeSvg", e, reject_convertAndOptimize); return; } 
+		catch(e){ funcs.rejectionFunction("convertAndOptimize/optimizeSvg", e, reject_convertAndOptimize, sse); return; } 
+
+		// Do createPdfImages conversion.
+		try{ 
+			// for(let key in files.DocumentType){
+			// 	let id      = key;
+			// 	// let dirPath = config.imagesPath + id + "/";
+			// 	let fileRec = files.DocumentType[key];
+	
+			// 	if(req.query.pdf == true && fileRec.content.fileType == "pdf"){
+			// 		// Add the id for the pdf. 
+			// 		if(ids.indexOf(fileRec.extra._thisFileId) == -1) { 
+			// 			// console.log("fileRec.metadata.visibleName:", fileRec.metadata.visibleName);
+			// 			ids.push(fileRec.extra._thisFileId); 
+			// 			pageCount += fileRec.content.pages.length;
+					
+			// 	}
+			// }
+
+			await convert("createPdfImages").catch(function(e) { throw e; }); 
+		} 
+		catch(e){ funcs.rejectionFunction("convertAndOptimize/createPdfImages", e, reject_convertAndOptimize, sse); return; } 
 
 		resolve_convertAndOptimize();
 	});
@@ -927,7 +926,7 @@ const createPdfImages    = function(changeRec, fileRec, totalCount){
 			console.log(msg, e);
 			sse.write(msg);
 
-			rejectionFunction("createPdfImages", e, rej_createPdfImages)
+			funcs.rejectionFunction("createPdfImages", e, rej_createPdfImages, sse)
 			return; 
 		} 
 		
@@ -957,7 +956,7 @@ const rmToSvg            = function(changeRec, fileRec, totalCount){
 			dir_existsSync = fs.existsSync(destDir); 
 		} 
 		catch(e){ 
-			rejectionFunction("existsSync", e, rej_rmToSvg)
+			funcs.rejectionFunction("existsSync", e, rej_rmToSvg, sse)
 			return; 
 		} 
 		
@@ -968,14 +967,14 @@ const rmToSvg            = function(changeRec, fileRec, totalCount){
 				dir_mkdirSync = fs.mkdirSync(destDir); 
 			} 
 			catch(e){ 
-				rejectionFunction("mkdirSync", e, rej_rmToSvg)
+				funcs.rejectionFunction("mkdirSync", e, rej_rmToSvg, sse)
 				return; 
 			} 
 		}
 
 		// Make sure that the specified srcFile exists. 
 		if( !fs.existsSync(srcFile) ){ 
-			rejectionFunction("existsSync: srcFile NOT found.", null, rej_rmToSvg)
+			funcs.rejectionFunction("existsSync: srcFile NOT found.", null, rej_rmToSvg, sse)
 			return; 
 		}
 		
@@ -1002,7 +1001,7 @@ const rmToSvg            = function(changeRec, fileRec, totalCount){
 			res_rmToSvg();
 		} 
 		catch(e){ 
-			rejectionFunction("rM2svg.py", e, rej_rmToSvg)
+			funcs.rejectionFunction("rM2svg.py", e, rej_rmToSvg, sse)
 			return; 
 		} 
 	});
@@ -1045,7 +1044,7 @@ const optimizeSvg        = function(changeRec, fileRec, totalCount){
 			response = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; });
 		} 
 		catch(e){ 
-			rejectionFunction("svgo", e, rej_optimizeSvg)
+			funcs.rejectionFunction("svgo", e, rej_optimizeSvg, sse);
 			return; 
 		} 
 
@@ -1142,7 +1141,7 @@ const updateFromDevice = function(obj){
 				new_filesjson = resp.new_filesjson;
 			} 
 			catch(e){ 
-				rejectionFunction("rsyncDown", e, rej_top);
+				funcs.rejectionFunction("rsyncDown", e, rej_top, sse);
 				return; 
 			}
 			sse.write("== END RSYNC ==\n");
@@ -1152,7 +1151,7 @@ const updateFromDevice = function(obj){
 				await convertAndOptimize(changes).catch(function(e) { throw e; }); 
 			} 
 			catch(e){ 
-				rejectionFunction("convertAndOptimize", e, rej_top);
+				funcs.rejectionFunction("convertAndOptimize", e, rej_top, sse);
 				return; 
 			}
 			sse.write("==END CONVERSIONS / OPTIMIZATIONS ==\n");
@@ -1171,7 +1170,7 @@ const updateFromDevice = function(obj){
 				fs.unlinkSync( config.rmChanges );
 			} 
 			catch(e){ 
-				rejectionFunction("createJsonFsData", e, rej_top);
+				funcs.rejectionFunction("createJsonFsData", e, rej_top, sse);
 				return; 
 			}
 			sse.write("== END CREATEJSONFSDATA ==\n");

@@ -5,6 +5,24 @@ const config          = require('./config.js').config;
 
 // UTILITY FUNCTIONS - SHARED.
 
+// Shared function to handle rejections. 
+const rejectionFunction  = function(title, e, rejectFunction, sse=null){
+	let msg = `ERROR in ${title}: ${e}`;
+	console.log(msg); 
+	if(sse){ sse.write(JSON.stringify(msg)); }
+	
+	//
+	msg = `FAILED: updateFromDevice\n`;
+	console.log(msg); 
+	if(sse){ sse.write(msg); }
+	
+	// END THE SSE STREAM.
+	if(sse){ sse.end(); }
+
+	// REJECT AND RETURN.
+	rejectFunction(JSON.stringify(e)); 
+};
+
 //
 const getLastValueOfArray      = function(arr){
 	return arr[arr.length-1];
@@ -495,12 +513,13 @@ const getExistingJsonFsData    = async function(fullVersion=true){
 				// Delete from .content:
 				let keys_content = Object.keys(rec.content);
 				let keep_content = ["pageCount", "fileType", "textScale", "orientation", "margins"];
+				keep_content.push("pages");
 				keys_content.forEach(function(d){
 					if(keep_content.indexOf(d) == -1){
 						delete rec.content[d];
 					}
 				});
-				delete rec.content.pages;
+				// delete rec.content.pages;
 
 				// Remove the remaining unneeded keys.
 				// delete newObj.content.coverPageNumber;
@@ -620,6 +639,7 @@ const updateRemoteDemo         = async function(){
 
 module.exports = {
 	funcs : {
+		rejectionFunction       : rejectionFunction       ,
 		getLastValueOfArray     : getLastValueOfArray     ,
 		getItemsInDir           : getItemsInDir           ,
 		getParentDirName        : getParentDirName        ,
