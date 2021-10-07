@@ -11,10 +11,11 @@ const webApi = require('./webApi.js').webApi;
 const pdfPageToPng = function(srcFile, destFile){
 	return new Promise(async function(res_pdfPageToPng, rej_pdfPageToPng){
 		let options = [
-			"-alpha remove", // Gives control of the alpha/matte channel of an image.
+			"-alpha off", // Gives control of the alpha/matte channel of an image.
 			// "-antialias"   , // Enable/Disable of the rendering of anti-aliasing pixels when drawing fonts and lines.
 			// "+antialias"   , // Enable/Disable of the rendering of anti-aliasing pixels when drawing fonts and lines.
-			"-colorspace Gray", // Set the image colorspace.
+			// "-colorspace Gray", // Set the image colorspace.
+			"-grayscale Rec709Luminance", // Set the image colorspace.
 			// "-colors 8"  , // Set the preferred number of colors in the image.
 			// "-depth 3"     , // Color depth is the number of bits per channel for each pixel.
 			"-depth 8"     , // Color depth is the number of bits per channel for each pixel.
@@ -107,61 +108,6 @@ const createPngSvg = function(destPagesFilenamePng, newDims, destPagesFilenameSv
 		catch(e){ 
 			console.log("Command failed:", e); 
 			rej_createPngSvg(e); 
-			return; 
-		}
-
-	});
-};
-const getPdfInfo = function(srcFile){
-	return new Promise(async function(res_getPdfInfo, rej_getPdfInfo){
-		let cmd = `pdfinfo "${srcFile}" `;
-		let results;
-		try{ 
-			results = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
-			results = results.stdOutHist.split("\n");
-
-			let obj = {};
-			results.forEach(function(line){
-				// Remove all duplicated spaces.
-				line = line.replace(/\s+/g, " ");
-	
-				// Return early if this is a blank line. 
-				if(line.trim() == "") { return; }
-	
-				// Get the index of the first ":".
-				let index1 = line.indexOf(":");
-				
-				// Determine the key and remove the first ":".
-				let key = line.slice(0, index1).trim().replace(":", "");
-				
-				// Split the line using the key. 
-				let splits = line.split(key);
-	
-				// Replace the first ": " with "". 
-				let value = splits[1].replace(": ", "").trim();
-	
-				// Remove spaces in the key and convert to lowercase. 
-				key = key.replace(/ /g, "_").toLowerCase();
-	
-				// Set the key/value for this line. 
-				obj[key] = value;
-
-				if(key == "page_size"){
-					// let line2 = value.replace(/ /g, "");
-					let line2      = value;
-					let splits2    = line2.split(" x ");
-					obj["pageWidth"]  = parseFloat( splits2[0] );
-					obj["pageHeight"] = parseFloat( splits2[1].split(" ")[0] );
-					obj["pageUnits"]  = splits2[1].split(" ")[1];
-				}
-			});
-
-			res_getPdfInfo(obj);
-			return; 
-		} 
-		catch(e){ 
-			console.log("Command failed:", e); 
-			rej_getPdfInfo(e); 
 			return; 
 		}
 
@@ -299,8 +245,8 @@ const incrementalResize = function(orgWidth, orgHeight, desiredRatio="3:4"){
 	};
 };
 
-const pdfToPngImages = function(changeRec, fileRec, totalCount){
-	return new Promise(async function(res_pdfToPngImages, rej_pdfToPngImages){
+const pdfConvert = function(changeRec, fileRec, totalCount){
+	return new Promise(async function(res_pdfConvert, rej_pdfConvert){
 		let startTS = performance.now();
 
 		let msg;
@@ -310,9 +256,9 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 		
 		// Check if the changeRec.srcFile exists.
 		if(!fs.existsSync(changeRec.srcFile)){ 
-			msg = `convertAndOptimize/pdfToPngImages: srcFile not found.` + `"${fileRec.path + fileRec.metadata.visibleName}", "${changeRec.srcFile}"`;
+			msg = `convertAndOptimize/pdfConvert: srcFile not found.` + `"${fileRec.path + fileRec.metadata.visibleName}", "${changeRec.srcFile}"`;
 			console.log(msg);
-			rej_pdfToPngImages();
+			rej_pdfConvert();
 			return; 
 		}
 		
@@ -341,16 +287,16 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 			});
 		}
 		catch(e){
-			msg = `convertAndOptimize/pdfToPngImages/getDimensions: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+			msg = `convertAndOptimize/pdfConvert/getDimensions: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 			console.log(msg);
 			console.log(e);
-			funcs.rejectionFunction("pdfToPngImages/getDimensions", e, rej_pdfToPngImages, false)
+			funcs.rejectionFunction("pdfConvert/getDimensions", e, rej_pdfConvert, false)
 			return; 
 		}
 		
 		// Parse the returned data. Get width and height, determine rotation needs.
 		msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
-			`convertAndOptimize/createPdfImages: ` + 
+			`convertAndOptimize/pdfConvert: ` + 
 			`(${fileRec.content.pages.length} pages)` +
 			`\n  FILE: "${fileRec.path + fileRec.metadata.visibleName}" ` ;
 		console.log(msg);
@@ -368,10 +314,10 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 				await pdfPageToPng(changeRec.srcFile +`[${i}]`, destPagesFilenamePng).catch(function(e) { throw e; }); 
 			}
 			catch(e){
-				msg = `convertAndOptimize/pdfToPngImages/pdfPageToPng: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+				msg = `convertAndOptimize/pdfConvert/pdfPageToPng: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 				console.log(msg);
 				console.log(e);
-				funcs.rejectionFunction("pdfToPngImages/pdfPageToPng", e, rej_pdfToPngImages, false)
+				funcs.rejectionFunction("pdfConvert/pdfPageToPng", e, rej_pdfConvert, false)
 				return; 
 			}
 
@@ -387,10 +333,10 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 					page.doRotate = false;
 				}
 				catch(e){
-					msg = `convertAndOptimize/pdfToPngImages/rotate: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+					msg = `convertAndOptimize/pdfConvert/rotate: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 					console.log(msg);
 					console.log(e);
-					funcs.rejectionFunction("pdfToPngImages/rotate", e, rej_pdfToPngImages, false)
+					funcs.rejectionFunction("pdfConvert/rotate", e, rej_pdfConvert, false)
 					return; 
 				}
 			}
@@ -398,10 +344,10 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 			// Calculate image dimensions that have a 3:4 aspect ratio.
 			let newDims = incrementalResize(page.width, page.height, "3:4");
 			if(!newDims.success){ 
-				msg = `convertAndOptimize/pdfToPngImages/incrementalResize: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+				msg = `convertAndOptimize/pdfConvert/incrementalResize: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 				console.log(msg);
 				console.log("ERROR:", newDims);
-				funcs.rejectionFunction("pdfToPngImages/incrementalResize", newDims.where, rej_pdfToPngImages, false)
+				funcs.rejectionFunction("pdfConvert/incrementalResize", newDims.where, rej_pdfConvert, false)
 				return; 
 			}
 			
@@ -415,10 +361,10 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 				page.height = newDims.height;
 			}
 			catch(e){
-				msg = `convertAndOptimize/pdfToPngImages/resize: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+				msg = `convertAndOptimize/pdfConvert/resize: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 				console.log(msg);
 				console.log(e);
-				funcs.rejectionFunction("pdfToPngImages/resize", e, rej_pdfToPngImages, false)
+				funcs.rejectionFunction("pdfConvert/resize", e, rej_pdfConvert, false)
 				return; 
 			}
 
@@ -429,10 +375,10 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 			// 	await createPngSvg(destPagesFilenamePng, newDims, destPagesFilenameSvg, svgDims).catch(function(e) { throw e; }); 
 			// }
 			// catch(e){
-			// 	msg = `convertAndOptimize/pdfToPngImages/createPngSvg: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+			// 	msg = `convertAndOptimize/pdfConvert/createPngSvg: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 			// 	console.log(msg);
 			// 	console.log(e);
-			// 	funcs.rejectionFunction("pdfToPngImages/createPngSvg", e, rej_pdfToPngImages, false)
+			// 	funcs.rejectionFunction("pdfConvert/createPngSvg", e, rej_pdfConvert, false)
 			// 	return; 
 			// }
 		}
@@ -440,7 +386,7 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 		let endTS = performance.now();
 		console.log(`  COMPLETED in ${((endTS - startTS)/1000).toFixed(3)} seconds: "${fileRec.metadata.visibleName}"`);
 		
-		res_pdfToPngImages();
+		res_pdfConvert();
 		return; 
 
 		// Loop pdf pages.
@@ -453,6 +399,6 @@ const pdfToPngImages = function(changeRec, fileRec, totalCount){
 // "./DEVICE_DATA/xochitl/029d4e39-5bd5-47d0-96dd-1808d5fb5b77.pdf[0]"
 
 module.exports = {
-	pdfToPngImages : pdfToPngImages , // Expected use by updateFromDevice.js 
+	pdfConvert : pdfConvert , // Expected use by updateFromDevice.js 
 	_version  : function(){ return "Version 2021-10-03"; }
 };

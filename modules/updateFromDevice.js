@@ -5,12 +5,13 @@ const PDFImage                  = require("pdf-image").PDFImage;
 const async_mapLimit            = require('promise-async').mapLimit;
 const { performance }           = require('perf_hooks');
 const { optimize, loadConfig  } = require('svgo');
-let svgo_config;
+// let svgo_config;
 
 const timeIt = require('./timeIt.js');
 // const webApi = require('./webApi.js').webApi; // Circular reference? 
 const funcs  = require('./funcs.js').funcs;
 const config = require('./config.js').config;
+const pdfConvert = require('./pdfConversions.js').pdfConvert;
 
 // Server-Sent-Events.
 const sse                = {
@@ -483,21 +484,15 @@ const convertAndOptimize = function(changes){
 				if(changeRec.changeType == "updated"){
 					if(changeRec.ext == "pdf"){
 						// Create pdf images if there are any. 
-						if(which == "createPdfImages"){
+						if(which == "pdfConvert"){
 							changeRec.index = currentPage;
-							await createPdfImages(changeRec, fileRec, totalChanges).catch(function(e) { throw e; }); 
+							await pdfConvert(changeRec, fileRec, totalChanges).catch(function(e) { throw e; }); 
 							currentPage += 1;
 							continue;
 						}
 					}
 					else if(changeRec.ext == "epub"){
-						// Create pdf images if there are any. 
-						if(which == "createPdfImages"){
-							changeRec.index = currentPage;
-							// await createPdfImages(changeRec, fileRec, totalChanges).catch(function(e) { throw e; }); 
-							currentPage += 1;
-							continue;
-						}
+						currentPage += 1;
 					}
 					else if(changeRec.ext == "rm"){
 						// Run rM2svg.py.
@@ -545,393 +540,18 @@ const convertAndOptimize = function(changes){
 		try{ await convert("optimizeSvg").catch(function(e) { throw e; }); } 
 		catch(e){ funcs.rejectionFunction("convertAndOptimize/optimizeSvg", e, reject_convertAndOptimize, sse); return; } 
 
-		// Do createPdfImages conversion.
+		// Do pdfConvert conversion.
 		try{ 
-			// for(let key in files.DocumentType){
-			// 	let id      = key;
-			// 	// let dirPath = config.imagesPath + id + "/";
-			// 	let fileRec = files.DocumentType[key];
-	
-			// 	if(req.query.pdf == true && fileRec.content.fileType == "pdf"){
-			// 		// Add the id for the pdf. 
-			// 		if(ids.indexOf(fileRec.extra._thisFileId) == -1) { 
-			// 			// console.log("fileRec.metadata.visibleName:", fileRec.metadata.visibleName);
-			// 			ids.push(fileRec.extra._thisFileId); 
-			// 			pageCount += fileRec.content.pages.length;
-					
-			// 	}
-			// }
-
-			await convert("createPdfImages").catch(function(e) { throw e; }); 
+			await convert("pdfConvert").catch(function(e) { throw e; }); 
 		} 
-		catch(e){ funcs.rejectionFunction("convertAndOptimize/createPdfImages", e, reject_convertAndOptimize, sse); return; } 
+		catch(e){ funcs.rejectionFunction("convertAndOptimize/pdfConvert", e, reject_convertAndOptimize, sse); return; } 
 
 		resolve_convertAndOptimize();
 	});
 };
 
 // Creates png/svg pages from a pdf. 
-const createPdfImages    = function(changeRec, fileRec, totalCount){
-	return new Promise(async function(res_createPdfImages, rej_createPdfImages){
-		// In case sse is not activated.
-		// if(!sse.isActive){ 
-		// 	let sse = {
-		// 		write: function(data){ return; console.log(data, "***");},
-		// 	}
-		// 	sse.write("createPdfImages: Using fake sse.write.");
-		// }
-
-		let pdfToPngs = function(){
-			return new Promise(async function(res_pdfToPngs, rej_pdfToPngs){
-				let documentId = changeRec.docId;
-				let destDir      = config.imagesPath + documentId + "/";
-				let destDirPages = config.imagesPath + documentId + "/pages/";
-				let msg;
-		
-				// Make sure that the directories exist. 
-				if( !fs.existsSync(destDir) ){ 
-					fs.mkdirSync(destDir); 
-				}
-				if( !fs.existsSync(destDirPages) ){ 
-					fs.mkdirSync(destDirPages); 
-				}
-
-				let getPdfDimensions = function(fullFilePath){
-					return new Promise(async function(res_getPdfDimensions, rej_getPdfDimensions){
-						// https://unix.stackexchange.com/a/495956
-						let cmd = `pdfinfo "${fullFilePath}" | grep "Page size"`;
-						let results;
-						try{ 
-							results = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
-							results = results.stdOutHist
-								.replace(/Page size:/g, "")
-								.replace(/ /g, "")
-								.replace(/pts/g, "")
-								.trim()
-								.split("x");
-						} 
-						catch(e){ 
-							console.log("Command failed:", e); 
-							rej_getPdfDimensions(e); 
-							return; 
-						}
-
-						let width  = Math.ceil( results[0] );
-						let height = Math.ceil( results[1] );
-						let isLandscape = false; 
-						if(width > height){ isLandscape = true; }
-
-						res_getPdfDimensions({
-							width       : width       , 
-							height      : height      , 
-							isLandscape : isLandscape , 
-						});
-					});
-				};
-				let getPngDimensions = function(fullFilePath){
-					return new Promise(async function(res_getPngDimensions, rej_getPngDimensions){
-						// https://unix.stackexchange.com/a/495956
-						// let cmd = `pdfinfo ${fullFilePath} | grep "Page size"`;
-						let cmd = `identify -precision 15 "${fullFilePath}"`;
-
-						let type;
-						let dims;
-						let dims2;
-						let bits;
-						let colorspace;
-
-						let results;
-						try{ 
-							results = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
-							// console.log(`  results: ${results.stdOutHist}`);
-							results = results.stdOutHist
-								// 'DEVICE_DATA_IMAGES/54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf/pages/Black Bass-23.png PNG 404x525 404x525+0+0 8-bit sRGB 8c 25238B 0.000u 0:00.000\n',
-								.split(fullFilePath)[1]
-								//  PNG 404x525 404x525+0+0 8-bit sRGB 8c 25238B 0.000u 0:00.000\n',
-								.trim()
-								// PNG 410x525 410x525+0+0 8-bit sRGB 8c 31740B 0.000u 0:00.000
-								.split(" ")
-								// Now an array of values. 
-							;
-							
-							type       = results[0];
-							dims       = results[1];
-							dims2      = results[2];
-							bits       = results[3];
-							colorspace = results[4];
-							colorCount = results[5];
-							bytes      = results[6];
-
-						} 
-						catch(e){ 
-							console.log("Command failed:", e); 
-							rej_getPngDimensions(e); 
-							return; 
-						}
-
-						let width  = Math.ceil( dims.split("x")[0] );
-						let height = Math.ceil( dims.split("x")[1] );
-						let isLandscape = false; 
-						if(width > height){ isLandscape = true; }
-
-						res_getPngDimensions({
-							type       : type       ,
-							dims       : dims       ,
-							dims2      : dims2      ,
-							bits       : bits       ,
-							colorspace : colorspace ,
-							colorCount : colorCount ,
-							bytes      : bytes      ,
-
-							width      : width      ,
-							height     : height     ,
-							isLandscape: isLandscape,
-						});
-					});
-				};
-				let rotatePng = function(fullFilePath, newAngle){
-					return new Promise(async function(res_rotatePng, rej_rotatePng){
-						let cmd = `convert -precision 15 "${fullFilePath}" -rotate ${newAngle}\! "${fullFilePath}"`;
-						let results;
-						try{
-							results = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
-						}
-						catch(e){ 
-							console.log("Command failed:", e); 
-							rej_rotatePng(e); 
-							return; 
-						}
-						res_rotatePng(); 
-					});
-				};
-				let resizePng = function(fullFilePath, newWidth, newHeight){
-					return new Promise(async function(res_resizePng, rej_resizePng){
-						let cmd = `convert "${fullFilePath}" -precision 15 -resize ${newWidth}x${newHeight}` +'! ' + `"${fullFilePath}"`;
-						// console.log(`  ${cmd}`);
-						let results;
-						try{
-							results = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
-						}
-						catch(e){ 
-							console.log("Command failed:", e); 
-							rej_resizePng(e); 
-							return; 
-						}
-						res_resizePng(); 
-					});
-				};
-
-				let dims;
-				try { dims = await getPdfDimensions( changeRec.srcFile ).catch(function(e) { throw e; }); }
-				catch(e){
-					console.log("Command failed:", e); 
-					rej_pdfToPngs(e);
-				}
-				let isLandscape = dims.isLandscape; 
-		
-				// 'convert -alpha remove -antialias  -colors 128 -depth 8 -flatten  -strip  "./DEVICE_DATA/xochitl/029d4e39-5bd5-47d0-96dd-1808d5fb5b77.pdf[0]" "DEVICE_DATA_IMAGES/029d4e39-5bd5-47d0-96dd-1808d5fb5b77/pages/KOLBE1.pdf-0.png"'
-				let pdfImage = new PDFImage(
-					changeRec.srcFile, {
-						pdfFileBaseName: fileRec.metadata.visibleName, // string | undefined;
-						outputDirectory: destDirPages,                 // string | undefined;
-		
-						combinedImage: false, 
-						convertOptions: {
-							"-strip"    : "",
-							"-depth"    : "8" ,
-							"-alpha"    : "remove",
-							"-colors"   : "128",
-							"-flatten"  : "",
-							"-antialias": "",
-						}
-					}
-				);
-				
-				// UTILITY: Takes 2 numbers and returns the ratio of those numbers.
-				let reduce = function(numerator, denominator) {
-					// let countDecimals = function (value) { 
-					// 	if ((value % 1) != 0) 
-					// 		return value.toString().split(".")[1].length;  
-					// 	return 0;
-					// };
-					// let decimalPlacesInNumerator   = countDecimals(numerator);
-					// let decimalPlacesInDenominator = countDecimals(denominator);
-
-					// console.log(
-					// 	decimalPlacesInNumerator,
-					// 	decimalPlacesInDenominator
-					// )
-
-					let a = numerator;
-					let b = denominator;
-					let c;
-					while (b) {
-						c = a % b; 
-						a = b; 
-						b = c;
-					}
-					// return [numerator / a, denominator / a];
-					return `${""+(numerator / a)}:${"" + (denominator / a)}`;
-				};
-
-				try{
-					let proms = [];
-					let pages = fileRec.content.pages;
-					let currentCount = 0; 
-					for(let index=0; index<pages.length; index+=1){
-						proms.push(
-							await new Promise(async function(res_prom, rej_prom){
-								let pngFile = await pdfImage.convertPage(index).catch(function(e) { throw e; });
-								let pngDims = await getPngDimensions(pngFile).catch(function(e){ throw e; });
-
-								// Rotate the png?
-								if(pngDims.isLandscape){
-									// console.log("isLandscape");
-									await rotatePng(pngFile, -90).catch(function(e){ throw e; });
-									pngDims = await getPngDimensions(pngFile).catch(function(e){ throw e; });
-								}
-
-								// Resize the image to fit a 3:4 aspect ratio.
-								let newHeight;
-								(function(){
-									// let w = parseFloat(pngDims.width);
-									// let h = parseFloat(pngDims.height);
-									let w = pngDims.width;
-									let h = pngDims.height;
-									newHeight = w / (3/4);
-									// console.log("  newHeight = w / (3/4) :::: ", `${newHeight} = ${w} / (3/4)`);
-								})();
-								let oldRatio = reduce(pngDims.width, pngDims.height);
-								// console.log("  OLD: ", pngDims.width, pngDims.height, oldRatio, oldRatio == "3:4" ? "*****************************************" : "---");
-
-								await resizePng(pngFile, pngDims.width, newHeight).catch(function(e){ throw e; });
-								
-								pngDims = await getPngDimensions(pngFile).catch(function(e){ throw e; });
-								let newRatio = reduce(pngDims.width, pngDims.height);
-								// console.log("  NEW: ", pngDims.width, pngDims.height, newRatio, newRatio == "3:4" ? "*****************************************" : "---");
-
-								let width        = pngDims.width;
-								let height       = pngDims.height;
-								let isLandscape  = pngDims.isLandscape;
-								
-								// transform="rotate(100)"
-								let msg;
-								let pageId = fileRec.content.pages[index];
-								
-								// let h = 1872;
-								// let w = h * (3/4);
-								// w = dims.width;
-								   
-								// Get the file and encode to base64.
-								base64 = fs.readFileSync( pngFile, 'base64');
-								base64 = 'data:image/jpg;base64,' + base64;
-
-								let svgFile = `` +
-								`<svg xmlns="http://www.w3.org/2000/svg" height="1872" width="1404">\n`+
-								`	<g style="display:inline;">\n` +
-								`		<image height="${1872}" x="0" y="0" href="${base64}" />\n`+
-								`	</g>\n` +
-								`</svg>\n`
-								;
-
-								let svgFileTEST = `` +
-								`<svg xmlns="http://www.w3.org/2000/svg" height="1872" width="1404">\n`+
-								`	<g>\n` +
-								`		<image transform="" width="${pngDims.width}" height="${pngDims.height}" x="0" y="0" href="${base64}" />\n`+
-								`	</g>\n` +
-								`</svg>\n`
-								;
-								// `		<image width="${dims.width}" height="${dims.height}" x="0" y="0" href="${base64}" />\n`+
-								// `		<image height="${h}" x="0" y="0" href="${base64}" />\n`+
-								// `		<image height="${h}" width="${w}" x="0" y="0" href="${base64}" />\n`+
-
-								// Write the .svg file.
-								let filenameSvg = destDirPages + pageId + ".svg";
-								let filenameSvgTEST = destDirPages + "TEST_" + pageId + ".svg";
-								fs.writeFileSync(filenameSvg, svgFile);
-								fs.writeFileSync(filenameSvgTEST, svgFileTEST);
-								
-								// Rename the .png file.
-								// DEVICE_DATA_IMAGES/54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf/pages/Black Bass-0.png
-								let baseName = path.basename(pngFile).split(".");
-								let filenamePng2 = destDirPages + pageId + "." + baseName[1];
-								// msg = `  Renaming .png: ${pngFile} :: ${filenamePng2}`;
-								// sse.write(msg);
-								// console.log(msg);
-								fs.renameSync(pngFile, filenamePng2);
-								fs.copyFileSync(filenamePng2, pngFile);
-								
-								// Remove the .png file. 
-								// msg = `  Removing .png: ${pngFile}`;
-								// sse.write(msg);
-								// console.log(msg);
-								// fs.unlinkSync( pngFile );
-
-								currentCount += 1;
-								msg = `  ` + 
-								`[PAGE ${index} ${(currentCount).toString().padStart(4, " ")} of ${pages.length.toString().padStart(4, " ")}] has been processed for: ` +
-								`${fileRec.metadata.visibleName}: ` +
-								``;
-								sse.write(msg);
-								console.log(msg);
-								// console.log("");
-
-								res_prom(pngFile);
-							}).catch(function(e) { throw e; })
-						);
-					}
-
-					Promise.all(proms).then(
-						function(results){
-							res_pdfToPngs(); 
-							return;
-						},
-						function(error){
-							console.log("ERROR:, error");
-							rej_pdfToPngs(error);
-						}
-					);
-				}
-				catch(e){
-					console.log("broken???");
-				}
-			});
-		};
-
-		// Run the command. 
-		let response;
-		let msg;
-		try { 
-			msg = `[${changeRec.index.toString().padStart(4, " ")}/${totalCount.toString().padStart(4, " ")}] ` +
-			`convertAndOptimize/createPdfImages: ` + 
-			`\n  LOADING FILE: "${fileRec.path + fileRec.metadata.visibleName}"` +
-			`(${fileRec.content.pages.length.toString().padStart(4, " ")} pages)`;
-
-			console.log(msg);
-			sse.write(msg);
-			
-			response = await pdfToPngs(changeRec).catch(function(e) { throw e; });
-
-			msg = `COMPLETE`;
-
-			console.log(msg);
-			sse.write(msg);
-
-			res_createPdfImages();
-		} 
-		catch(e){ 
-			msg = `convertAndOptimize/createPdfImages: ` + 
-			`FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"` +
-			``;
-			console.log(msg, e);
-			sse.write(msg);
-
-			funcs.rejectionFunction("createPdfImages", e, rej_createPdfImages, sse)
-			return; 
-		} 
-		
-	});
-};
+// pdfConvert
 
 // Converts a .rm file to .svg.
 const rmToSvg            = function(changeRec, fileRec, totalCount){
@@ -987,10 +607,10 @@ const rmToSvg            = function(changeRec, fileRec, totalCount){
 			// Handle the response.
 			if(response.stdOutHist.trim().length) { console.log("stdOutHist:", response.stdOutHist); }
 			if(response.stdErrHist.trim().length) { console.log("stdErrHist:", response.stdErrHist); }
-			let msg = `[${changeRec.index.toString().padStart(4, " ")}/${totalCount.toString().padStart(4, " ")}] ` +
+			let msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
 			`convertAndOptimize/rmToSvg     : ` + 
 			`DONE: ` +
-			`[PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, " ")}]` +
+			`[PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, "0")}]` +
 			` of file: ` +
 			`"${fileRec.path + fileRec.metadata.visibleName}"` +
 			``;
@@ -1027,7 +647,7 @@ const optimizeSvg        = function(changeRec, fileRec, totalCount){
 
 		if( !fs.existsSync(srcFile) ){ 
 			let msg = `WARNING: Skipping this missing file: ` +
-			`[PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, " ")}]` +
+			`[PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, "0")}]` +
 			` of file: ` +
 			`${fileRec.metadata.visibleName} ` +
 			`(${srcFile}).` +
@@ -1053,10 +673,10 @@ const optimizeSvg        = function(changeRec, fileRec, totalCount){
 			let msg;
 			let respLines = response.stdOutHist.split("\n");
 			try{
-				msg = `[${changeRec.index.toString().padStart(4, " ")}/${totalCount.toString().padStart(4, " ")}] ` +
+				msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
 				`convertAndOptimize/svgo        : ` + 
 				`DONE: ` +
-				`[PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, " ")}]` +
+				`[PAGE: ${(fileRec.content.pages.indexOf(changeRec.pageFile)+1).toString().padStart(4, "0")}]` +
 				` of file: ` +
 				`"${fileRec.path + fileRec.metadata.visibleName}" ` +
 				`(${respLines[3].split(" - ")[1].split("%")[0]}% reduction)` +
@@ -1069,7 +689,7 @@ const optimizeSvg        = function(changeRec, fileRec, totalCount){
 			}
 			catch(e){
 				msg = `convertAndOptimize/svgo   : ` +
-				`[${changeRec.index.toString().padStart(4, " ")}/${totalCount.toString().padStart(4, " ")}] `
+				`[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] `
 				`ERROR`;
 				sse.write(msg);
 				console.log(msg);
@@ -1098,7 +718,7 @@ const fileDeleted        = function(changeRec, fileRec, totalCount){
 	// Deleting a notebook itself just sets the deleted flag and parent flag.
 
 	return new Promise(async function(res_fileDeleted, rej_fileDeleted){
-		msg = `[${changeRec.index.toString().padStart(4, " ")}/${totalCount.toString().padStart(4, " ")}] ` +
+		msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
 		`convertAndOptimize/fileDeleted : ` + 
 			" ".repeat(22) + `file: ` +
 			// `"${fileRec.path + fileRec.metadata.visibleName}"` +
@@ -1192,6 +812,6 @@ const updateFromDevice = function(obj){
 module.exports = {
 	updateFromDevice: updateFromDevice , // Expected use by webApi.js
 	optimizeSvg     : optimizeSvg      , // Expected use by webApi.js
-	createPdfImages : createPdfImages  , // Expected use by _backend.js (DEBUG)
+	pdfConvert  : pdfConvert   , // Expected use by _backend.js (DEBUG)
 	_version  : function(){ return "Version 2021-09-23"; }
 };

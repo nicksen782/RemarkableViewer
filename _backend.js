@@ -231,14 +231,14 @@ app.get('/debug/rebuildServerStorage2', async (req, res) => {
 	// Manually set ids.
 	let ids = [];
 	let pageCount = 0;
-	// let setManual = true;
-	let setManual = false;
+	let setManual = true;
+	// let setManual = false;
 	if(setManual){
 		ids = [
 			// PDFs
 			// "54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf", // The Black Bass (24 pages)
 			// "8637ee5e-62a1-4f03-9f30-f301d6ccc851", // vs1053.pdf (80 pages)
-			// "1ad4e8de-c66c-45e3-b31a-8c301f7bd7e8", // Joust (6 pages)
+			"1ad4e8de-c66c-45e3-b31a-8c301f7bd7e8", // Joust (6 pages)
 			// "6d58c0b4-1fc6-424c-95ad-968085bdeccb", // How To Develop and Build Angular App With NodeJS (18 pages)
 
 			// NOTEBOOKS
@@ -305,7 +305,7 @@ app.get('/debug/rebuildServerStorage2', async (req, res) => {
 				// console.log("Removed :", dirPath + "pages/");
 			}
 			
-			returnValue = await pdfConversions.pdfToPngImages(changeRec, fileRec, totalCount).catch(function(e) { throw e; }); 
+			returnValue = await pdfConversions.pdfConvert(changeRec, fileRec, totalCount).catch(function(e) { throw e; }); 
 
 			// console.log("Completed: ", changeRec.rec.metadata.visibleName);
 			console.log();
@@ -318,120 +318,7 @@ app.get('/debug/rebuildServerStorage2', async (req, res) => {
 	}
 
 	let endTS = performance.now();
-	console.log(`rebuildServerStorage2 COMPLETED in ${((endTS - startTS)/1000).toFixed(3)} seconds: "${fileRec.metadata.visibleName}"`);
-
-	console.log("***** DONE *****");
-	res.send("***** DONE *****");
-
-	// No return response here. It is handled by webApi.updateFromDevice instead. 
-});
-
-app.get('/debug/rebuildServerStorage', async (req, res) => {
-	// console.log("\nroute: rebuildServerStorage:", req.query);
-	
-	if(config.environment != "local"){ 
-		console.log("Function is not available in the demo version."); 
-		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
-		return; 
-	}
-
-	// Fix the query string values to be boolean.
-	req.query.pdf         = req.query.pdf         == "true" ? true : false;
-	req.query.rmtosvg     = req.query.rmtosvg     == "true" ? true : false;
-	req.query.optimizesvg = req.query.optimizesvg == "true" ? true : false;
-	console.log("\nroute: rebuildServerStorage:\nreq.query:\n" + JSON.stringify(req.query,null,1));
-
-	// Make sure at least one of the arguments are true.
-	if(!req.query.pdf && !req.query.rmtosvg &&!req.query.optimizesvg){
-		res.send("ERROR: Invalid arguments: debug/rebuildServerStorage:\nreq.query:" + JSON.stringify(req.query,null,1)); return;
-		return; 
-	}
-
-	let files;
-	try{ 
-		files = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });
-		files = files.files;
-	} 
-	catch(e){ 
-		console.trace("ERROR: /rebuildServerStorage:", e); 
-		res.end("Error in getExistingJsonFsData,", JSON.stringify(e)); 
-		return; 
-	}
-
-	// Manually set ids.
-	let ids = [];
-	// let setManual = true;
-	let setManual = false;
-	if(setManual){
-		ids = [
-			// PDFs
-			"54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf", // The Black Bass (not debug.)
-			// "29f25ff1-ded9-449b-83be-9dd480896082", // The Black Bass (debug.)
-			// "1ad4e8de-c66c-45e3-b31a-8c301f7bd7e8", // Joust
-			// "6d58c0b4-1fc6-424c-95ad-968085bdeccb", // How To Develop and Build Angular App With NodeJS
-
-			// NOTEBOOKS
-		];
-	}
-	else{
-		// Get all PDF file ids. 
-		for(let key in files.DocumentType){
-			let id      = key;
-			let dirPath = config.imagesPath + id + "/";
-			let fileRec = files.DocumentType[key];
-
-			if(req.query.pdf == true && fileRec.content.fileType == "pdf"){
-				// Add the id for the pdf. 
-				if(ids.indexOf(fileRec.extra._thisFileId) == -1) { ids.push(fileRec.extra._thisFileId); }
-			}
-			if(req.query.rmtosvg == true && fileRec.content.fileType == "notebook"){
-				// Add each page of the notebook.
-				// if(ids.indexOf(fileRec.extra._thisFileId) == -1) { ids.push(fileRec.extra._thisFileId); }
-				// xochitl/9b07473e-5a5f-4fc3-8faa-7ff6001b5bea/9494a82f-ceb7-4e57-81fe-1fb3d54a4fa8.rm
-			}
-			if(req.query.optimizesvg == true && fileRec.content.fileType == "notebook"){
-				// Add each page of the notebook.
-				// if(ids.indexOf(fileRec.extra._thisFileId) == -1) { ids.push(fileRec.extra._thisFileId); }
-			}
-		}
-	}
-	
-	let totalCount = ids.length;
-	for(let index=0; index<ids.length; index+=1){
-		let id = ids[index];
-		let dirPath = config.imagesPath + id + "/";
-		let fileRec    = files.DocumentType[id];
-		let changeRec  = {
-			index     : index + 1 ,
-			ext       : "pdf" ,
-			docId     : id ,
-			srcFile   : "DEVICE_DATA/xochitl/"+ id + ".pdf" ,
-			rec       : files.DocumentType[id] ,
-			destFile  : "" ,
-			destFile2 : "" ,
-			pageFile  : "" ,
-			changeType: "updated" , // @TODO Need to check for updated vs deleted.
-		};
-
-		try{ 
-			// console.log("Working on:", changeRec.rec.metadata.visibleName);
-			if( fs.existsSync(dirPath + "pages/") ){
-				// console.log("Removing:", dirPath + "pages/");
-				fs.rmdirSync(dirPath + "pages/", { recursive: true }); 
-				// console.log("Removed :", dirPath + "pages/");
-			}
-
-			returnValue = await updateFromDevice.createPdfImages(changeRec, fileRec, totalCount).catch(function(e) { throw e; }); 
-
-			// console.log("Completed: ", changeRec.rec.metadata.visibleName);
-			console.log();
-		} 
-		catch(e){
-			console.trace("ERROR: /rebuildServerStorage:", e); 
-			res.send(JSON.stringify(e)); 
-			return; 
-		}
-	}
+	console.log(`rebuildServerStorage2 COMPLETED in ${((endTS - startTS)/1000).toFixed(3)} seconds.`);
 
 	console.log("***** DONE *****");
 	res.send("***** DONE *****");
