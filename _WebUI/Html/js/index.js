@@ -17,6 +17,9 @@ rpt.globals = {
 	lastLoadedDir      : "" ,
 	lastLoadedDocument : "" ,
 
+	// Tracks the justUpdated flag.
+	justUpdated : false,
+
 	// Timer trackers.
 	queueCheckerId: null, 
 
@@ -24,7 +27,7 @@ rpt.globals = {
 	syncInterface            : null, // set via settings.json.
 	open_document_fullscreen : null, // set via settings.json.
 	addDirIdToUrl            : null, // set via settings.json.
-	addDocumentdIdToUrl       : null, // set via settings.json.
+	addDocumentdIdToUrl      : null, // set via settings.json.
 	
 	// SETTINGS LIST OF KEYS:
 	keyList : [
@@ -32,66 +35,58 @@ rpt.globals = {
 		"view_pdf_annotations"     , // Notebook
 		"open_document_fullscreen" , // Settings
 		"addDirIdToUrl"            , // Settings
-		"addDocumentdIdToUrl"       , // Settings
+		"addDocumentdIdToUrl"      , // Settings
 	],
 
 	// SHARED FUNCTIONS.
-	fixDeletedFiles : function(){
-		// If a dir is set as deleted then change it's parent to "deleted".
-		for(let key in rpt.globals.dirs ){ 
-			rec = rpt.globals.dirs[key];  
-			if(rec.metadata.deleted == true) { 
-				rec.metadata.parent = "deleted";
-			} 
-		}
-	
-		// If a file is set as deleted then change it's parent to "deleted".
-		for(let key in rpt.globals.files){ 
-			rec = rpt.globals.files[key]; 
-			if(rec.metadata.deleted == true) { 
-				rec.metadata.parent = "deleted";
-			}
-		}
-	},
-
+	//
 };
 
 rpt.nav = {
 	// Set url params
 	getUrlParams                     : function(){
 		const urlSearchParams = new URLSearchParams(window.location.search);
-		const params = Object.fromEntries(urlSearchParams.entries());
+		const params          = Object.fromEntries(urlSearchParams.entries());
 		return params;
 	},
+
 	// Set url params
 	setUrlParams                     : function(dirId, documentId){
-		let newParams = {
-		};
-		let paramCount = 0;
+		let newParams   = {};
+		let paramCount  = 0;
 		let queryString = "";
 		
-		if( dirId|| dirId == "" ){
+		// If dirId is set or it is "".
+		if( dirId || dirId == "" ){
 			newParams.dir = dirId;
 		}
 
+		// If the documentId is set.
 		if( documentId ){
 			newParams.document = documentId;
 		}
 
+		// Go through newParams. 
 		for(let key in newParams){
 			let param = newParams[key];
+
+			// If this is the first parameter.
 			if(paramCount == 0){
 				queryString += `?${key}=${param}`;
 			}
+			// Not the first parameter.
 			else{
 				queryString += `&${key}=${param}`;
 			}
+
+			// Increment the paramCount. 
 			paramCount += 1;
 		}
 
 		// Change the url.
 		history.replaceState(null, "", `${queryString}`);
 	},
+	
 	//
 	changeView                       : function(newView){
 		let validKeys = [ "filesystem", "document", "settings" ];
@@ -107,10 +102,7 @@ rpt.nav = {
 			settings  : document.getElementById("rpt_nav_bar_view_settings"),
 		};
 
-		// Show the document controls.
-		// notebook_controls2.classList.add("active");
-
-		// Remove the "active" class for the specified navButton and view.
+		// Remove the "active" class for all navButton and view.
 		for(let key of validKeys){
 			navButtons[key].classList.remove("active");
 			views     [key].classList.remove("active");
@@ -121,7 +113,6 @@ rpt.nav = {
 			navButtons[newView].classList.add("active"); 
 			views     [newView].classList.add("active");
 		}
-
 	},
 	
 	//
@@ -346,7 +337,7 @@ rpt.nav = {
 					XXXtitle="NAME: ${d.metadata.visibleName}}\nID: ${d.extra._thisFileId}\nPages: ${d.content.pageCount}" 
 					onclick="
 						rpt.nav.changeView('document'); 
-						rpt.documentView.display('${d.extra._thisFileId}');
+						rpt.documentView.display('${d.extra._thisFileId}', 0);
 					"
 					onmouseenter="rpt.nav.displayNotebookMetadata('${d.extra._thisFileId}', '${d.metadata.type}');"
 					document_id="${d.extra._thisFileId}"
@@ -438,11 +429,11 @@ rpt.nav = {
 }
 
 rpt.apis = {
-	// Used for GET requests. 
+	// Used for GET requests to files as text.
 	rawFetch         : async function(url){
-		// Backend should send JSON. 
 		return fetch(url).then(response => response.text());
 	},
+
 	// Used for GET requests. 
 	simpleFetch         : async function(url){
 		// Backend should send JSON. 
@@ -466,7 +457,7 @@ rpt.apis = {
 	},
 
 	// Runs a device-to-server sync and then updates the local image files. 
-	updateFromDevice          : function(){
+	updateFromDevice    : function(){
 		return new Promise(function(resolve, reject){
 			if(rpt.globals.environment == "demo"){
 				alert("Function is not available in the demo version.");
@@ -482,8 +473,8 @@ rpt.apis = {
 			let timestamp = null;
 			let sseHasEnded = false;
 			let queryString = `?` +
-				`interface=`       + `${rpt.globals.syncInterface}` +
-				`&recreateAll=` + `${false}`
+				`interface=`    + `${rpt.globals.syncInterface}` +
+				``
 			;
 			const sse = new EventSource(`updateFromDevice${queryString}`);
 			
@@ -626,6 +617,9 @@ rpt.apis = {
 				// Get files.json.
 				try{ await rpt.apis.getFilesJson(); } catch(e){ console.log("ERROR: getFilesJson:", e); };
 
+				// Set the last action.
+				rpt.globals.justUpdated = "updateFromDevice";
+
 				// Reopen the current document.
 				rpt.documentView.reDisplaySameNotebook();
 			};
@@ -634,7 +628,7 @@ rpt.apis = {
 	},
 	
 	// updateFromDeviceTemplates
-	updateFromDeviceTemplates         : function(){
+	updateFromDeviceTemplates : function(){
 		return new Promise(function(resolve, reject){
 			rpt.apis.simpleFetch("updateFromDeviceTemplates?interface=" + `${rpt.globals.syncInterface}`).then(
 				function(results){
@@ -644,6 +638,7 @@ rpt.apis = {
 			);
 		});
 	},
+
 	// Gets the settings.json file and then loads it's settings. 
 	getSettings         : function(){
 		return new Promise(function(resolve, reject){
@@ -664,7 +659,7 @@ rpt.apis = {
 	},
 
 	// Saves current settings to the settings.json file. 
-	updateSettings         : function(){
+	updateSettings      : function(){
 		return new Promise(function(resolve, reject){
 			if(rpt.globals.environment == "demo"){
 				// alert("Function is not available in the demo version.");
@@ -676,7 +671,7 @@ rpt.apis = {
 				syncInterface            : rpt.globals.syncInterface, 
 				open_document_fullscreen : rpt.globals.open_document_fullscreen, 
 				addDirIdToUrl            : rpt.globals.addDirIdToUrl, 
-				addDocumentdIdToUrl       : rpt.globals.addDocumentdIdToUrl, 
+				addDocumentdIdToUrl      : rpt.globals.addDocumentdIdToUrl, 
 				view_pdf_annotations     : rpt.globals.view_pdf_annotations, 
 			};
 			rpt.apis.postFetch("updateSettings", data).then(
@@ -688,7 +683,7 @@ rpt.apis = {
 
 	},
 
-	// 
+	// Requests a files.json file from the server.
 	getFilesJson        : function(){
 		return new Promise(function(resolve, reject){
 			rpt.apis.simpleFetch("getFilesJson").then(
@@ -697,7 +692,22 @@ rpt.apis = {
 					rpt.globals.dirs        = results.CollectionType;
 
 					// Fix deleted files. 
-					rpt.globals.fixDeletedFiles();
+
+					// If a dir is set as deleted then change it's parent to "deleted".
+					for(let key in rpt.globals.dirs ){ 
+						rec = rpt.globals.dirs[key];  
+						if(rec.metadata.deleted == true) { 
+							rec.metadata.parent = "deleted";
+						} 
+					}
+				
+					// If a file is set as deleted then change it's parent to "deleted".
+					for(let key in rpt.globals.files){ 
+						rec = rpt.globals.files[key]; 
+						if(rec.metadata.deleted == true) { 
+							rec.metadata.parent = "deleted";
+						}
+					}
 				
 					// Get the last opened/modified notebooks. 
 					rpt.apis.getGlobalUsageStats();
@@ -708,7 +718,7 @@ rpt.apis = {
 		});
 	},
 
-	//
+	// Retrieves last opened, last modified, storage remaining info.
 	getGlobalUsageStats : function(){
 		return new Promise(function(resolve, reject){
 			rpt.apis.simpleFetch("getGlobalUsageStats").then(
@@ -801,7 +811,7 @@ rpt.apis = {
 		});
 	},
 
-	//
+	// Receives the data for the specified documentId.
 	getSvgs             : function(documentId){
 		return new Promise(function(resolve, reject){
 			rpt.apis.simpleFetch(`getSvgs?documentId=${documentId}`).then(
@@ -812,7 +822,7 @@ rpt.apis = {
 		});
 	},
 
-	//
+	// Retrieves the thumbnails for the specified directory.
 	getThumbnails       : function(parentId){
 		return new Promise(function(resolve, reject){
 			rpt.apis.simpleFetch("getThumbnails?parentId="+parentId+"").then(
@@ -831,7 +841,14 @@ rpt.documentView = {
 		if(rpt.globals.lastLoadedDocument) {
 			// console.log("Loading last document...", rpt.globals.lastLoadedDocument);
 			rpt.nav.changeView('document');
-			rpt.documentView.display(rpt.globals.lastLoadedDocument);
+			
+			// If the rpt.globals.justUpdated is true then determine the current displayed notebook page.
+			let pagesFlipped=0;
+			if(rpt.globals.justUpdated || 1){
+				pagesFlipped = document.querySelectorAll("#book .page.flipped").length;
+				rpt.globals.justUpdated = false;
+			}
+			rpt.documentView.display(rpt.globals.lastLoadedDocument, pagesFlipped);
 		}
 		else{
 			// console.log("Loading last dir...", rpt.globals.lastLoadedDir);
@@ -918,7 +935,7 @@ rpt.documentView = {
 	},
 
 	// Display the selected document.
-	display                : async function(documentId){
+	display                : async function(documentId, pageNum=0){
 		if(documentId == "") { return; }
 
 		// console.log("window.innerWidth:", window.innerWidth, "window.innerHeight:", window.innerHeight);
@@ -997,7 +1014,7 @@ rpt.documentView = {
 			totalPageNums  : notebookFiles.layers.layer1.length,
 			pages          : notebookFiles.layers,
 			destination    : destination,
-			notebookTitle   : notebookFiles.notebookTitle,
+			notebookTitle  : notebookFiles.notebookTitle,
 			dims : {
 				main: {
 					notebookWidth   : notebookWidth,
@@ -1010,7 +1027,26 @@ rpt.documentView = {
 			}
 		};
 
-		pageFlip.displayFlipbook(obj);
+		if(pageNum == 0){
+			await pageFlip.displayFlipbook(obj, true).catch(function(e) { throw e; }); 
+		}
+		else{
+			// Generate the flipbook. 
+			await pageFlip.displayFlipbook(obj, false).catch(function(e) { throw e; }); 
+
+			// Flip to the indicated page. 
+			// TODO: With over 50 page documents maybe there should be a start page so there is less flipping?
+			// TODO: Each page image will need to load even though it would only be visible for a split-second. 
+			// TODO: Use the "nodelay" CSS class on pages when flipping with a start point. Remove it afterwards.
+			let delay;
+			let pagesFlipped = document.querySelectorAll("#book .page.flipped").length;
+			if     (pagesFlipped < 15){ delay = 100; }
+			else if(pagesFlipped < 30){ delay = 80;  }
+			else if(pagesFlipped < 45){ delay = 60;  }
+			else if(pagesFlipped < 60){ delay = 40;  }
+			else{ delay = 20;  }
+			pageFlip.flip.flipToPage(pageNum, delay);
+		}
 	},
 	
 };
@@ -1102,7 +1138,7 @@ window.onload = async function(){
 				let parentId = selectedOption.getAttribute("parentId");
 				let id       = selectedOption.getAttribute("id");
 				try{ await rpt.nav.createNavIcons(parentId); } catch(e){ console.log("ERROR: in createNavIcons", e); return; }
-				rpt.documentView.display(id);
+				rpt.documentView.display(id, 0);
 				this.value = "";
 			}
 			else if(type == "CollectionType"){
@@ -1110,7 +1146,7 @@ window.onload = async function(){
 				let parentId = selectedOption.getAttribute("parentId");
 				let id       = selectedOption.getAttribute("id");
 				try{ await rpt.nav.createNavIcons(id); } catch(e){ console.log("ERROR: in createNavIcons", e); return; }
-				// rpt.documentView.display(id);
+				// rpt.documentView.display(id, 0);
 				this.value = "";
 			}
 		};
@@ -1183,7 +1219,7 @@ window.onload = async function(){
 				// Is the document valid?
 				if( Object.keys(rpt.globals.files).indexOf(params.document) != -1 ){
 					rpt.nav.changeView('document');
-					rpt.documentView.display(params.document);
+					rpt.documentView.display(params.document, 0);
 				}
 			}
 		}
@@ -1213,15 +1249,12 @@ window.onload = async function(){
 			"<div id='no_data'>" +
 			"	<div class='no_data_box'>"+
 			"		<span class='no_data_line1'>NO DATA.</span><br><br>"+
-			"		<span class='no_data_line2'>Please go to the Settings tab and sync your Remarkable device.</span><br><br>"+
+			"		<span class='no_data_line2'>Please go to the Settings tab and sync from your Remarkable device.</span><br><br>"+
 			"		" +
 			"	</div>" +
 			"</div>" ;
 	}
 	else{
-		// Adjust the parent value for deleted directories.
-		rpt.globals.fixDeletedFiles();
-
 		// Display dir and document (if applicable.)
 		displayStartDirAndNotebook();
 	}

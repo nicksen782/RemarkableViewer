@@ -57,6 +57,9 @@
 	/* right: -1px !important; */
 	/* background-color:red; */
 }
+#rpt_nav_bar_view_notebook_pageview .book .page.nodelay {
+	transition: transform 0.0s !important;
+}
 
 #rpt_nav_bar_view_notebook_pageview .book .page:before {
 	content: '';
