@@ -9,10 +9,9 @@ const optimizeSvg      = require('./updateFromDevice').optimizeSvg;
 const webApi = {
 	//
 	updateFromDevice          : updateFromDevice,
-	//
+	// Get the /usr/share/remarkable/templates directory from the device.
 	updateFromDeviceTemplates : function(interface){
 		return new Promise(async function(resolve_top,reject_top){
-			// Get the /usr/share/remarkable/templates directory from the device.
 			// Make sure the interface is correct.
 			if( ["WIFI", "USB"].indexOf(interface) == -1 ) {
 				let msg = "ERROR: Invalid 'interface': " + interface;
@@ -88,10 +87,12 @@ const webApi = {
 							[
 								// { file: `${fileDir}pages/${d}.min.svg`                         , pageNum: i+1, showText: true, text: `TYPE: A: (.min.svg)` },
 								// { file: `${fileDir}pages/${d}.svg`                             , pageNum: i+1, showText: true, text: `TYPE: B: (.svg)    ` },
-								// { file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, showText: true, text: `TYPE: C: (.png)    ` },
+								{ file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, showText: true, text: `TYPE: C: (.png)    ` },
 								// { file: `${fileDir}pages/${visibleName}-${i}.png`              , pageNum: i+1, showText: true, text: `TYPE: D: (.png)    ` },
-								{ file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, showText: true, text: `TYPE: E: (.svg)    ` },
-								{ file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i+1, showText: true, text: `TYPE: F: (.jpg)    ` },
+								// { file: `${fileDir}pages/TEST2_${d}.svg`                       , pageNum: i+1, showText: true, text: `TYPE: E: (.svg)    ` },
+								// { file: `${fileDir}pages/TEST2_${d}.png`                       , pageNum: i+1, showText: true, text: `TYPE: F: (.png)    ` },
+								// { file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, showText: true, text: `TYPE: G: (.svg)    ` },
+								{ file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i+1, showText: true, text: `TYPE: H: (.jpg)    ` },
 							]
 						);
 					});
@@ -100,8 +101,8 @@ const webApi = {
 					fileData.DocumentType[documentId].content.pages.forEach(function(d, i){
 						layer2_files.data.push(
 							[
-								// { file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
-								// { file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
+								{ file: `${fileDir}${d}.min.svg`                               , pageNum: i+1, text: `TYPE: A: (.min.svg)` },
+								{ file: `${fileDir}${d}.svg`                                   , pageNum: i+1, text: `TYPE: B: (.svg)    ` },
 								// { file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i, text: `(c): .jpg    ` },
 							]
 						);
@@ -176,7 +177,7 @@ const webApi = {
 						);
 					});
 				}
-			
+
 				// Return the files by layer.
 				return {
 					layer1_files : layer1_files,
@@ -193,6 +194,16 @@ const webApi = {
 				let arrDest = [];
 				let fileFound ; 
 				
+				// // Add the file modification date (from the filesystem) for each returned file.
+				// //
+				// let proms = [];
+				// Promise.all(proms).then(
+				// 	function(){
+						
+				// 	},
+				// 	function(){}
+				// );
+
 				// Break-out the data and info.
 				let data = layerFiles.data;
 				let info = layerFiles.info;
@@ -211,8 +222,11 @@ const webApi = {
 								console.log(`  FOUND    : ${info.baseText}: ${rec.text} PAGE #${rec.pageNum.toString().padStart(padStartNum, "0")}, `, rec.file);
 							}
 							
-							// Add the file to the list. 
-							arrDest.push(rec.file); 
+							// Add the file to the list (with the modified time in the querystring.)
+							// If the file never changes then neither would the queryString part.
+							// If the file changes, the queryString changes thus becoming an as-needed cache-buster.
+							let stat = fs.statSync(rec.file).mtimeMs;
+							arrDest.push(rec.file + "?mtime=" + stat); 
 
 							// Set the filefound flag.
 							fileFound = true; 
