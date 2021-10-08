@@ -23,7 +23,7 @@ _WebUI/Html/oldcode/*
 scripts/updateRemoteDemo.resps.json
 scripts/demo_files.json
 scripts/updateRemoteDemo.filter
-scripts/OLD/*
+no_git/*
 
 diskFree.json
 
@@ -32,3 +32,4 @@ templateEditor/*
 files.json
 .gitignore
 
+rmChanges_.json
