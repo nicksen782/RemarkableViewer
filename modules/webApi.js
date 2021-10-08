@@ -398,7 +398,13 @@ const webApi = {
 	
 				// Need to check that the directory exists.
 				if(!fs.existsSync(targetPath)){ 
-					let msg = "ERROR: getThumbnail: targetPath does not exist." + targetPath;
+					let msg = ``;
+					msg += `------------------\n`;
+					msg += "ERROR: getThumbnail: targetPath does not exist." + targetPath + `\n`;
+					msg += `  targetPath: ${targetPath}\n`;
+					msg += `  documentId: ${documentId}\n`;
+					msg += `e           : DOES NOT EXIST\n`;
+					msg += `------------------\n`;
 					console.log(msg); 
 					throw msg ; 
 					return; 

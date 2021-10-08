@@ -1,4 +1,4 @@
-# Remarkable Page Turner
+# Remarkable Viewer
 ### PURPOSE:
 - Sync your Remarkable data to your own PC/SERVER.
 - Replacement for the Remarkable Desktop app. 
@@ -30,7 +30,7 @@
 #
 
 ## REMARKABLE OS UPDATE BUG:
-If the remote host indentification changes then the app will fail.
+If the remote host indentification changes then the app will fail to sync.
 
 To fix this:
 
@@ -42,10 +42,11 @@ To fix this:
 > Note: Conveniently, a Linux system will also provide you a command to copy/paste.
 
 ### Windows:
-- Edit: C:\Users\Nick\.ssh\known_hosts
+- Edit: C:\Users\<YOUR_USERNAME>\.ssh\known_hosts
 - Remove any lines that contain IP addresses used by the Remarkable.
 
-> Note: Reconnect at least once to remarkablewifi and to remarkableusb so that you can answer the question about unknown host. 
+### After applying the fix:
+> Reconnect at least once to remarkablewifi and to remarkableusb so that you can answer the question about unknown host. 
 #
 
 ### INSTALLATION INSTRUCTIONS:

@@ -278,17 +278,11 @@ const rsyncDown          = function(interface){
 					let pageFile;
 					let changeType;
 					
-					// Determine the changeType.
-					if(d.indexOf("deleting ") == 0){
-						// console.log(`DELETED: ${d}`);
-						srcFile   = d.split("deleted ")[1];
-						changeType = "deleted";
-					}
-					else{
-						changeType = "updated";
-					}
-
 					if(d.lastIndexOf(".pdf") != -1){ 
+						// Determine the changeType.
+						if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+						else{ changeType = "updated"; }
+
 						ext = "pdf";
 						let splits = d.split("/");
 						docId     = splits[1].replace(/.pdf/, "");
@@ -297,8 +291,13 @@ const rsyncDown          = function(interface){
 						destFile  = "";
 						destFile2 = "";
 						pageFile  = "";
+
 					}
 					else if(d.lastIndexOf(".rm") != -1) { 
+						// Determine the changeType.
+						if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+						else{ changeType = "updated"; }
+
 						ext = "rm";
 						let splits = d.split("/");
 						docId    = splits[1];
@@ -309,10 +308,18 @@ const rsyncDown          = function(interface){
 						pageFile = splits[2].split(".")[0];
 					}
 					else if(d.lastIndexOf(".epub") != -1) { 
+						// Determine the changeType.
+						// if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+						// else{ changeType = "updated"; }
+
 						// console.log("Skipping epub", d);
 						return; 
 					}
-					else if(d.lastIndexOf(".epubindex") != -1) { 
+					else if(d.lastIndexOf(".epubindex") != -1) {
+						// Determine the changeType.
+						// if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+						// else{ changeType = "updated"; }
+						 
 						// console.log("Skipping epubindex", d);
 						return; 
 					}
@@ -521,6 +528,16 @@ const convertAndOptimize = function(changes){
 					if(changeRec.changeType == "deleted"){
 						// This file was deleted. Rsync already took care of the deletion of the local file.
 						changeRec.index = currentPage;
+						// {
+						// 	"ext": "rm",
+						// 	"docId": "fe08af6e-65ea-40ae-8696-c29c7cdde8e4",
+						// 	"srcFile": "./DEVICE_DATA/xochitl/fe08af6e-65ea-40ae-8696-c29c7cdde8e4/e8297cad-0fab-438a-8d66-03df63f27b61.rm",
+						// 	"destFile": "./DEVICE_DATA_IMAGES/fe08af6e-65ea-40ae-8696-c29c7cdde8e4/e8297cad-0fab-438a-8d66-03df63f27b61.svg",
+						// 	"destFile2": "./DEVICE_DATA_IMAGES/fe08af6e-65ea-40ae-8696-c29c7cdde8e4/e8297cad-0fab-438a-8d66-03df63f27b61.min.svg",
+						// 	"pageFile": "e8297cad-0fab-438a-8d66-03df63f27b61",
+						// 	"changeType": "deleted",
+						// 	"index": 1
+						// }
 						await fileDeleted(changeRec, fileRec, totalChanges).catch(function(e) { throw e; });
 						currentPage += 1;
 					}
@@ -718,18 +735,32 @@ const fileDeleted        = function(changeRec, fileRec, totalCount){
 	// Deleting a notebook itself just sets the deleted flag and parent flag.
 
 	return new Promise(async function(res_fileDeleted, rej_fileDeleted){
-		msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
-		`convertAndOptimize/fileDeleted : ` + 
-			" ".repeat(22) + `file: ` +
-			// `"${fileRec.path + fileRec.metadata.visibleName}"` +
-			`"${fileRec.metadata.visibleName}" :: ` +
-			`"${changeRec.srcFile}"` +
-			``
-		;
-		sse.write(msg);
-		console.log(msg);
+		try{
 
-		res_fileDeleted();
+
+			msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
+			`convertAndOptimize/fileDeleted : ` + 
+				" ".repeat(22) + `file: ` +
+				// `"${fileRec.path + fileRec.metadata.visibleName}"` +
+				`"${'--'}" :: ` +
+				`"${changeRec.srcFile}"` +
+				``
+			;
+			sse.write(msg);
+			console.log(msg);
+			res_fileDeleted();
+		}
+		catch(e){
+			msg = `` + 
+			`------------------------\n`+
+			`changeRec : ${changeRec}\n`+
+			`fileRec   : ${fileRec}\n`+
+			`totalCount: ${totalCount}\n`;
+			`e         : ${JSON.stringify(e,null,1)}\n`+
+			`------------------------\n`+
+			rej_fileDeleted(e);
+		}
+
 	});
 };
 
