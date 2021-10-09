@@ -6,7 +6,7 @@ const { performance } = require('perf_hooks');
 
 const funcs  = require('./funcs.js').funcs;
 const config = require('./config.js').config;
-const webApi = require('./webApi.js').webApi;
+// const webApi = require('./webApi.js').webApi;
 
 const pdfPageToPng = function(srcFile, destFile){
 	return new Promise(async function(res_pdfPageToPng, rej_pdfPageToPng){
