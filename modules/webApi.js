@@ -1,14 +1,19 @@
 // WEB UI - FUNCTIONS.
-const fs               = require('fs');
-const path             = require('path');
-const funcs            = require('./funcs.js').funcs;
-const config           = require('./config.js').config;
-const updateFromDevice = require('./updateFromDevice').updateFromDevice;
-const optimizeSvg      = require('./updateFromDevice').optimizeSvg;
+const fs                 = require('fs');
+const path               = require('path');
+const funcs              = require('./funcs.js').funcs;
+const config             = require('./config.js').config;
+const updateFromDevice   = require('./updateFromDevice').updateFromDevice;
+const parseChanges       = require('./updateFromDevice').parseChanges;
+const convertAndOptimize = require('./updateFromDevice').convertAndOptimize;
+const { performance }    = require('perf_hooks');
+
+// const optimizeSvg      = require('./updateFromDevice').optimizeSvg;
 
 const webApi = {
 	//
 	updateFromDevice          : updateFromDevice,
+
 	// Get the /usr/share/remarkable/templates directory from the device.
 	updateFromDeviceTemplates : function(interface){
 		return new Promise(async function(resolve_top,reject_top){
@@ -33,6 +38,138 @@ const webApi = {
 			}
 		});
 	},
+
+	//
+	rebuildDeviceImages       : function(obj){
+		return new Promise(async function(resolve_top,reject_top){
+			let startTS = performance.now();
+	
+			let {pdf, pdfAnnotations, rmtosvg, optimizesvg, fromList, listItems} = obj;
+			// console.log(obj);
+			// console.log(pdf, pdfAnnotations, rmtosvg, optimizesvg, fromList, listItems);
+			// resolve_top();
+			// return; 
+
+			let files;
+			try{ 
+				// Create files.json data from the DEVICE_DATA backup dir.
+				files = await funcs.createJsonFsData(false).catch(function(e) { throw e; }); 
+			} 
+			catch(e){ 
+				console.trace("ERROR: rebuildDeviceImages:", e); 
+				res.end("Error in createJsonFsData,", JSON.stringify(e)); 
+				return; 
+			}
+		
+			// Holds changes.
+			let changes       = [];
+			// let changesFullCount = 0;
+		
+			// 
+			for(let key in files.DocumentType){
+				let id      = key;
+				let fileRec = files.DocumentType[key];
+				// let dirPath = config.dataPath + id + "/";
+		
+				// If fromList is true then only allow ids that are in listItems.
+				if(fromList && listItems.indexOf(id) == -1){
+					continue; 
+				}
+		
+				// PDF
+				if(fileRec.content.fileType == "pdf"){
+					// PDF pages.
+					if(pdf     == true){
+						let filename = config.dataPath + id + ".pdf";
+						if( !fs.existsSync(filename) ){
+							// console.log("  FILE MISSING: ", filename);
+						}
+						else{
+							// Add the pdf id to the list.
+							changes.push(filename.replace("./DEVICE_DATA/", "")); 
+							// changesFullCount += fileRec.content.pages.length;
+						}
+					}
+		
+					// PDF annotations.
+					if(pdfAnnotations){
+						fileRec.content.pages.forEach(function(pageId){
+							let filename  = config.dataPath + id + "/" + pageId + ".rm";
+							if( !fs.existsSync(filename) ){
+								// console.log("  FILE MISSING: ", filename);
+							}
+							else{
+								// Add to rmToSvg.
+								changes.push(filename.replace("./DEVICE_DATA/", "")); 
+								// changesFullCount += 1;
+								// changesFullCount += 1; // For the svg optimization.
+							}
+						});
+		
+					}
+				}
+		
+				// RM2SVG.
+				if(fileRec.content.fileType == "notebook"){
+					if(rmtosvg == true){
+						fileRec.content.pages.forEach(function(pageId){
+							let filename  = config.dataPath + id + "/" + pageId + ".rm";
+							if( !fs.existsSync(filename) ){
+								// console.log("  FILE MISSING: ", filename);
+							}
+							else{
+								// Add to rmToSvg.
+								changes.push(filename.replace("./DEVICE_DATA/", "")); 
+								// changesFullCount += 1;
+								// changesFullCount += 1; // For the svg optimization.
+							}
+						});
+					}	
+				}
+		
+				// SVG OPTIMIZE is automatic.
+			}
+		
+			console.log("");
+			
+			let changeRecs;
+			let new_filesjson;
+			try{ 
+				changeRecs = await parseChanges(changes);
+				// console.log("***", Object.keys(changeRecs));
+				changeRecs    = changeRecs.changes;
+				new_filesjson = changeRecs.new_filesjson;
+			}
+			catch(e){ 
+				console.trace("ERROR: parseChanges:", e); 
+				res.end("Error in parseChanges,", JSON.stringify(e)); 
+				reject_top();
+				return; 
+			}
+		
+			// console.log("----------------------------------------------");
+			// console.log("changes.length    :", changes.length);
+			// console.log("changesFullCount  :", changesFullCount);
+			// console.log("changeRecs.length :", changeRecs.length);
+			// console.log("changeRecs 5 :", changeRecs.slice(0, 5));
+			// console.log("----------------------------------------------");
+		
+			try{ 
+				await convertAndOptimize(changeRecs).catch(function(e) { throw e; }); 
+			} 
+			catch(e){ 
+				console.trace("ERROR: convertAndOptimize:", e); 
+				res.end("Error in convertAndOptimize,", JSON.stringify(e)); 
+				reject_top();
+				return; 
+			}
+		
+			let endTS = performance.now();
+			console.log(`rebuildDeviceImages: COMPLETED in ${((endTS - startTS)/1000).toFixed(3)} seconds.`);
+			resolve_top();
+		});
+	},
+
 	//
 	getSvgs                   : function(documentId){
 		return new Promise(async function(resolve_top,reject_top){
@@ -267,6 +404,7 @@ const webApi = {
 			resolve_top( JSON.stringify(obj, null, 0) );
 		});
 	},
+	
 	//
 	getGlobalUsageStats       : function(){
 		return new Promise(async function(resolve_top,reject_top){
@@ -389,6 +527,7 @@ const webApi = {
 			resolve_top(JSON.stringify(obj, null, 1));
 		});
 	},
+	
 	//
 	getThumbnails             : function(parentId){
 		return new Promise(async function(resolve_top,reject_top){

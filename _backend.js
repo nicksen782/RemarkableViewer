@@ -5,7 +5,7 @@ const app             = express();
 const path            = require('path');
 const fs              = require('fs');
 const fkill           = require('fkill');
-const { performance } = require('perf_hooks');
+// const { performance } = require('perf_hooks');
 
 // Personal libraries/frameworks.
 // const timeIt = require('./modules/timeIt.js');
@@ -194,10 +194,8 @@ app.get('/updateFromDeviceTemplates' , async (req, res) => {
 
 
 
-app.get('/debug/rebuildServerStorage2', async (req, res) => {
-	console.log("\nroute: rebuildServerStorage2:", req.query);
-	
-	let startTS = performance.now();
+app.get('/debug/rebuildDeviceImages', async (req, res) => {
+	// console.log("\nroute: rebuildServerStorage2:", req.query);
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
@@ -206,122 +204,54 @@ app.get('/debug/rebuildServerStorage2', async (req, res) => {
 	}
 
 	// Fix the query string values to be boolean.
-	req.query.pdf         = req.query.pdf         == "true" ? true : false;
-	req.query.rmtosvg     = req.query.rmtosvg     == "true" ? true : false;
-	req.query.optimizesvg = req.query.optimizesvg == "true" ? true : false;
-	console.log("\nroute: rebuildServerStorage2:\nreq.query:\n" + JSON.stringify(req.query,null,1));
+	req.query.pdf            = req.query.pdf            == "true" ? true : false;
+	req.query.pdfAnnotations = req.query.pdfAnnotations == "true" ? true : false;
+	req.query.rmtosvg        = req.query.rmtosvg        == "true" ? true : false;
+	req.query.optimizesvg    = req.query.optimizesvg    == "true" ? true : false;
+	req.query.fromList       = req.query.fromList                 ? true : false;
 
-	// Make sure at least one of the arguments are true.
-	if(!req.query.pdf && !req.query.rmtosvg &&!req.query.optimizesvg){
-		res.send("ERROR: Invalid arguments: debug/rebuildServerStorage:\nreq.query:" + JSON.stringify(req.query,null,1)); return;
+	// If fromList is set then make sure that listItems exists, even if empty.
+	if(req.query.fromList && !req.query.listItems){ req.query.listItems = []; }
+
+	// console.log("\nroute: rebuildServerStorage2:\nreq.query:\n" + JSON.stringify(req.query,null,1));
+
+	// Make sure at least one of the required arguments are true.
+	if(!req.query.pdf && !req.query.pdfAnnotations && !req.query.rmtosvg &&!req.query.optimizesvg){
+		let msg = "ERROR: Invalid arguments: debug/rebuildServerStorage:\nreq.query:" + JSON.stringify(req.query,null,1);
+		console.log(msg);
+		res.send(msg);
 		return; 
 	}
 
-	let files;
-	try{ 
-		files = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });
-		files = files.files;
-	} 
-	catch(e){ 
-		console.trace("ERROR: /rebuildServerStorage2:", e); 
-		res.end("Error in getExistingJsonFsData,", JSON.stringify(e)); 
-		return; 
-	}
+	webApi.rebuildDeviceImages({
+		pdf           : req.query.pdf,
+		pdfAnnotations: req.query.pdfAnnotations,
+		rmtosvg       : req.query.rmtosvg,
+		optimizesvg   : req.query.optimizesvg,
+		fromList      : req.query.fromList,
+		listItems     : req.query.listItems,
+	});
 
-	// Manually set ids.
-	let ids = [];
-	let pageCount = 0;
-	let setManual = true;
-	// let setManual = false;
-	if(setManual){
-		ids = [
-			// PDFs
-			// "54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf", // The Black Bass (24 pages)
-			// "8637ee5e-62a1-4f03-9f30-f301d6ccc851", // vs1053.pdf (80 pages)
-			"1ad4e8de-c66c-45e3-b31a-8c301f7bd7e8", // Joust (6 pages)
-			// "6d58c0b4-1fc6-424c-95ad-968085bdeccb", // How To Develop and Build Angular App With NodeJS (18 pages)
+	// console.log( JSON.stringify(req.query,null,1), req.query.listItems.length );
+	res.send("DONE");
+	return; 
 
-			// NOTEBOOKS
-			//
-		];
-
-		// // Get the ids of each notebook page too.
-		// let fileRec = files.DocumentType["54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf"];
-		// fileRec.content.pages.forEach(function(page, page_i){
-		// 	console.log(fileRec.metadata.visibleName, "page_i:", page_i+1, page);
-		// });
-	}
-	else{
-		// Get all PDF file ids. 
-		for(let key in files.DocumentType){
-			let id      = key;
-			// let dirPath = config.imagesPath + id + "/";
-			let fileRec = files.DocumentType[key];
-
-			if(req.query.pdf == true && fileRec.content.fileType == "pdf"){
-				// Add the id for the pdf. 
-				if(ids.indexOf(fileRec.extra._thisFileId) == -1) { 
-					// console.log("fileRec.metadata.visibleName:", fileRec.metadata.visibleName);
-					ids.push(fileRec.extra._thisFileId); 
-					pageCount += fileRec.content.pages.length;
-				}
-
-			}
-			if(req.query.rmtosvg == true && fileRec.content.fileType == "notebook"){
-				// Add each page of the notebook.
-				// if(ids.indexOf(fileRec.extra._thisFileId) == -1) { ids.push(fileRec.extra._thisFileId); }
-				// xochitl/9b07473e-5a5f-4fc3-8faa-7ff6001b5bea/9494a82f-ceb7-4e57-81fe-1fb3d54a4fa8.rm
-			}
-			if(req.query.optimizesvg == true && fileRec.content.fileType == "notebook"){
-				// Add each page of the notebook.
-				// if(ids.indexOf(fileRec.extra._thisFileId) == -1) { ids.push(fileRec.extra._thisFileId); }
-			}
-		}
-	}
-	
-	let totalCount = ids.length;
-	console.log(`Converting ${totalCount} .pdfs. Total page count: ${pageCount}`);
-	for(let index=0; index<ids.length; index+=1){
-		let id = ids[index];
-		let dirPath = config.imagesPath + id + "/";
-		let fileRec    = files.DocumentType[id];
-		let changeRec  = {
-			index     : index + 1 ,
-			ext       : "pdf" ,
-			docId     : id ,
-			srcFile   : "DEVICE_DATA/xochitl/"+ id + ".pdf" ,
-			rec       : files.DocumentType[id] ,
-			destFile  : "" ,
-			destFile2 : "" ,
-			pageFile  : "" ,
-			changeType: "updated" , // @TODO Need to check for updated vs deleted.
-		};
-
-		try{ 
-			// console.log("Working on:", changeRec.rec.metadata.visibleName);
-			if( fs.existsSync(dirPath + "pages/") ){
-				// console.log("Removing:", dirPath + "pages/");
-				fs.rmdirSync(dirPath + "pages/", { recursive: true }); 
-				// console.log("Removed :", dirPath + "pages/");
-			}
-			
-			returnValue = await pdfConversions.pdfConvert(changeRec, fileRec, totalCount).catch(function(e) { throw e; }); 
-
-			// console.log("Completed: ", changeRec.rec.metadata.visibleName);
-			console.log();
-		} 
-		catch(e){
-			console.trace("ERROR: /rebuildServerStorage2:", e); 
-			res.send(JSON.stringify(e)); 
-			return; 
-		}
-	}
-
-	let endTS = performance.now();
-	console.log(`rebuildServerStorage2 COMPLETED in ${((endTS - startTS)/1000).toFixed(3)} seconds.`);
-
-	console.log("***** DONE *****");
 	res.send("***** DONE *****");
+	
+	// 	try{ 
+	// 		// console.log("Working on:", changeRec.rec.metadata.visibleName);
+	// 		if( fs.existsSync(dirPath + "pages/") ){
+	// 			// console.log("Removing:", dirPath + "pages/");
+	// 			fs.rmdirSync(dirPath + "pages/", { recursive: true }); 
+	// 			// console.log("Removed :", dirPath + "pages/");
+	// 		}
+	// 	} 
+	// 	catch(e){
+	// 		console.trace("ERROR: /rebuildServerStorage2:", e); 
+	// 		res.send(JSON.stringify(e)); 
+	// 		return; 
+	// 	}
+	// }
 
 	// No return response here. It is handled by webApi.updateFromDevice instead. 
 });
