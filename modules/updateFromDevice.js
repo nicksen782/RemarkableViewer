@@ -48,7 +48,8 @@ const sse                = {
 			sse.res.write(`data: ${data}\n\n`);
 		}
 		else{
-			console.log(`SSE NOT ACTIVE: ${data}`.trim());
+			// console.log(`SSE NOT ACTIVE: ${data}`.trim());
+			// console.log(`${data}`.trim());
 		}
 	},
 	
@@ -77,6 +78,154 @@ const sse                = {
 			sse.write(data);
 		}
 	},
+};
+
+const parseChanges = async function(rmChanges){
+	return new Promise(async function(res_parseChanges, rej_parseChanges){
+		let changes = [];
+		
+		// Generate new files.json data (don't save yet.)
+		new_filesjson = await funcs.createJsonFsData(false).catch(function(e) { throw e; }); 
+		
+		// Get epub ids. (Any file related to an epub file id.)
+		let epubIds = [];
+		rmChanges.forEach(function(d){
+			if(d.lastIndexOf(".epubindex") != -1 || d.lastIndexOf(".epub") != -1) {
+				// Found an epub file. Get the file id.
+				let splits = d.split("/");
+				let file = splits[1];
+				let id = file.split(".")[0];
+
+				// Add the epubindex file id to epubIds if it isn't already there. 
+				if(epubIds.indexOf(id) == -1){ epubIds.push(id); }
+			}
+		});
+
+		// Filter out all epub related files by using the epubIds list.
+		let temp_rmChanges = [];
+		rmChanges.forEach(function(d){
+			// Skip any file that contains ".epubindex" or ".epub".
+			if(d.lastIndexOf(".epubindex") != -1 || d.lastIndexOf(".epub") != -1) {
+				// console.log("Skipping epub/epubindex", d);
+				return; 
+			}
+
+			// pdf file.
+			else if(d.lastIndexOf(".pdf") != -1){
+				let splits = d.split("/");
+				docId   = splits[1].replace(/.pdf/, "");
+				
+				// Make sure this file id is not within epubIds.
+				if(epubIds.indexOf(docId) == -1){ 
+					// console.log("pdf: Adding record: ", d);
+					temp_rmChanges.push(d); 
+				}
+				else{
+					// Skip record (don't add it.)
+					// console.log("pdf: Skipping record: ", d);
+				}
+			}
+
+			// rm file. 
+			else if(d.lastIndexOf(".rm") != -1){
+				let splits = d.split("/");
+				docId   = splits[1];
+
+				// Make sure this file id is not within epubIds.
+				if(epubIds.indexOf(docId) == -1){ 
+					// console.log("rm: Adding record: ", d);
+					temp_rmChanges.push(d); 
+				}
+				else{
+					// Skip record (don't add it.)
+					// console.log("rm: Skipping record: ", d);
+				}
+			}
+		});
+
+		// Update rmChanges with our new filtered list. 
+		rmChanges = temp_rmChanges;
+
+		// Create the changes array of objects.
+		rmChanges.forEach(function(d,i){
+			// if(i<5){ console.log(d); }
+			let ext;
+			let docId;
+			let destFile;
+			let destFile2;
+			let rec = {};
+			let pageFile;
+			let changeType;
+			
+			if(d.lastIndexOf(".pdf") != -1){ 
+				// Determine the changeType.
+				if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+				else{ changeType = "updated"; }
+
+				ext = "pdf";
+				let splits = d.split("/");
+				docId     = splits[1].replace(/.pdf/, "");
+				srcFile   = config.dataPath + splits[1];
+				rec       = new_filesjson["DocumentType"][docId];
+				destFile  = "";
+				destFile2 = "";
+				pageFile  = "";
+
+			}
+			else if(d.lastIndexOf(".rm") != -1) { 
+				// Determine the changeType.
+				if(d.indexOf("deleting ") == 0){ d = d.split("deleting ")[1]; changeType = "deleted"; }
+				else{ changeType = "updated"; }
+
+				ext = "rm";
+				let splits = d.split("/");
+				docId    = splits[1];
+				srcFile  = config.dataPath + splits[1] + "/" + splits[2];
+				rec      = new_filesjson["DocumentType"][docId];
+				destFile = config.imagesPath + splits[1] + "/" + splits[2].split(".")[0] + ".svg";
+				destFile2= config.imagesPath + splits[1] + "/" + splits[2].split(".")[0] + ".min.svg";
+				pageFile = splits[2].split(".")[0];
+			}
+			else if(d.lastIndexOf(".epub") != -1) { 
+				// Determine the changeType.
+				// if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+				// else{ changeType = "updated"; }
+
+				// console.log("Skipping epub", d);
+				return; 
+			}
+			else if(d.lastIndexOf(".epubindex") != -1) {
+				// Determine the changeType.
+				// if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+				// else{ changeType = "updated"; }
+				 
+				// console.log("Skipping epubindex", d);
+				return; 
+			}
+
+			// Add the object to the changes array.
+			changes.push({
+				ext       : ext       ,
+				docId     : docId     ,
+				srcFile   : srcFile   ,
+				rec       : rec       ,
+				destFile  : destFile  ,
+				destFile2 : destFile2 ,
+				pageFile  : pageFile  ,
+				changeType: changeType, 
+			});
+
+		});
+
+		// Resolve and return data.
+		res_parseChanges(
+			{
+				changes      : changes, 
+				new_filesjson: new_filesjson, 
+			}
+		);
+
+	});
 };
 
 // Sync from device and determine changes. 
@@ -202,152 +351,6 @@ const rsyncDown          = function(interface){
 		
 			});
 		};
-		const parseChanges = async function(rmChanges){
-			return new Promise(async function(res_parseChanges, rej_parseChanges){
-				let changes = [];
-				
-				// Generate new files.json data (don't save yet.)
-				new_filesjson = await funcs.createJsonFsData(false).catch(function(e) { throw e; }); 
-				
-				// Get epub ids. (Any file related to an epub file id.)
-				let epubIds = [];
-				rmChanges.forEach(function(d){
-					if(d.lastIndexOf(".epubindex") != -1 || d.lastIndexOf(".epub") != -1) {
-						// Found an epub file. Get the file id.
-						let splits = d.split("/");
-						let file = splits[1];
-						let id = file.split(".")[0];
-
-						// Add the epubindex file id to epubIds if it isn't already there. 
-						if(epubIds.indexOf(id) == -1){ epubIds.push(id); }
-					}
-				});
-
-				// Filter out all epub related files by using the epubIds list.
-				let temp_rmChanges = [];
-				rmChanges.forEach(function(d){
-					// Skip any file that contains ".epubindex" or ".epub".
-					if(d.lastIndexOf(".epubindex") != -1 || d.lastIndexOf(".epub") != -1) {
-						// console.log("Skipping epub/epubindex", d);
-						return; 
-					}
-					
-					// pdf file.
-					else if(d.lastIndexOf(".pdf") != -1){
-						let splits = d.split("/");
-						docId   = splits[1].replace(/.pdf/, "");
-						
-						// Make sure this file id is not within epubIds.
-						if(epubIds.indexOf(docId) == -1){ 
-							// console.log("pdf: Adding record: ", d);
-							temp_rmChanges.push(d); 
-						}
-						else{
-							// Skip record (don't add it.)
-							// console.log("pdf: Skipping record: ", d);
-						}
-					}
-
-					// rm file. 
-					else if(d.lastIndexOf(".rm") != -1){
-						let splits = d.split("/");
-						docId   = splits[1];
-
-						// Make sure this file id is not within epubIds.
-						if(epubIds.indexOf(docId) == -1){ 
-							// console.log("rm: Adding record: ", d);
-							temp_rmChanges.push(d); 
-						}
-						else{
-							// Skip record (don't add it.)
-							// console.log("rm: Skipping record: ", d);
-						}
-					}
-				});
-
-				// Update rmChanges with our new filtered list. 
-				rmChanges = temp_rmChanges;
-
-				// Create the changes array of objects.
-				rmChanges.forEach(function(d){
-					let ext;
-					let docId;
-					let destFile;
-					let destFile2;
-					let rec = {};
-					let pageFile;
-					let changeType;
-					
-					if(d.lastIndexOf(".pdf") != -1){ 
-						// Determine the changeType.
-						if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
-						else{ changeType = "updated"; }
-
-						ext = "pdf";
-						let splits = d.split("/");
-						docId     = splits[1].replace(/.pdf/, "");
-						srcFile   = config.dataPath + splits[1];
-						rec       = new_filesjson["DocumentType"][docId];
-						destFile  = "";
-						destFile2 = "";
-						pageFile  = "";
-
-					}
-					else if(d.lastIndexOf(".rm") != -1) { 
-						// Determine the changeType.
-						if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
-						else{ changeType = "updated"; }
-
-						ext = "rm";
-						let splits = d.split("/");
-						docId    = splits[1];
-						srcFile  = config.dataPath + splits[1] + "/" + splits[2];
-						rec      = new_filesjson["DocumentType"][docId];
-						destFile = config.imagesPath + splits[1] + "/" + splits[2].split(".")[0] + ".svg";
-						destFile2= config.imagesPath + splits[1] + "/" + splits[2].split(".")[0] + ".min.svg";
-						pageFile = splits[2].split(".")[0];
-					}
-					else if(d.lastIndexOf(".epub") != -1) { 
-						// Determine the changeType.
-						// if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
-						// else{ changeType = "updated"; }
-
-						// console.log("Skipping epub", d);
-						return; 
-					}
-					else if(d.lastIndexOf(".epubindex") != -1) {
-						// Determine the changeType.
-						// if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
-						// else{ changeType = "updated"; }
-						 
-						// console.log("Skipping epubindex", d);
-						return; 
-					}
-
-					// Add the object to the changes array.
-					changes.push({
-						ext       : ext       ,
-						docId     : docId     ,
-						srcFile   : srcFile   ,
-						rec       : rec       ,
-						destFile  : destFile  ,
-						destFile2 : destFile2 ,
-						pageFile  : pageFile  ,
-						changeType: changeType, 
-					});
-
-				});
-
-				// Resolve and return data.
-				res_parseChanges(
-					{
-						changes      : changes, 
-						new_filesjson: new_filesjson, 
-					}
-				);
-		
-			});
-		};
 
 		// Make sure the interface is correct.
 		if( ["WIFI", "USB"].indexOf(interface) == -1 ) {
@@ -467,17 +470,28 @@ const convertAndOptimize = function(changes){
 		// @TODO Confirm that ALL srcFile within changes exist. Filter them out if they do not exist. 
 		//
 
-		let changesRm      = changes.filter(function(d){ return d.changeType == "updated" && d.ext == "rm"; }).length * 2;
+		// 1 for each pdf page.
+		// 1 for each existing pdf annotation page.
+		// 1 for each rm file.
+		// 1 for each svg to .min.svg file.
+
+		let changesRm      = changes.filter(function(d){ return d.changeType == "updated" && d.ext == "rm"; }).length * 1;
 		let changesPdf     = changes.filter(function(d){ return d.changeType == "updated" && d.ext == "pdf"; }).length;
 		let changesDeletes = changes.filter(function(d){ return d.changeType == "deleted"; }).length;
 		let totalChanges   = changesRm + changesPdf + changesDeletes;
 		let currentPage    = 1;
+
+		// console.log("changes.length:", changes.length);
+		// console.log("****");
+		// console.log("changes 5 :", changes.slice(0, 5));
+		// resolve_convertAndOptimize(); return; 
 
 		// Display changes message.
 		let msg = `convertAndOptimize: ` + 
 		`\n  Changes to .rm files  : ${changesRm}` +
 		`\n  Changes to .pdf files : ${changesPdf}` +
 		`\n  Changes of deletion   : ${changesDeletes}` +
+		`\n  Total changes         : ${totalChanges}` +
 		`\n`;
 
 		sse.write(msg);
@@ -545,7 +559,7 @@ const convertAndOptimize = function(changes){
 			}
 		};
 
-		// Do deletion handling.
+		// Do deletion handling. (Files reported as deleted.)
 		try{ await convert("deleted").catch(function(e) { throw e; }); } 
 		catch(e){ funcs.rejectionFunction("convertAndOptimize/fileDeleted", e, reject_convertAndOptimize, sse); return; }
 
@@ -553,16 +567,17 @@ const convertAndOptimize = function(changes){
 		try{ await convert("rmToSvg").catch(function(e) { throw e; }); } 
 		catch(e){ funcs.rejectionFunction("convertAndOptimize/rmToSvg", e, reject_convertAndOptimize, sse); return; } 
 
-		// Do optimizeSvg.
-		try{ await convert("optimizeSvg").catch(function(e) { throw e; }); } 
-		catch(e){ funcs.rejectionFunction("convertAndOptimize/optimizeSvg", e, reject_convertAndOptimize, sse); return; } 
-
 		// Do pdfConvert conversion.
 		try{ 
 			await convert("pdfConvert").catch(function(e) { throw e; }); 
 		} 
 		catch(e){ funcs.rejectionFunction("convertAndOptimize/pdfConvert", e, reject_convertAndOptimize, sse); return; } 
 
+		// Do optimizeSvg.
+		try{ await convert("optimizeSvg").catch(function(e) { throw e; }); } 
+		catch(e){ funcs.rejectionFunction("convertAndOptimize/optimizeSvg", e, reject_convertAndOptimize, sse); return; } 
+
+		// DONE
 		resolve_convertAndOptimize();
 	});
 };
@@ -740,9 +755,9 @@ const fileDeleted        = function(changeRec, fileRec, totalCount){
 
 			msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
 			`convertAndOptimize/fileDeleted : ` + 
-				" ".repeat(22) + `file: ` +
-				// `"${fileRec.path + fileRec.metadata.visibleName}"` +
-				`"${'--'}" :: ` +
+				" ".repeat(22) + `from document: ` +
+				`"${fileRec.path + fileRec.metadata.visibleName}"` +
+				` :: ` +
 				`"${changeRec.srcFile}"` +
 				``
 			;
@@ -841,8 +856,9 @@ const updateFromDevice = function(obj){
 };
 
 module.exports = {
-	updateFromDevice: updateFromDevice , // Expected use by webApi.js
-	optimizeSvg     : optimizeSvg      , // Expected use by webApi.js
-	pdfConvert  : pdfConvert   , // Expected use by _backend.js (DEBUG)
+	updateFromDevice   : updateFromDevice   , // Expected use by webApi.js
+	parseChanges       : parseChanges       , // Expected use by _backend.js (DEBUG)
+	convertAndOptimize : convertAndOptimize , // Expected use by _backend.js (DEBUG)
+
 	_version  : function(){ return "Version 2021-09-23"; }
 };
