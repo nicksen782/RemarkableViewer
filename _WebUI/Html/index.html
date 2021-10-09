@@ -97,93 +97,93 @@
 
 			<!-- SETTINGS -->
 			<div id="rpt_nav_bar_view_settings" class="views">
+				SETTINGS
 				<table class="controls_table1">
+					<!-- Open notebooks in auto-size view: -->
 					<tr> 
-						<td>Sync Remarkable to the server:</td> 
+						<td>Open notebooks in auto-size view:</td> 
 						<td>
-							<button onclick="rpt.apis.updateFromDevice()">Sync</button>
-						</td> 
-						<td>
-							Sync your Remarkable tablet data to the local server and optimize images for viewing.
-						</td>
-					</tr>
-
-					<tr> 
-						<td>Sync templates to the server:</td> 
-						<td>
-							<button onclick="rpt.apis.updateFromDeviceTemplates()">Sync</button>
-						</td> 
-						<td>
-							Sync/optimize your Remarkable templates to the local server.
-						</td>
-					</tr>
-
-					<tr> 
-						<td>Sync interface:<br>&nbsp;&nbsp;default: USB</td> 
-						<td>
-							<label><input type="radio" name="syncInterface" value="WIFI">WiFi</label>
-							<br>
-							<label><input type="radio" name="syncInterface" value="USB">USB</label>
-						</td> 
-						<td>
-							Using "wifi" will use the WiFi interface on the Remarkable.<br>
-							Using "usb" will use the USB interface on the Remarkable.
+							<label title='Setting to "YES" will fit the document images into the default size parent.'>
+								<input type="radio" name="open_document_fullscreen" value="YES">YES
+							</label>
+							<label title='Setting to "NO" will adapt the Document View to be wider and taller based on the screen size.'>
+								<input type="radio" name="open_document_fullscreen" value="NO">NO
+							</label>
+							<label> (default: YES)</label>
 						</td> 
 					</tr>
 
+					<!-- Add Directory Id to URL: -->
 					<tr> 
-						<td>Open notebooks in auto-size view:<br>&nbsp;&nbsp;default: YES</td> 
+						<td>Add Directory Id to URL:</td> 
 						<td>
-							<label><input type="radio" name="open_document_fullscreen" value="YES">YES</label>
-							<br>
-							<label><input type="radio" name="open_document_fullscreen" value="NO">NO</label>
-						</td> 
-						<td>
-							Setting to "YES" will fit the document images into the default size parent.<br>
-							Setting to "NO" will adapt the Document View to be wider and taller based on the screen size.
-
+							<label title='If set to "YES" then the dirId will be part of the URL and will be used on page load.'>
+								<input type="radio" name="addDirIdToUrl" value="YES">YES
+							</label
+							<label title='If set to "NO" then the dirId will NOT be part of the URL.'>
+								<input type="radio" name="addDirIdToUrl" value="NO">NO
+							</label>
+							<label> (default: NO)</label>
 						</td> 
 					</tr>
 
+					<!-- Add Document Id to URL: -->
 					<tr> 
-						<td>addDirIdToUrl:<br>&nbsp;&nbsp;default: NO</td> 
+						<td>Add Document Id to URL</td> 
 						<td>
-							<label><input type="radio" name="addDirIdToUrl" value="YES">YES</label>
-							<br>
-							<label><input type="radio" name="addDirIdToUrl" value="NO">NO</label>
-						</td> 
-						<td>
-							If set to "YES" then the dirId will be part of the URL and will be used on page load.<br>
-							If set to "NO" then the dirId will NOT be part of the URL<br>
-						</td> 
-					</tr>
-
-					<tr> 
-						<td>addDocumentdIdToUrl:<br>&nbsp;&nbsp;default: NO</td> 
-						<td>
-							<label><input type="radio" name="addDocumentdIdToUrl" value="YES">YES</label>
-							<br>
-							<label><input type="radio" name="addDocumentdIdToUrl" value="NO">NO</label>
-						</td> 
-						<td>
-							If set to "YES" then the documentId will be part of the URL and will be used on page load.<br>
-							If set to "NO" then the documentId will NOT be part of the URL<br>
+							<label title='If set to "YES" then the documentId will be part of the URL and will be used on page load.'>
+								<input type="radio" name="addDocumentdIdToUrl" value="YES">YES
+							</label>
+							<label title='If set to "NO" then the documentId will NOT be part of the URL.'>
+								<input type="radio" name="addDocumentdIdToUrl" value="NO">NO
+							</label>
+							<label> (default: NO)</label>
 						</td> 
 					</tr>
 					
+					<!-- View PDF annotations -->
 					<tr>
-						<td>View PDF annotations<br>&nbsp;&nbsp;default: NO</td>
+						<td>View PDF annotations</td>
 						<td>
-							<label><input type="radio" name="view_pdf_annotations" value="NO">NO</label>
-							<br>
-							<label><input type="radio" name="view_pdf_annotations" value="YES">YES</label>
+							<label title='If set to "YES" then the pdf annotations will be shown.'>
+								<input type="radio" name="view_pdf_annotations" value="NO">NO
+							</label>
+							<label title='If set to "NO" then the pdf annotations will NOT be shown.'>
+								<input type="radio" name="view_pdf_annotations" value="YES">YES
+							</label>
+							<label> (default: NO)</label>
 						</td>
+					</tr>
+
+					<!-- Sync interface: -->
+					<tr> 
+						<td>Sync interface:</td> 
 						<td>
-							If set to "YES" then the pdf annotations will be shown.<br>
-							If set to "NO" then the pdf annotations will NOT be shown.<br>
+							<label title='Using "wifi" will use the WiFi interface on the Remarkable.'>
+								<input type="radio" name="syncInterface" value="WIFI">WiFi
+							</label>
+							<label title='Using "usb" will use the USB interface on the Remarkable.'>
+								<input type="radio" name="syncInterface" value="USB" >USB
+							</label>
+							<label> (default: USB)</label>
 						</td> 
 					</tr>
 
+					<!-- Sync Remarkable to the server: -->
+					<tr> 
+						<td>Sync Remarkable to the server:</td> 
+						<td>
+							<button onclick="rpt.apis.updateFromDevice()" title='Sync your Remarkable tablet data to the local server and optimize images for viewing.'>Sync Documents</button>
+						</td> 
+					</tr>
+
+					<!-- Sync templates to the server: -->
+					<tr> 
+						<td>Sync templates to the server:</td> 
+						<td>
+							<button onclick="rpt.apis.updateFromDeviceTemplates()" title='Sync/optimize your Remarkable templates to the local server.'>Sync Templates</button>
+						</td> 
+					</tr>
 
 				</table>
 				<br>

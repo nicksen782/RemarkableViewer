@@ -1,6 +1,6 @@
 #rpt_nav_bar_view_settings .controls_table1{
-	width: 100%;
-	font-size:1.2em
+	/* width: 100%; */
+	font-size:1.2em;
 }
 #rpt_nav_bar_view_settings .controls_table1 td{
 	vertical-align:top;
@@ -59,7 +59,7 @@
 }
 
 #rpt_nav_bar_view_settings_sync_progress {
-	height: 450px;
+	height: 520px;
 	margin: 5px;
 	/* 	background-color: cornflowerblue; */
 	/* padding:5px; */
