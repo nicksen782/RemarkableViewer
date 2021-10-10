@@ -1,11 +1,11 @@
 #rpt_nav_bar_view_settings .controls_table1{
-	/* width: 100%; */
+	width: 100%;
 	font-size:1.2em;
+	/* display: inline-block; */
+	vertical-align: top;
 }
 #rpt_nav_bar_view_settings .controls_table1 td{
 	vertical-align:top;
-}
-#rpt_nav_bar_view_settings .controls_table1 td:nth-child(1){
 }
 
 #rpt_nav_bar_view_settings .controls_table1 tr td{
@@ -15,10 +15,10 @@
 /* 	opacity:0.1; */
     background-color:lightgray;
 }
-#rpt_nav_bar_view_settings .controls_table1 tr:nth-child(even){/* 	opacity:1.0; */background-color: darkgrey;}
+#rpt_nav_bar_view_settings .controls_table1 tr:nth-child(even){background-color: darkgrey;}
 
 #rpt_nav_bar_view_settings .controls_table1 button{
-	width: 100%;
+	width: 48%;
 }
 
 
@@ -59,7 +59,7 @@
 }
 
 #rpt_nav_bar_view_settings_sync_progress {
-	height: 520px;
+	height: 600px;
 	margin: 5px;
 	/* 	background-color: cornflowerblue; */
 	/* padding:5px; */
