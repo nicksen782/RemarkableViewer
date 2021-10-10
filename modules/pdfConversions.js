@@ -8,7 +8,7 @@ const funcs  = require('./funcs.js').funcs;
 const config = require('./config.js').config;
 // const webApi = require('./webApi.js').webApi;
 
-const pdfPageToPng = function(srcFile, destFile){
+const pdfPageToPng      = function(srcFile, destFile){
 	return new Promise(async function(res_pdfPageToPng, rej_pdfPageToPng){
 		let options = [
 			"-alpha off", // Gives control of the alpha/matte channel of an image.
@@ -26,7 +26,7 @@ const pdfPageToPng = function(srcFile, destFile){
 		let cmd = `` + 
 			`convert ${options.join(" ")} ` +
 			`"${srcFile}" ` + // `"./DEVICE_DATA/xochitl/029d4e39-5bd5-47d0-96dd-1808d5fb5b77.pdf[0]" ` +
-			`"${destFile}" ` // `"DEVICE_DATA_IMAGES/029d4e39-5bd5-47d0-96dd-1808d5fb5b77/pages/KOLBE1.pdf-0.png" ` }
+			`"${destFile}" `  // `"DEVICE_DATA_IMAGES/029d4e39-5bd5-47d0-96dd-1808d5fb5b77/pages/KOLBE1.pdf-0.png" ` }
 		;
 		
 		let results;
@@ -45,7 +45,7 @@ const pdfPageToPng = function(srcFile, destFile){
 	});
 };
 
-const rotate = function(srcFile, degrees){
+const rotate            = function(srcFile, degrees){
 	return new Promise(async function(res_rotate, rej_rotate){
 		let cmd = `convert -precision 15 "${srcFile}" -rotate ${degrees}\! "${srcFile}"`;
 		let results;
@@ -61,7 +61,7 @@ const rotate = function(srcFile, degrees){
 	});
 };
 
-const resize = function(srcFile, newWidth, newHeight){
+const resize            = function(srcFile, newWidth, newHeight){
 	return new Promise(async function(res_resize, rej_resize){
 		let cmd = `convert "${srcFile}" -precision 15 -resize ${newWidth}x${newHeight}` +'! ' + `"${srcFile}"`;
 		let results;
@@ -78,7 +78,7 @@ const resize = function(srcFile, newWidth, newHeight){
 	});
 };
 
-const createPngSvg = function(destPagesFilenamePng, newDims, destPagesFilenameSvg, svgDims){
+const createPngSvg      = function(destPagesFilenamePng, newDims, destPagesFilenameSvg, svgDims){
 	return new Promise(async function(res_createPngSvg, rej_createPngSvg){
 		// Get the file and encode to base64.
 		let base64 = fs.readFileSync( destPagesFilenamePng, 'base64');
@@ -115,7 +115,7 @@ const createPngSvg = function(destPagesFilenamePng, newDims, destPagesFilenameSv
 };
 
 //
-const getDimensions = function(srcFile){
+const getDimensions     = function(srcFile){
 	return new Promise(async function(res_getDimensions, rej_getDimensions){
 		let cmd = `identify "${srcFile}"`;
 		// DEVICE_DATA/xochitl/54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf.pdf[23] PDF 525x404 525x404+0+0 16-bit sRGB 142686B 0.020u 0:00.030
@@ -169,7 +169,7 @@ const getDimensions = function(srcFile){
 };
 
 //
-const getRatio = function(numerator, denominator){
+const getRatio          = function(numerator, denominator){
 	let a = numerator;
 	let b = denominator;
 	let c;
@@ -193,48 +193,38 @@ const incrementalResize = function(orgWidth, orgHeight, desiredRatio="3:4"){
 
 	// This guarantees an desiredRatio unless the org dims are too big already.
 	for(let i=0; i<loops; i+=1){
-		// Is either the width or the height above the max?
-		if(width  >= 1404){ 
-			return {
-				width    : width    ,
-				height   : height   ,
-				orgWidth : orgWidth ,
-				orgHeight: orgHeight,
-				success  : false,
-				where    : "Too wide",
-			};
-		}
-		if(height >= 1872){ 
-			return {
-				width    : width    ,
-				height   : height   ,
-				orgWidth : orgWidth ,
-				orgHeight: orgHeight,
-				success  : false,
-				where    : "Too tall",
-			};
-		}
-		
-		// Are the width and height greater than or equal to the orgWidth and orgHeight
-		if(width >= orgWidth && height >= orgHeight){
-			// console.log("DONE!", width, height, getRatio(width, height), `PARAMS: ${orgWidth}, ${orgHeight}, ${desiredRatio}`);
+		// Are the width and height greater than or equal to the orgWidth and orgHeight?
+		if(width >= orgWidth && orgHeight >= 1872){
 			return {
 				width    : width    ,
 				height   : height   ,
 				orgWidth : orgWidth ,
 				orgHeight: orgHeight,
 				success  : true,
-				where    : "success",
+				where    : "success: Near original dimensions.",
 
 			};
 		}
+		// Are the width and height greater than the max width or height for a document?
+		else if(width >= 1404 && height >= 1872){
+			return {
+				width    : width    ,
+				height   : height   ,
+				orgWidth : orgWidth ,
+				orgHeight: orgHeight,
+				success  : true,
+				where    : "success: Near document max dimensions.",
+
+			};
+		}
+		// Increment width and height by ax and ay.
 		else{
 			width  += ax;
 			height += ay;
 		}
 	}
 
-	// console.log("FAILURE");
+	console.log("THIS SHOULD NOT HAPPEN.");
 	return {
 		width    : width    ,
 		height   : height   ,
@@ -245,7 +235,8 @@ const incrementalResize = function(orgWidth, orgHeight, desiredRatio="3:4"){
 	};
 };
 
-const pdfConvert = function(changeRec, fileRec, totalCount){
+//
+const pdfConvert        = function(changeRec, fileRec, totalCount){
 	return new Promise(async function(res_pdfConvert, rej_pdfConvert){
 		let startTS = performance.now();
 
@@ -304,11 +295,16 @@ const pdfConvert = function(changeRec, fileRec, totalCount){
 		for(let i=0; i<pages.length; i+=1){
 			let page = pages[i];
 
+			let startTS_inner = performance.now();
+
 			let destPagesFilenamePng = config.imagesPath + changeRec.docId + "/pages/" + (page.pageId) + ".png";
+			// let destPagesFilenamePng = config.imagesPath + changeRec.docId + "/pages/" + "PNG" + ".png";
 			let destPagesFilenameSvg = config.imagesPath + changeRec.docId + "/pages/" + "TEST2_" + page.pageId + ".svg";
 
+			// await pdfPageToPng(changeRec.srcFile, destPagesFilenamePng).catch(function(e) { throw e; }); 
+			// res_pdfConvert(); return; 
+
 			// Convert pdf page to .png.
-			console.log(`    Converting page: ${i+1} of ${pages.length} for PDF: "${fileRec.metadata.visibleName}"`);
 			try{ 
 				//
 				await pdfPageToPng(changeRec.srcFile +`[${i}]`, destPagesFilenamePng).catch(function(e) { throw e; }); 
@@ -321,6 +317,7 @@ const pdfConvert = function(changeRec, fileRec, totalCount){
 				return; 
 			}
 
+			// Rotate the image if necessary.
 			if(page.doRotate){
 				try{ 
 					//
@@ -381,6 +378,15 @@ const pdfConvert = function(changeRec, fileRec, totalCount){
 			// 	funcs.rejectionFunction("pdfConvert/createPngSvg", e, rej_pdfConvert, false)
 			// 	return; 
 			// }
+
+			// Remove the .svg and keep the .min.svg.
+			//
+			
+			// Remove the .png
+			//
+
+			let endTS_inner = performance.now();
+			console.log(`    Converted page: ${i+1} of ${pages.length} for PDF: "${fileRec.metadata.visibleName}" in ${((endTS_inner - startTS_inner)/1000).toFixed(3)} seconds`);
 		}
 
 		let endTS = performance.now();
@@ -395,8 +401,6 @@ const pdfConvert = function(changeRec, fileRec, totalCount){
 
 	});
 };
-
-// "./DEVICE_DATA/xochitl/029d4e39-5bd5-47d0-96dd-1808d5fb5b77.pdf[0]"
 
 module.exports = {
 	pdfConvert : pdfConvert , // Expected use by updateFromDevice.js 

@@ -475,12 +475,12 @@ const convertAndOptimize = function(changes){
 		// 1 for each rm file.
 		// 1 for each svg to .min.svg file.
 
-		let changesRm      = changes.filter(function(d){ return d.changeType == "updated" && d.ext == "rm"; }).length * 1;
+		let changesRm      = changes.filter(function(d){ return d.changeType == "updated" && d.ext == "rm"; }).length * 2;
 		let changesPdf     = changes.filter(function(d){ return d.changeType == "updated" && d.ext == "pdf"; }).length;
 		let changesDeletes = changes.filter(function(d){ return d.changeType == "deleted"; }).length;
 		let totalChanges   = changesRm + changesPdf + changesDeletes;
 		let currentPage    = 1;
-
+		
 		// console.log("changes.length:", changes.length);
 		// console.log("****");
 		// console.log("changes 5 :", changes.slice(0, 5));
@@ -493,7 +493,7 @@ const convertAndOptimize = function(changes){
 		`\n  Changes of deletion   : ${changesDeletes}` +
 		`\n  Total changes         : ${totalChanges}` +
 		`\n`;
-
+		
 		sse.write(msg);
 		console.log(msg);
 
