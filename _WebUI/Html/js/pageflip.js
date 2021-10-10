@@ -1,18 +1,20 @@
 function pageflip_init(pages){
-	// var pages = document.getElementsByClassName('page');
-	for (var i = 0; i < pages.length; i++) {
-		var page = pages[i];
-		if (i % 2 === 0) {
-			page.style.zIndex = (pages.length - i);
+	return new Promise(function(resolve, reject){
+		for (var i = 0; i < pages.length; i++) {
+			var page = pages[i];
+			if (i % 2 === 0) {
+				page.style.zIndex = (pages.length - i);
+			}
 		}
-	}
-	for (var i = 0; i < pages.length; i++) {
-		//Or var page = pages[i];
-		pages[i].pageNum = i + 1;
-		pages[i].onclick = function () {
-			pageFlip.flip.handleFlip(this);
+		for (var i = 0; i < pages.length; i++) {
+			//Or var page = pages[i];
+			pages[i].pageNum = i + 1;
+			pages[i].onclick = function () {
+				pageFlip.flip.handleFlip(this);
+			}
 		}
-	}
+		resolve();
+	});
 }
 
 var pageFlip = {
@@ -23,8 +25,85 @@ var pageFlip = {
 				setTimeout(resolve, ms);
 			});
 		},
+		getThePageNumberPair : function(){
+			// Get a handle to the pages of the flipbook. 
+			let pages = document.querySelectorAll("#book .page");
+			let pagesFlipped = document.querySelectorAll("#book .page.flipped").length;
+			let frontCoverPage ;
+			let backCoverPage  ;
+			for(let i=0; i<pages.length; i+=1){ if(pages[i].classList.contains("cover_page_front")){ frontCoverPage = i; break; } }
+			for(let i=0; i<pages.length; i+=1){ if(pages[i].classList.contains("cover_page_back") ){ backCoverPage  = i; break; } }
+			return {
+				pages          : pages         ,
+				numPages       : pages.length  ,
+				pageNumLeft    : pagesFlipped-1,
+				pageNumRight   : pagesFlipped  ,
+				frontCoverPage : frontCoverPage,
+				backCoverPage  : backCoverPage ,
+			};
+		},
 	},
 	flip : {
+		loadUnloadPages : function(){
+			let data = pageFlip.util.getThePageNumberPair();
+			let belowPageNum = data.pageNumLeft - (4*2); 
+			let abovePageNum = data.pageNumLeft + (4*2);
+
+			// Determine pages to keep.
+			let toRemove = [];
+			let toKeep = [];
+			for(let i=1; i<data.numPages; i+=2){
+				// Ignore the cover pages.
+				if(data.frontCoverPage == i){ continue; }
+				if(data.backCoverPage  == i){ continue; }
+
+				// Define the tests. 
+				let test1 = i < belowPageNum;
+				let test2 = i > abovePageNum;
+
+				if(test1){
+					toRemove.push(i);
+					toRemove.push(i+1);
+				}
+				else if(test2){
+					toRemove.push(i);
+					toRemove.push(i+1);
+				}
+				else{
+					toKeep.push(i);
+					toKeep.push(i+1);
+				}
+			}
+
+			toRemove.forEach(function(p, p_i){
+				// Skip the front and back covers.
+				if(data.frontCoverPage == p){ return; }
+				if(data.backCoverPage  == p){ return; }
+
+				// A handle to the layers. 
+				let layer1 = data.pages[p].querySelector(".layer1");
+				let layer2 = data.pages[p].querySelector(".layer2");
+
+				// Hide.
+				layer1.style["display"] = "none";
+				layer2.style["display"] = "none";
+			});
+
+			toKeep.forEach(function(p, p_i){
+				// Skip the front and back covers.
+				if(data.frontCoverPage == p){ return; }
+				if(data.backCoverPage  == p){ return; }
+
+				// A handle to the layers. 
+				let layer1 = data.pages[p].querySelector(".layer1");
+				let layer2 = data.pages[p].querySelector(".layer2");
+
+				// Show
+				layer1.style["display"] = "block";
+				layer2.style["display"] = "block";
+			});
+
+		},
 		handleFlip : function(elem){
 			if (elem.pageNum % 2 === 0) {
 				// console.log("Left page");
@@ -33,8 +112,9 @@ var pageFlip = {
 					elem.previousElementSibling.classList.remove('flipped');
 				}
 				// else{
-					// console.log("ERROR: This is the first page.")
+				//	console.log("ERROR: This is the first page.")
 				// }
+				pageFlip.util.getThePageNumberPair();
 			}
 			else {
 				// console.log("Right page");
@@ -42,15 +122,18 @@ var pageFlip = {
 					elem.classList.add('flipped');
 					elem.nextElementSibling.classList.add('flipped');
 				}
-				else{
-					// console.log("ERROR: This is the last page.")
-				}
+				// else{
+				//	console.log("ERROR: This is the last page.")
+				// }
 			}
+			
+			// Load/Unload images?
+			pageFlip.flip.loadUnloadPages();
 		},
 
 		// FINAL.
 		flipToPage: async function(pageNum, delayMs=75){
-			console.log("delayMs:", delayMs);
+			// console.log("delayMs:", delayMs);
 			// Get a handle to the pages of the flipbook. 
 			let pages = document.querySelectorAll("#book .page");
 			let pagesFlipped = document.querySelectorAll("#book .page.flipped").length;
@@ -92,7 +175,6 @@ var pageFlip = {
 			}
 		},
 	},
-	
 
 	displayFlipbook : function(obj, autoOpenFirstPage){
 		return new Promise(async function(resolve, reject){
@@ -105,6 +187,7 @@ var pageFlip = {
 				pageParent.style["height"] = obj.dims.main.notebookHeight + obj.dims.footer.footerHeight + "px";
 				pageParent.innerHTML = "";
 				pageParent.innerHTML += `<p class="title">${title}</p>`;
+				pageParent.setAttribute("pageNum", 0);
 
 				let frag = document.createDocumentFragment();
 				let table = document.createElement("table"); 
@@ -130,7 +213,7 @@ var pageFlip = {
 				// Return.
 				return pageParent;
 			};
-			let createPages = async function(pages){
+			let createPages    = async function(pages){
 				let frag = document.createDocumentFragment();
 				let i = 0;
 		
@@ -148,6 +231,7 @@ var pageFlip = {
 					pageParent.classList.add("page");
 					pageParent.style["width"]  = obj.dims.main.notebookWidth  + "px";
 					pageParent.style["height"] = obj.dims.main.notebookHeight + obj.dims.footer.footerHeight + "px";
+					pageParent.setAttribute("pageNum", i+1);
 
 					// Create the layered images container.
 					let layeredImagesDiv = document.createElement("div");
@@ -160,38 +244,28 @@ var pageFlip = {
 					layer1.classList.add("layer1");
 					layer1.style["width"]  = obj.dims.main.notebookWidth  + "px";
 					layer1.style["height"] = obj.dims.main.notebookHeight + "px";
+					layer1.style["display"] = "none";
+					layer1.style["background-image"] = `url('${img1}')` ;
 					
-					// if(img1.indexOf("TEST2_") != -1){
-					// 	(async function(){
-					// 		return new Promise(function(res, rej){
-					// 			let img = new Image();
-					// 			img.onload = function(){
-					// 				layer1.appendChild(img);
-					// 			};
-					// 			img.src = img1;
-					// 		});
-
-
-					// 	})(); 
-						
-					// 	// let svgBody1 = await rpt.apis.rawFetch(img1).catch(function(d){ throw e; });
-					// 	// svgBody = svgBody.replace("<svg ", "<svg style='width:100%;height:100%;' ");
-					// 	// layer1.innerHTML = svgBody1;
-					// }
-					// else if(img1 != ""){
-						layer1.style["background-image"] = `url('${img1}')` ;
-					// }
-					// else{ layer1.style["background-color"] = "#00ff0088";  }
+					// Display the first few pages.
+					if([1,2,3,4].indexOf(i) != -1){
+						// console.log("Displaying l1 of p:"+i);
+						layer1.style["display"] = "block";
+					}
 					
 					// Create layer2 for the layered images container. 
 					let layer2 = document.createElement("div");
 					layer2.classList.add("layer2");
 					layer2.style["width"]  = obj.dims.main.notebookWidth  + "px";
 					layer2.style["height"] = obj.dims.main.notebookHeight + "px";
-					if(img2 != ""){
-						layer2.style["background-image"] = `url('${img2}')` ;
+					layer2.style["display"] = "none";
+					layer2.style["background-image"] = `url('${img2}')` ;
+					
+					// Display the first few pages.
+					if([1,2,3,4].indexOf(i) != -1){
+						// console.log("Displaying l2 of p:"+i);
+						layer2.style["display"] = "block";
 					}
-					// else{ layer2.style["background-color"] = "#0000ff88";  }
 					
 					// Create the page footer container.
 					let pageFooter = document.createElement("div");
@@ -230,6 +304,9 @@ var pageFlip = {
 				pageParent.style["width"]  = obj.dims.main.notebookWidth  + "px";
 				pageParent.style["height"] = obj.dims.main.notebookHeight + obj.dims.footer.footerHeight + "px";
 				pageParent.innerHTML = title;
+				pageParent.setAttribute("pageNum", (obj.pages.layer1.length+2));
+
+				// console.log("pages:", pages);
 
 				// Return.
 				return pageParent;
@@ -263,10 +340,10 @@ var pageFlip = {
 			let pages;
 			let coverBack;
 			let container;
-			try{ coverTop  = createCoverTop (obj.notebookTitle);           } catch(e){ console.log("failure in createCoverTop" , e); }
-			try{ coverBack = createCoverBack("LAST PAGE");                 } catch(e){ console.log("failure in createCoverBack", e); }
-			try{ pages     = await createPages(obj.pages);                 } catch(e){ console.log("failure in createPages"    , e); }
-			try{ container = createContainer(coverTop, pages, coverBack);  } catch(e){ console.log("failure in createContainer", e); }
+			try{ coverTop  = createCoverTop (obj.notebookTitle);          } catch(e){ console.log("failure in createCoverTop" , e); }
+			try{ pages     = await createPages(obj.pages);                } catch(e){ console.log("failure in createPages"    , e); }
+			try{ coverBack = createCoverBack("LAST PAGE");                } catch(e){ console.log("failure in createCoverBack", e); }
+			try{ container = createContainer(coverTop, pages, coverBack); } catch(e){ console.log("failure in createContainer", e); }
 
 			// Load the html element into the parent.
 			obj.destination.innerHTML = "";
@@ -275,12 +352,12 @@ var pageFlip = {
 			// Was a startDisplayAt value specified?
 
 			let pagesElems = document.querySelectorAll("#book .page");
-			pageflip_init(pagesElems);
+			await pageflip_init(pagesElems);
 
 			// Flip to the first page after a short delay.
 			setTimeout(function(){ 
 				if(autoOpenFirstPage){
-					console.log("Auto-opening the first page...");
+					// console.log("Auto-opening the first page...");
 					pagesElems[0].click();
 					resolve();
 				}
