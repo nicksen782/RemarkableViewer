@@ -171,13 +171,13 @@
 
 #rpt_nav_bar_view_notebook_pageview .book .page:nth-child(even) .layeredImagesDiv .layer1,
 #rpt_nav_bar_view_notebook_pageview .book .page:nth-child(even) .layeredImagesDiv .layer2 {
-	background-position: center;
+/* 	background-position: center; */
 	width: 100%;
 }
 
 #rpt_nav_bar_view_notebook_pageview .book .page:nth-child(odd) .layeredImagesDiv .layer1,
 #rpt_nav_bar_view_notebook_pageview .book .page:nth-child(odd) .layeredImagesDiv .layer2 {
-	background-position: center;
+	background-position: right;
 	width: 100%;
 }
 

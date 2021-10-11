@@ -245,7 +245,9 @@ var pageFlip = {
 					layer1.style["width"]  = obj.dims.main.notebookWidth  + "px";
 					layer1.style["height"] = obj.dims.main.notebookHeight + "px";
 					layer1.style["display"] = "none";
-					layer1.style["background-image"] = `url('${img1}')` ;
+					if(img1 != ""){
+						layer1.style["background-image"] = `url('${img1}')` ;
+					}
 					
 					// Display the first few pages.
 					if([1,2,3,4].indexOf(i) != -1){
@@ -259,7 +261,9 @@ var pageFlip = {
 					layer2.style["width"]  = obj.dims.main.notebookWidth  + "px";
 					layer2.style["height"] = obj.dims.main.notebookHeight + "px";
 					layer2.style["display"] = "none";
-					layer2.style["background-image"] = `url('${img2}')` ;
+					if(img2 != ""){
+						layer2.style["background-image"] = `url('${img2}')` ;
+					}
 					
 					// Display the first few pages.
 					if([1,2,3,4].indexOf(i) != -1){

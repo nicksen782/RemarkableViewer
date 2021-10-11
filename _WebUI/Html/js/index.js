@@ -299,10 +299,10 @@ rpt.nav = {
 			if(dirsLength || filesLength){ iconClass += "full"; }
 			else                         { iconClass += "empty"; }
 			
+			// title="NAME: ${d.metadata.visibleName}\nID: ${d.extra._thisFileId}" 
 			let html = `
 				<span 
 					class="navFileIcon CollectionType ${iconClass}" 
-					XXXtitle="NAME: ${d.metadata.visibleName}\nID: ${d.extra._thisFileId}" 
 					onclick="rpt.nav.changeView('filesystem'); rpt.nav.createNavIcons('${d.extra._thisFileId}');"
 					onmouseenter="rpt.nav.displayNotebookMetadata('${d.extra._thisFileId}', '${d.metadata.type}');"
 				> 
@@ -331,10 +331,10 @@ rpt.nav = {
 			else{
 				// visibleName = `${d.metadata.visibleName}} (${d.content.pageCount})`;
 			}
+			// title="NAME: ${d.metadata.visibleName}}\nID: ${d.extra._thisFileId}\nPages: ${d.content.pageCount}" 
 			return `
 				<div 
 					class="file_box" 
-					XXXtitle="NAME: ${d.metadata.visibleName}}\nID: ${d.extra._thisFileId}\nPages: ${d.content.pageCount}" 
 					onclick="
 						rpt.nav.changeView('document'); 
 						rpt.documentView.display('${d.extra._thisFileId}', 0);
@@ -386,12 +386,12 @@ rpt.nav = {
 		html += `HOVERED ${type == "CollectionType" ? "DIRECTORY" : "NOTEBOOK"}:\n`;
 		html += ` Path: <span style="font-size:80%;" title="${src[id].path}">${src[id].path}</span>\n`
 		html += ` Name          : ${src[id].metadata.visibleName} \n` ;
-		html += ` parent        : ${src[id].metadata.parent} \n`;
+		html += ` parent        : <span style="font-size:75%;" title="${src[id].metadata.parent}">${src[id].metadata.parent}</span>\n`; // ${src[id].metadata.parent} \n`;
 		html += ` Modified      : ${new Date(parseInt(src[id].metadata.lastModified)).toString().split(" GMT")[0]} \n` ;
 		html += ` Update count  : ${src[id].metadata.version} \n` ;
 		html += ` Type          : ${src[id].metadata.type} \n` ;
 		html += ` fileType      : ${src[id].content.fileType || "NOT SET"} \n` ;
-		html += ` UUID-4        : <span style="font-size:80%;" title="${src[id].extra._thisFileId}">${src[id].extra._thisFileId}</span>\n`;
+		html += ` UUID-4        : <span style="font-size:75%;" title="${src[id].extra._thisFileId}">${src[id].extra._thisFileId}</span>\n`;
 		html += ` Pinned        : ${src[id].metadata.pinned} \n` ;
 		html += ` Trashed       : ${src[id].metadata.parent == "trash"} \n` ;
 		html += ` Deleted       : ${src[id].metadata.deleted} \n` ;
@@ -429,6 +429,8 @@ rpt.nav = {
 }
 
 rpt.apis = {
+	// GET http://192.168.2.80:3100/debug/rebuildServerStorage2?pdf=true&pdfAnnotations=true&rmtosvg=true&fromList=true&listItems=1ad4e8de-c66c-45e3-b31a-8c301f7bd7e8&listItems=54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf
+
 	// Used for GET requests to files as text.
 	rawFetch         : async function(url){
 		return fetch(url).then(response => response.text());
@@ -438,6 +440,37 @@ rpt.apis = {
 	simpleFetch         : async function(url){
 		// Backend should send JSON. 
 		return fetch(url).then(response => response.json());
+	},
+
+	// rpt.apis.sse.connection.close();
+	sse : {
+		connection: null,
+		events: {
+			open    : function(e){ console.log("open   :", e); }, 
+			error   : function(e){ console.log("error  :", e); rpt.apis.sse.connection.close(); },
+			message : function(e){ 
+				console.log("message:", e); 
+				// Parse the JSON. 
+				let data = JSON.parse(e.data);
+
+				// Check for the ending string. 
+				let done = (data == "==--ENDOFDATA--==");
+				if(done){
+					console.log("DONE!");
+					rpt.apis.sse.connection.close();
+				}
+			},
+			close   : function(e){ console.log("close  :", e); },
+		}
+	},
+	// TODO: Full SSE.
+	startFullSSE : async function(){
+		let queryString = `?fullSSE` ;
+		rpt.apis.sse.connection = new EventSource(`fullSSE${queryString}`);
+		rpt.apis.sse.connection.addEventListener("open"    ,  rpt.apis.sse.events.open   );
+		rpt.apis.sse.connection.addEventListener("error"   ,  rpt.apis.sse.events.error  );
+		rpt.apis.sse.connection.addEventListener("message" ,  rpt.apis.sse.events.message);
+		rpt.apis.sse.connection.addEventListener("close"   ,  rpt.apis.sse.events.close  );
 	},
 
 	// Used for POST requests. 
@@ -742,16 +775,16 @@ rpt.apis = {
 						// "CollectionType"
 
 						// Create the optgroups.
-						data.forEach(function(d){
-							// Make sure the optgroup does not already exist. 
-							let exists = frag.querySelector("optgroup[label='"+d.fullpath+"']") ? true : false;
-							if(exists){ return; }
+						// data.forEach(function(d){
+							// // Make sure the optgroup does not already exist. 
+							// let exists = frag.querySelector("optgroup[label='"+d.fullpath+"']") ? true : false;
+							// if(exists){ return; }
 
-							// Create the optgroup.
-							let optgroup = document.createElement("optgroup");
-							optgroup.setAttribute("label", d.fullpath);
-							frag.append(optgroup);
-						});
+							// // Create the optgroup.
+							// let optgroup = document.createElement("optgroup");
+							// optgroup.setAttribute("label", d.fullpath);
+							// frag.append(optgroup);
+						// });
 						
 						// Create/add options to the matching optgroup.
 						data.forEach(function(d){
@@ -761,7 +794,7 @@ rpt.apis = {
 							option.innerHTML = "";
 							if(usePrefix){
 								if     (d.type == "DocumentType" ){ option.innerHTML += `[FILE] `; }
-								else if(d.type =="CollectionType"){ option.innerHTML += `[DIR]  `; }
+								else if(d.type =="CollectionType"){ option.innerHTML += `[DIR]${"&nbsp;"}`; }
 							}
 							// option.innerHTML += `${d.name} ${extraData1}`;
 							option.innerHTML += `${extraData1} -- ${d.name}`;
@@ -769,10 +802,14 @@ rpt.apis = {
 							option.setAttribute("parentId", d.parentId);
 							option.setAttribute("id", d.id);
 							option.setAttribute("type", d.type);
+							option.setAttribute("title", d.fullpath);
 
 							// Find and add to the option's optgroup.
-							let optgroup = frag.querySelector("optgroup[label='"+d.fullpath+"']");
-							optgroup.appendChild(option);
+							// let optgroup = frag.querySelector("optgroup[label='"+d.fullpath+"']");
+							// optgroup.appendChild(option);
+
+							// Add the option to the fragment. 
+							frag.appendChild(option);
 						});
 
 						// Add the optgroups and options to the select.
@@ -831,6 +868,56 @@ rpt.apis = {
 				}
 			);
 		});
+	},
+
+	// Updates to the device.
+	writeToDevice : {
+		getLatestUUID     : function(){
+			/*
+				Linux command. 
+			*/
+		},
+		uploadPdf         : function(){
+			/*
+				Through USB Web Interface.
+			*/
+		},
+		downloadPdf       : function(){
+			/*
+				Through USB Web Interface.
+			*/
+		},
+		updateVisibleName : function(){
+			/*
+				Document: change the .metadata.visibleName to the new name.
+				Collection: change the .metadata.visibleName to the new name.
+			*/
+		},
+		move              : function(){
+			/*
+				Document: change the parent to another Collection UUID.
+				Collection: change the parent to another Collection UUID.
+			*/
+		},
+		sendToTrash       : function(){
+			/*
+				A wrapper for "move".
+				Document: change parent to "trash"
+				The Document "goes" to the trash and 
+				loses connection to it's parent Collection.
+
+				Collection: change parent to "trash"
+				If Documents exist in a Collection that is trashed, 
+				the documents are NOT updated. 
+				They still belong to that Collection.
+				They are not viewable within the UI, only via the trash.
+			*/
+		},
+		openOnDevice      : function(){
+			/*
+				Still need to figure this part out.
+			*/
+		}
 	},
 };
 
@@ -933,6 +1020,37 @@ rpt.documentView = {
 		
 		return dims2;
 	},
+	calculateFullScreenDimensions : function(destParent, ){
+		let doFullScreen = Array.from(document.getElementsByName("open_document_fullscreen")).find(r => r.checked).value;
+		doFullScreen = doFullScreen == "YES" ? true : false;
+		
+		// Fullscreen vs non-fullscreen resize the parent differently. 
+		if(doFullScreen){
+			// Add the expand class.
+			destParent.classList.add("expand");
+			
+			// Adjust the parent width/height. 
+			destParent.style.width  = (window.innerWidth  - 0) + "px";
+			destParent.style.height = (window.innerHeight - 32) + "px";
+
+			// destParent.style.width  = (window.outerWidth  - 0) + "px";
+			// destParent.style.height = (window.outerHeight - 32) + "px";
+		}
+		else{
+			// Remove the expand class.
+			destParent.classList.remove("expand");
+
+			// Adjust the parent width/height. 
+			destParent.style.width = "100%";
+			destParent.style.height = "100%";
+		}
+
+		// Determine proper dimensions for the document to fit in the parent container.
+		let dimensions = rpt.documentView.generateNotebookSize( destParent, 3, 4, doFullScreen);
+
+		//
+		return dimensions;
+	},
 
 	// Display the selected document.
 	display                : async function(documentId, pageNum=0){
@@ -966,32 +1084,34 @@ rpt.documentView = {
 		let destParent = document.getElementById("rpt_nav_bar_view_notebook");
 		let notebookWidth ;
 		let notebookHeight;
-		let doFullScreen = Array.from(document.getElementsByName("open_document_fullscreen")).find(r => r.checked).value;
-		doFullScreen = doFullScreen == "YES" ? true : false;
+		// let doFullScreen = Array.from(document.getElementsByName("open_document_fullscreen")).find(r => r.checked).value;
+		// doFullScreen = doFullScreen == "YES" ? true : false;
 
-		// Fullscreen vs non-fullscreen resize the parent differently. 
-		if(doFullScreen){
-			// Add the expand class.
-			destParent.classList.add("expand");
+		let dimensions = rpt.documentView.calculateFullScreenDimensions(destParent);
+
+		// // Fullscreen vs non-fullscreen resize the parent differently. 
+		// if(doFullScreen){
+		// 	// Add the expand class.
+		// 	destParent.classList.add("expand");
 			
-			// Adjust the parent width/height. 
-			destParent.style.width  = (window.innerWidth  - 0) + "px";
-			destParent.style.height = (window.innerHeight - 32) + "px";
+		// 	// Adjust the parent width/height. 
+		// 	destParent.style.width  = (window.innerWidth  - 0) + "px";
+		// 	destParent.style.height = (window.innerHeight - 32) + "px";
 
-			// destParent.style.width  = (window.outerWidth  - 0) + "px";
-			// destParent.style.height = (window.outerHeight - 32) + "px";
-		}
-		else{
-			// Remove the expand class.
-			destParent.classList.remove("expand");
+		// 	// destParent.style.width  = (window.outerWidth  - 0) + "px";
+		// 	// destParent.style.height = (window.outerHeight - 32) + "px";
+		// }
+		// else{
+		// 	// Remove the expand class.
+		// 	destParent.classList.remove("expand");
 
-			// Adjust the parent width/height. 
-			destParent.style.width = "100%";
-			destParent.style.height = "100%";
-		}
+		// 	// Adjust the parent width/height. 
+		// 	destParent.style.width = "100%";
+		// 	destParent.style.height = "100%";
+		// }
 
-		// Determine proper dimensions for the document to fit in the parent container.
-		let dimensions = rpt.documentView.generateNotebookSize( destParent, 3, 4, doFullScreen);
+		// // Determine proper dimensions for the document to fit in the parent container.
+		// let dimensions = rpt.documentView.generateNotebookSize( destParent, 3, 4, doFullScreen);
 
 		// Save the document dimensions. 
 		notebookWidth  = dimensions.w - 0;
@@ -1036,15 +1156,14 @@ rpt.documentView = {
 
 			// Flip to the indicated page. 
 			// TODO: With over 50 page documents maybe there should be a start page so there is less flipping?
-			// TODO: Each page image will need to load even though it would only be visible for a split-second. 
 			// TODO: Use the "nodelay" CSS class on pages when flipping with a start point. Remove it afterwards.
 			let delay;
 			let pagesFlipped = document.querySelectorAll("#book .page.flipped").length;
-			if     (pagesFlipped < 15){ delay = 100; }
-			else if(pagesFlipped < 30){ delay = 80;  }
-			else if(pagesFlipped < 45){ delay = 60;  }
-			else if(pagesFlipped < 60){ delay = 40;  }
-			else{ delay = 20;  }
+			if     (pagesFlipped < 25 ){ delay = 50; }
+			else if(pagesFlipped < 75 ){ delay = 25; }
+			else if(pagesFlipped < 125){ delay = 12; }
+			else if(pagesFlipped < 175){ delay = 5 ; }
+			else{ delay = 5;  }
 			pageFlip.flip.flipToPage(pageNum, delay);
 		}
 	},
