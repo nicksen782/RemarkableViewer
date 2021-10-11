@@ -780,7 +780,7 @@ const fileDeleted        = function(changeRec, fileRec, totalCount){
 };
 
 // MAIN: Runs the sync/convert/optimize processes.
-const updateFromDevice = function(obj){
+const updateFromDevice   = function(obj){
 	return new Promise(async function(res_top, rej_top){
 		try{
 			// Break out the properties of the object into variables. 

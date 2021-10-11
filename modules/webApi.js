@@ -57,7 +57,8 @@ const webApi = {
 			} 
 			catch(e){ 
 				console.trace("ERROR: rebuildDeviceImages:", e); 
-				res.end("Error in createJsonFsData,", JSON.stringify(e)); 
+				reject_top(e);
+				// res.end("Error in createJsonFsData,", JSON.stringify(e)); 
 				return; 
 			}
 		
@@ -142,17 +143,10 @@ const webApi = {
 			}
 			catch(e){ 
 				console.trace("ERROR: parseChanges:", e); 
-				res.end("Error in parseChanges,", JSON.stringify(e)); 
-				reject_top();
+				// res.end("Error in parseChanges,", JSON.stringify(e)); 
+				reject_top(e);
 				return; 
 			}
-		
-			// console.log("----------------------------------------------");
-			// console.log("changes.length    :", changes.length);
-			// console.log("changesFullCount  :", changesFullCount);
-			// console.log("changeRecs.length :", changeRecs.length);
-			// console.log("changeRecs 5 :", changeRecs.slice(0, 5));
-			// console.log("----------------------------------------------");
 		
 			try{ 
 				await convertAndOptimize(changeRecs).catch(function(e) { throw e; }); 
@@ -165,7 +159,7 @@ const webApi = {
 			}
 		
 			let endTS = performance.now();
-			console.log(`rebuildDeviceImages: COMPLETED in ${((endTS - startTS)/1000).toFixed(3)} seconds.`);
+			console.log(`rebuildDeviceImages: COMPLETED in ${(((endTS - startTS)/1000)/60).toFixed(3)} minutes.`);
 			resolve_top();
 		});
 	},
@@ -224,12 +218,12 @@ const webApi = {
 							[
 								// { file: `${fileDir}pages/${d}.min.svg`                         , pageNum: i+1, showText: true, text: `TYPE: A: (.min.svg)` },
 								// { file: `${fileDir}pages/${d}.svg`                             , pageNum: i+1, showText: true, text: `TYPE: B: (.svg)    ` },
-								{ file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, showText: true, text: `TYPE: C: (.png)    ` },
+								// { file: `${fileDir}pages/${d}.png`                             , pageNum: i+1, showText: true, text: `TYPE: C: (.png)    ` },
 								// { file: `${fileDir}pages/${visibleName}-${i}.png`              , pageNum: i+1, showText: true, text: `TYPE: D: (.png)    ` },
 								// { file: `${fileDir}pages/TEST2_${d}.svg`                       , pageNum: i+1, showText: true, text: `TYPE: E: (.svg)    ` },
-								// { file: `${fileDir}pages/TEST2_${d}.png`                       , pageNum: i+1, showText: true, text: `TYPE: F: (.png)    ` },
+								{ file: `${fileDir}pages/PNGPAGE-${i}.png`                     , pageNum: i+1, showText: true, text: `TYPE: F: (.png)    ` },
 								// { file: `${fileDir}pages/TEST_${d}.svg`                        , pageNum: i+1, showText: true, text: `TYPE: G: (.svg)    ` },
-								{ file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i+1, showText: true, text: `TYPE: H: (.jpg)    ` },
+								// { file: `DEVICE_DATA/xochitl/${documentId}.thumbnails/${d}.jpg`, pageNum: i+1, showText: true, text: `TYPE: H: (.jpg)    ` },
 							]
 						);
 					});

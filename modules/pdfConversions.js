@@ -33,7 +33,6 @@ const pdfPageToPng      = function(srcFile, destFile){
 		try{ 
 			results = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
 			results = results.stdOutHist.split("\n");
-
 			res_pdfPageToPng(results);
 			return; 
 		}
@@ -85,7 +84,7 @@ const createPngSvg      = function(destPagesFilenamePng, newDims, destPagesFilen
 		base64 = 'data:image/png;base64,' + base64;
 
 		let svgFileTEST = `` +
-		`<svg xmlns="http://www.w3.org/2000/svg" height="${newDims.height}" width="${newDims.width}">\n`+
+		`<svg xmlns="http://www.w3.org/2000/svg" width="${newDims.width}" height="${newDims.height}">\n`+
 		`	\n` +
 		`	<!--\n` +
 		`		newDims.width : ${newDims.width}\n` +
@@ -118,8 +117,6 @@ const createPngSvg      = function(destPagesFilenamePng, newDims, destPagesFilen
 const getDimensions     = function(srcFile){
 	return new Promise(async function(res_getDimensions, rej_getDimensions){
 		let cmd = `identify "${srcFile}"`;
-		// DEVICE_DATA/xochitl/54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf.pdf[23] PDF 525x404 525x404+0+0 16-bit sRGB 142686B 0.020u 0:00.030
-		// nicksen782@dev3:~/node_sites/remarkable-viewer/SERVER$ identify  "DEVICE_DATA/xochitl/54ee7bf5-ad7e-43b0-ab28-3a69da9f1acf.pdf"
 
 		let results;
 		try{ 
@@ -188,25 +185,82 @@ const incrementalResize = function(orgWidth, orgHeight, desiredRatio="3:4"){
 	let loops = 1404;
 	let ax = parseInt(desiredRatio.split(":")[0]);
 	let ay = parseInt(desiredRatio.split(":")[1]);
-	let width  = ax;
-	let height = ay;
+	let width ;
+	let height;
+
+	return {
+		width    : orgWidth    ,
+		height   : orgHeight   ,
+		orgWidth : orgWidth ,
+		orgHeight: orgHeight,
+		success  : true,
+		where    : "success: KEEP original dimensions.",
+		"triggeredBy":{
+			"width:" : width  >= orgWidth,
+			"height:": height >= orgHeight,
+		}
+	};
+
+	
+	// // Set width and height to ax and ay.
+	// if(orgWidth >= 1404 || orgWidth >= 1872){
+	// 	width  = ax;
+	// 	height = ay;
+	// }
+	// else{
+	// 	// Start with width and height equal to ax and ay.
+	// 	width  = ax;
+	// 	height = ay;
+
+	// 	// Increase width and height by ax and ay until the orgWidth or orgHeight have been reached. 
+	// 	for(let i=0; i<loops; i+=1){
+	// 		if(width >= orgWidth && height >= orgWidth){
+	// 			break;
+	// 		}
+	// 		else{
+	// 			width  += ax;
+	// 			height += ay;
+	// 		}
+	// 	}
+
+	// 	return {
+	// 		width    : width    ,
+	// 		height   : height   ,
+	// 		orgWidth : orgWidth ,
+	// 		orgHeight: orgHeight,
+	// 		success  : true,
+	// 		where    : "success: Near document max dimensions (2).",
+	// 		"triggeredBy":{
+	// 			"width:" : width  >= orgWidth,
+	// 			"height:": height >= orgHeight,
+	// 		}
+
+	// 	};
+	// }
+	// console.log("NOOOOOOO");
 
 	// This guarantees an desiredRatio unless the org dims are too big already.
+	width  = ax;
+	height = ay;
 	for(let i=0; i<loops; i+=1){
 		// Are the width and height greater than or equal to the orgWidth and orgHeight?
-		if(width >= orgWidth && orgHeight >= 1872){
-			return {
-				width    : width    ,
-				height   : height   ,
-				orgWidth : orgWidth ,
-				orgHeight: orgHeight,
-				success  : true,
-				where    : "success: Near original dimensions.",
-
-			};
+		if(width >= orgWidth || height >= orgHeight){
+			// return {
+			// 	width    : width    ,
+			// 	height   : height   ,
+			// 	orgWidth : orgWidth ,
+			// 	orgHeight: orgHeight,
+			// 	success  : true,
+			// 	where    : "success: Near original dimensions.",
+			// 	"triggeredBy":{
+			// 		"width:" : width  >= orgWidth,
+			// 		"height:": height >= orgHeight,
+			// 	}
+			// };
 		}
-		// Are the width and height greater than the max width or height for a document?
-		else if(width >= 1404 && height >= 1872){
+		// Are the width or height greater than the max width or height for a document?
+		// else if(width >= 1404 || height >= 1872){
+		if(width >= 1404 || height >= 1872){
 			return {
 				width    : width    ,
 				height   : height   ,
@@ -214,6 +268,10 @@ const incrementalResize = function(orgWidth, orgHeight, desiredRatio="3:4"){
 				orgHeight: orgHeight,
 				success  : true,
 				where    : "success: Near document max dimensions.",
+				"triggeredBy":{
+					"width:" : width  >= orgWidth,
+					"height:": height >= orgHeight,
+				}
 
 			};
 		}
@@ -232,6 +290,10 @@ const incrementalResize = function(orgWidth, orgHeight, desiredRatio="3:4"){
 		orgHeight: orgHeight,
 		success  : false,
 		where    : "unknown",
+		"triggeredBy":{
+			"width:" : width  >= orgWidth,
+			"height:": height >= orgHeight,
+		}
 	};
 };
 
@@ -240,11 +302,18 @@ const pdfConvert        = function(changeRec, fileRec, totalCount){
 	return new Promise(async function(res_pdfConvert, rej_pdfConvert){
 		let startTS = performance.now();
 
+		// Vars.
 		let msg;
-		let destDir = config.imagesPath + changeRec.docId + "/";
+		let destDir      = config.imagesPath + changeRec.docId + "/";
 		let destPagesDir = config.imagesPath + changeRec.docId + "/pages/";
-		let svgDims = {width:1404, height: 1872};
-		
+		let svgDims      = {width:1404, height: 1872};
+
+		// Display the start message for this pdf.
+		msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
+		`convertAndOptimize/pdfConvert: (${fileRec.content.pages.length} pages)` +
+		`\n  LOADING FILE: "${fileRec.path + fileRec.metadata.visibleName}" ` ;
+		console.log(msg);
+
 		// Check if the changeRec.srcFile exists.
 		if(!fs.existsSync(changeRec.srcFile)){ 
 			msg = `convertAndOptimize/pdfConvert: srcFile not found.` + `"${fileRec.path + fileRec.metadata.visibleName}", "${changeRec.srcFile}"`;
@@ -253,13 +322,13 @@ const pdfConvert        = function(changeRec, fileRec, totalCount){
 			return; 
 		}
 		
-		// Check if destDir exists.
+		// Check if destDir exists. Create it if it is missing.
 		if(!fs.existsSync(destDir)){ fs.mkdirSync(destDir); }
 		
-		// Check if destPagesDir exists.
+		// Check if destPagesDir exists. Create it if it is missing.
 		if(!fs.existsSync(destPagesDir)){ fs.mkdirSync(destPagesDir); }
 
-		// Get dimensions for each page.
+		// Get the dimensions of each page of the pdf.
 		let pages = [];
 		try{ 
 			// Get the dimensions of all pdf pages.
@@ -272,50 +341,95 @@ const pdfConvert        = function(changeRec, fileRec, totalCount){
 				throw msg;
 			}
 
-			// Add the pageId to each pages entry.
+			// Add the pageId and png source file to each pages entry.
+			// console.log("pages.length:", pages.length);
 			pages.forEach(function(page, page_i){
-				pages[page_i].pageId = fileRec.content.pages[page_i];
+				// When ImageMagick exports png images from pdf it will not append the page number if there is only one page.
+				if(pages.length == 1 ){ page.pagePng    = destPagesDir + `PNGPAGE-0.png`; }
+				else                  { page.pagePng    = destPagesDir + `PNGPAGE-${page_i}.png`; }
+				page.pageId     = fileRec.content.pages[page_i];
+				page.pageSvg    = destPagesDir + `${page.pageId}.svg`;
+				page.pageSvgMin = destPagesDir + `${page.pageId}.min.svg`;
 			});
 		}
 		catch(e){
 			msg = `convertAndOptimize/pdfConvert/getDimensions: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 			console.log(msg);
-			console.log(e);
+			console.trace(e);
 			funcs.rejectionFunction("pdfConvert/getDimensions", e, rej_pdfConvert, false)
 			return; 
 		}
 		
-		// Parse the returned data. Get width and height, determine rotation needs.
-		msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
-			`convertAndOptimize/pdfConvert: ` + 
-			`(${fileRec.content.pages.length} pages)` +
-			`\n  FILE: "${fileRec.path + fileRec.metadata.visibleName}" ` ;
-		console.log(msg);
-
-		for(let i=0; i<pages.length; i+=1){
-			let page = pages[i];
-
-			let startTS_inner = performance.now();
-
-			let destPagesFilenamePng = config.imagesPath + changeRec.docId + "/pages/" + (page.pageId) + ".png";
-			// let destPagesFilenamePng = config.imagesPath + changeRec.docId + "/pages/" + "PNG" + ".png";
-			let destPagesFilenameSvg = config.imagesPath + changeRec.docId + "/pages/" + "TEST2_" + page.pageId + ".svg";
-
-			// await pdfPageToPng(changeRec.srcFile, destPagesFilenamePng).catch(function(e) { throw e; }); 
-			// res_pdfConvert(); return; 
-
-			// Convert pdf page to .png.
-			try{ 
-				//
-				await pdfPageToPng(changeRec.srcFile +`[${i}]`, destPagesFilenamePng).catch(function(e) { throw e; }); 
+		// NOTE: Big pdfs can eat up lots of memory during conversion. For those it is better to do the pages separately.
+		// Convert pdf all at once?
+		let name = "PNGPAGE.png";
+		if(pages.length == 1){
+			// Convert the pdf into pngs all at once. 
+			try{
+				name = "PNGPAGE-0.png";
+				await pdfPageToPng(changeRec.srcFile,  config.imagesPath + changeRec.docId + `/pages/${name}` ).catch(function(e) { throw e; }); 
 			}
 			catch(e){
-				msg = `convertAndOptimize/pdfConvert/pdfPageToPng: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+				msg = `convertAndOptimize/pdfConvert/pdfPageToPng: (all) ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 				console.log(msg);
 				console.log(e);
 				funcs.rejectionFunction("pdfConvert/pdfPageToPng", e, rej_pdfConvert, false)
 				return; 
 			}
+		}
+		// Convert pdf pages individually.
+		else{
+			// Convert the pdf into pngs in batches.
+			// NOTE: With ImageMagick, you can get a range of pdf pages with [1,2,3,4,5] instead of something like just [0].
+			try{
+				let start=0;
+				let step=50;
+				let stop=step;
+				for(let i=0; i<pages.length; i+=step){
+					// Get the range of pages to convert.
+					let pageRange = funcs.getRange(
+						start, 
+						((stop) > pages.length) ? Math.min((stop), pages.length) : (stop), 
+						1
+					).join();
+
+					// Convert the pdf pages to png.
+					await pdfPageToPng(`${changeRec.srcFile}[${pageRange}]`,  config.imagesPath + changeRec.docId + `/pages/${name}` ).catch(function(e) { throw e; }); 
+
+					// Clear the console status. 
+					process.stdout.clearLine();
+					process.stdout.cursorTo(0);
+
+					// Update the console status.
+					process.stdout.cursorTo(2);
+					process.stdout.write(((i/pages.length)*100).toFixed(2) + '%' + " pages pre-processed. " + `(${i+1} of ${pages.length})`);
+
+					// Increment start and stop by step.
+					start += step;
+					stop  += step;
+				}
+
+				// Clear the console status. 
+				process.stdout.clearLine();
+				process.stdout.cursorTo(0);
+			}
+			catch(e){
+				msg = `convertAndOptimize/pdfConvert/pdfPageToPng: (batch) ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+				console.log(msg);
+				console.log(e);
+				funcs.rejectionFunction("pdfConvert/pdfPageToPng", e, rej_pdfConvert, false)
+				return; 
+			}
+		}
+
+		// Parse the returned data. Get width and height, determine rotation needs.
+		for(let i=0; i<pages.length; i+=1){
+			let page = pages[i];
+			let startTS_inner = performance.now();
+
+			let destPagesFilenamePng    = page.pagePng;    // Deleted at the end.
+			let destPagesFilenameSvg    = page.pageSvg;    // Deleted after optimization.
+			let destPagesFilenameSvgMin = page.pageSvgMin; // Retained.
 
 			// Rotate the image if necessary.
 			if(page.doRotate){
@@ -325,8 +439,8 @@ const pdfConvert        = function(changeRec, fileRec, totalCount){
 
 					// Since it has been rotated -90 degrees we need to swap width and height.
 					let tmp = page.width;
-					page.width = page.height;
-					page.height = tmp;
+					page.width    = page.height;
+					page.height   = tmp;
 					page.doRotate = false;
 				}
 				catch(e){
@@ -340,6 +454,8 @@ const pdfConvert        = function(changeRec, fileRec, totalCount){
 			
 			// Calculate image dimensions that have a 3:4 aspect ratio.
 			let newDims = incrementalResize(page.width, page.height, "3:4");
+			// console.log("     B/A: incrementalResize:", "WAS:", page.width, page.height, ", NOW:", newDims.width, newDims.height) ;
+
 			if(!newDims.success){ 
 				msg = `convertAndOptimize/pdfConvert/incrementalResize: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
 				console.log(msg);
@@ -366,18 +482,17 @@ const pdfConvert        = function(changeRec, fileRec, totalCount){
 			}
 
 			// Create the .svg file for this page.
-			// try{ 
-			// 	//
-			// 	console.log(`    Page ${i+1}: ${JSON.stringify(newDims)}`);
-			// 	await createPngSvg(destPagesFilenamePng, newDims, destPagesFilenameSvg, svgDims).catch(function(e) { throw e; }); 
-			// }
-			// catch(e){
-			// 	msg = `convertAndOptimize/pdfConvert/createPngSvg: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
-			// 	console.log(msg);
-			// 	console.log(e);
-			// 	funcs.rejectionFunction("pdfConvert/createPngSvg", e, rej_pdfConvert, false)
-			// 	return; 
-			// }
+			try{ 
+				//
+				await createPngSvg(destPagesFilenamePng, newDims, destPagesFilenameSvg, svgDims).catch(function(e) { throw e; }); 
+			}
+			catch(e){
+				msg = `convertAndOptimize/pdfConvert/createPngSvg: ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
+				console.log(msg);
+				console.log(e);
+				funcs.rejectionFunction("pdfConvert/createPngSvg", e, rej_pdfConvert, false)
+				return; 
+			}
 
 			// Remove the .svg and keep the .min.svg.
 			//
@@ -386,11 +501,11 @@ const pdfConvert        = function(changeRec, fileRec, totalCount){
 			//
 
 			let endTS_inner = performance.now();
-			console.log(`    Converted page: ${i+1} of ${pages.length} for PDF: "${fileRec.metadata.visibleName}" in ${((endTS_inner - startTS_inner)/1000).toFixed(3)} seconds`);
+			console.log(`    Converted page: ${i+1} of ${pages.length} for PDF: "${fileRec.metadata.visibleName}" in ${(((endTS_inner - startTS_inner)/1000)/1).toFixed(3)} seconds`);
 		}
 
 		let endTS = performance.now();
-		console.log(`  COMPLETED in ${((endTS - startTS)/1000).toFixed(3)} seconds: "${fileRec.metadata.visibleName}"`);
+		console.log(`  COMPLETED in ${(((endTS - startTS)/1000)/60).toFixed(3)} minutes: "${fileRec.metadata.visibleName}"`);
 		
 		res_pdfConvert();
 		return; 

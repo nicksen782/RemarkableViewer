@@ -6,7 +6,7 @@ const config          = require('./config.js').config;
 // UTILITY FUNCTIONS - SHARED.
 
 // Shared function to handle rejections. 
-const rejectionFunction  = function(title, e, rejectFunction, sse=null){
+const rejectionFunction        = function(title, e, rejectFunction, sse=null){
 	let msg = `ERROR in ${title}: ${e}`;
 	console.log(msg); 
 	if(sse){ sse.write(JSON.stringify(msg)); }
@@ -27,6 +27,14 @@ const rejectionFunction  = function(title, e, rejectFunction, sse=null){
 const getLastValueOfArray      = function(arr){
 	return arr[arr.length-1];
 };
+
+//
+const getRange                 = function(start, stop, step = 1) {
+	return Array( Math.ceil((stop - start) / step) )
+	.fill(start)
+	.map((x, y) => x + y * step);
+}
+
 //
 const getItemsInDir            = async function(targetPath, type, ext=""){
 	if(["files", "dirs"].indexOf(type) == -1){
@@ -640,6 +648,7 @@ const updateRemoteDemo         = async function(){
 module.exports = {
 	funcs : {
 		rejectionFunction       : rejectionFunction       ,
+		getRange                : getRange                ,
 		getLastValueOfArray     : getLastValueOfArray     ,
 		getItemsInDir           : getItemsInDir           ,
 		getParentDirName        : getParentDirName        ,
