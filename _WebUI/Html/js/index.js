@@ -944,6 +944,12 @@ rpt.documentView = {
 		}
 	},
 
+	newDetermineFullscreenDimensions: function(destParent){
+		/*
+			Provided: 
+		*/
+	},
+
 	// UTILITY: Takes 2 numbers and returns the ratio of those numbers.
 	reduce                : function(numerator, denominator) {
 		let a = numerator;
@@ -1020,7 +1026,7 @@ rpt.documentView = {
 		
 		return dims2;
 	},
-	calculateFullScreenDimensions : function(destParent, ){
+	calculateFullScreenDimensions : function(destParent){
 		let doFullScreen = Array.from(document.getElementsByName("open_document_fullscreen")).find(r => r.checked).value;
 		doFullScreen = doFullScreen == "YES" ? true : false;
 		
@@ -1028,10 +1034,13 @@ rpt.documentView = {
 		if(doFullScreen){
 			// Add the expand class.
 			destParent.classList.add("expand");
+			destParent.classList.remove("noexpand");
 			
 			// Adjust the parent width/height. 
-			destParent.style.width  = (window.innerWidth  - 0) + "px";
-			destParent.style.height = (window.innerHeight - 32) + "px";
+			// destParent.style.width  = (window.innerWidth  - 0) + "px";
+			// destParent.style.height = (window.innerHeight - 32) + "px";
+			destParent.style.width = "98%";
+			destParent.style.height = "98%";
 
 			// destParent.style.width  = (window.outerWidth  - 0) + "px";
 			// destParent.style.height = (window.outerHeight - 32) + "px";
@@ -1039,11 +1048,16 @@ rpt.documentView = {
 		else{
 			// Remove the expand class.
 			destParent.classList.remove("expand");
+			destParent.classList.add("noexpand");
 
 			// Adjust the parent width/height. 
-			destParent.style.width = "100%";
-			destParent.style.height = "100%";
+			destParent.style.width = "99%";
+			destParent.style.height = "99%";
 		}
+		// destParent.style.width = "98%";
+		// destParent.style.height = "98%";
+		// destParent.style.width = "100%";
+		// destParent.style.height = "100%";
 
 		// Determine proper dimensions for the document to fit in the parent container.
 		let dimensions = rpt.documentView.generateNotebookSize( destParent, 3, 4, doFullScreen);
@@ -1251,7 +1265,7 @@ window.onload = async function(){
 			if(this.value == "") { return; }
 			let selectedOption = this.options[this.options.selectedIndex];
 			let type = selectedOption.getAttribute("type");
-			console.log(type);
+			// console.log(type);
 			if(type == "DocumentType"){
 				rpt.nav.changeView('document'); 
 				let parentId = selectedOption.getAttribute("parentId");

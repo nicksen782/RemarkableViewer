@@ -14,6 +14,50 @@ const config           = require('./modules/config.js').config;
 const funcs            = require('./modules/funcs.js').funcs;
 const updateFromDevice = require('./modules/updateFromDevice.js');
 const pdfConversions   = require('./modules/pdfConversions.js');
+const sse              = require('./modules/sse.js').sse;
+
+// WEB UI - FULL SSE.
+
+// fullSSE
+app.get('/fullSSE'       , async (req, res) => {
+	console.log("\nroute: fullSSE:", req.query);
+	
+	// FOR DEBUG.
+	// fs.unlinkSync( config.filesjson );
+
+	let returnValue;
+	try{ 
+		// Call with false so that we do not get the full version of files.json.
+		sse.start({req:req, res:res});
+
+		let counter = 0; 
+		let intervalId = setInterval(function(){
+			if(sse.isActive){
+				if(counter < 25){
+					console.log("Sending message!", counter);
+					sse.write("Current value is: " + counter);
+					counter+=1;
+				}
+				else{
+					console.log("Done!");
+					sse.end();
+					clearInterval(intervalId);
+				}
+			}
+			else{
+				console.log("CONNECTION WAS CLOSED EARLY.");
+				// sse.end();
+				clearInterval(intervalId);
+			}
+		}, 500);
+	} 
+	catch(e){ 
+		console.trace("ERROR: /fullSSE:", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
+	}
+	
+});	
 
 // WEB UI - ROUTES
 app.get('/getFilesJson'       , async (req, res) => {

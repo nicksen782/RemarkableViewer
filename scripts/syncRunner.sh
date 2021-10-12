@@ -2,9 +2,6 @@
 
 # NOTE: Entries in ~/.ssh/config for remarkableusb and remarkablewifi need to be set. Use identity files. 
 
-# TODO: Background templates:
-# /usr/share/remarkable/templates/
-
 # USAGE: 
 #   ./syncRunner.sh tolocal wifi
 #   ./syncRunner.sh tolocal usb

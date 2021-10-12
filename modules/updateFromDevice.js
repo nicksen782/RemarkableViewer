@@ -9,76 +9,10 @@ const { optimize, loadConfig  } = require('svgo');
 
 const timeIt = require('./timeIt.js');
 // const webApi = require('./webApi.js').webApi; // Circular reference? 
-const funcs  = require('./funcs.js').funcs;
-const config = require('./config.js').config;
+const funcs      = require('./funcs.js').funcs;
+const config     = require('./config.js').config;
 const pdfConvert = require('./pdfConversions.js').pdfConvert;
-
-// Server-Sent-Events.
-const sse                = {
-	// References to the req and res of the connection. 
-	req: {},
-	res: {},
-	isActive: false,
-	
-	// START SSE.
-	start: async function(obj){
-		
-		// Break out the properties of the object into variables. 
-		let { req, res } = obj;
-		sse.req = req;
-		sse.res = res;
-		
-		// START THE SSE STREAM.
-		res.writeHead(200, { 
-			"Content-Type": "text/event-stream",
-			// 'Connection': 'keep-alive',
-			"Cache-control": "no-cache" 
-		});
-
-		sse.isActive = true; 
-	},
-	
-	// WRITE SSE.
-	write: function(data){
-		// JSON stringify the recieved data.
-		data = JSON.stringify(data);
-
-		// Send this message right now. 
-		if(sse.isActive){
-			sse.res.write(`data: ${data}\n\n`);
-		}
-		else{
-			// console.log(`SSE NOT ACTIVE: ${data}`.trim());
-			// console.log(`${data}`.trim());
-		}
-	},
-	
-	// END SSE.
-	end: function(data=null){
-		if(sse.isActive){
-			// END THE SSE STREAM.
-			let endString = "==--ENDOFDATA--==";
-			
-			// Was there a final message? If so, send it.
-			if(data){
-				sse.write(data);
-			}
-			
-			// Send the message.
-			sse.write(endString);
-
-			// End the stream.
-			sse.res.end();
-
-			//
-			sse.isActive = false;
-		}
-		else{
-			console.trace("SSE stream has already ended.");
-			sse.write(data);
-		}
-	},
-};
+const sse        = require('./sse.js').sse;
 
 const parseChanges = async function(rmChanges){
 	return new Promise(async function(res_parseChanges, rej_parseChanges){
@@ -833,7 +767,9 @@ const updateFromDevice   = function(obj){
 				catch(e){ console.log("ERROR: files.json", e); rej_top(e); }
 				
 				// Remove the rmChanges_.json file.
-				fs.unlinkSync( config.rmChanges );
+				if(fs.existsSync(config.rmChanges)){
+					fs.unlinkSync( config.rmChanges );
+				}
 			} 
 			catch(e){ 
 				funcs.rejectionFunction("createJsonFsData", e, rej_top, sse);
