@@ -59,6 +59,9 @@ To fix this:
 - Install to Ubuntu Server 20.04 LTS (Focal Fossa)
 	- [Instructions](docs/install_UbuntuServer_focal_fossa.md)
 
+- Install application (Linux already available)
+	- [Instructions](docs/install_application.md)
+
 <!-- - Install to Ubuntu 20 LTS -->
 <!-- - [Instructions](docs/install_Ubuntu_focal_fossa.md) -->
 #
