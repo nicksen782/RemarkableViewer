@@ -93,17 +93,23 @@ const parseChanges = async function(rmChanges){
 			
 			if(d.lastIndexOf(".pdf") != -1){ 
 				// Determine the changeType.
-				if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+				if(d.indexOf("deleting ") == 0){ d = d.split("deleting ")[1]; changeType = "deleted"; }
 				else{ changeType = "updated"; }
 
 				ext = "pdf";
-				let splits = d.split("/");
-				docId     = splits[1].replace(/.pdf/, "");
-				srcFile   = config.dataPath + splits[1];
-				rec       = new_filesjson["DocumentType"][docId];
-				destFile  = "";
-				destFile2 = "";
-				pageFile  = "";
+				let splits;
+				// if(d!=undefined){
+					splits = d.split("/");
+					docId     = splits[1].replace(/.pdf/, "");
+					srcFile   = config.dataPath + splits[1];
+					rec       = new_filesjson["DocumentType"][docId];
+					destFile  = "";
+					destFile2 = "";
+					pageFile  = "";
+				// }
+				// else{
+					// console.log("*************************d was undefined:", d);
+				// }
 
 			}
 			else if(d.lastIndexOf(".rm") != -1) { 
@@ -122,7 +128,7 @@ const parseChanges = async function(rmChanges){
 			}
 			else if(d.lastIndexOf(".epub") != -1) { 
 				// Determine the changeType.
-				// if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+				// if(d.indexOf("deleting ") == 0){ d = d.split("deleting ")[1]; changeType = "deleted"; }
 				// else{ changeType = "updated"; }
 
 				// console.log("Skipping epub", d);
@@ -130,7 +136,7 @@ const parseChanges = async function(rmChanges){
 			}
 			else if(d.lastIndexOf(".epubindex") != -1) {
 				// Determine the changeType.
-				// if(d.indexOf("deleting ") == 0){ d = d.split("deleted ")[1]; changeType = "deleted"; }
+				// if(d.indexOf("deleting ") == 0){ d = d.split("deleting ")[1]; changeType = "deleted"; }
 				// else{ changeType = "updated"; }
 				 
 				// console.log("Skipping epubindex", d);
@@ -686,11 +692,14 @@ const fileDeleted        = function(changeRec, fileRec, totalCount){
 	return new Promise(async function(res_fileDeleted, rej_fileDeleted){
 		try{
 
+			let fileData;
+			try{ fileData = `"${fileRec.path + fileRec.metadata.visibleName}"`; }
+			catch(e){ fileData = "(FILE MISSING)"; }
 
 			msg = `[${changeRec.index.toString().padStart(4, "0")}/${totalCount.toString().padStart(4, "0")}] ` +
 			`convertAndOptimize/fileDeleted : ` + 
 				" ".repeat(22) + `from document: ` +
-				`"${fileRec.path + fileRec.metadata.visibleName}"` +
+				`${fileData}` +
 				` :: ` +
 				`"${changeRec.srcFile}"` +
 				``

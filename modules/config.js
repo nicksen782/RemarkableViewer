@@ -5,6 +5,7 @@ const config = JSON.parse(fs.readFileSync('configFile.json', 'utf8'));
 config.extra = {
 	serverFilePath : process.cwd(), // /home/nicksen782/node_sites/remarkable-viewer/SERVER
 	webServer      : `${config.https ? "https" : "http"}://${config.host}:${config.port}`, // http://0.0.0.0:3100
+	"process.ppid" : process.ppid, // 72072
 	"process.pid"  : process.pid, // 72073
 	serverStarted  : `${new Date().toString().split(" GMT")[0]} `, // Thu Sep 30 2021 17:04:35
 };

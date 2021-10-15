@@ -47,7 +47,7 @@ if [[ $STATUS != ok ]] ; then
   exit 1
 fi
 
-EXCLUDES="--exclude '.cache/' --exclude 'webusb' --exclude 'templates' --exclude '.gitkeep'"
+EXCLUDES="--exclude '.cache/' --exclude 'webusb' --exclude 'syncthirdparty' --exclude 'templates' --exclude '.gitkeep'"
 ARGS='--delete -r -v -a --stats '
 
 # Create the command. 
