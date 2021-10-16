@@ -663,6 +663,12 @@ rpt.apis = {
 	// updateFromDeviceTemplates
 	updateFromDeviceTemplates : function(){
 		return new Promise(function(resolve, reject){
+			if(rpt.globals.environment == "demo"){
+				alert("Function is not available in the demo version.");
+				resolve();
+				return;
+			}
+			
 			rpt.apis.simpleFetch("updateFromDeviceTemplates?interface=" + `${rpt.globals.syncInterface}`).then(
 				function(results){
 					document.querySelector("#rpt_nav_bar_view_settings_sync_progress .row.content").innerHTML = "DONE: updateFromDeviceTemplates";

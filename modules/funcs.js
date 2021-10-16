@@ -570,19 +570,27 @@ const updateRemoteDemo         = async function(){
 			"CollectionType": {}, 
 			"DocumentType"  : {}, 
 		};
+
 		// Dirs of the parent "Remarkable Page Turner" directory..
 		let dirIds = [
-			"4f668058-bfd5-402f-a4dd-e7a3e83f1578", // "Remarkable Page Turner" directory (parent)
-			"4d763cad-5f31-4afd-bcd8-e7e77dd9ee60", // "Old notes" directory
-			"05593124-305f-478d-b603-1a62993f0c20", // "Drawings
+			"4f668058-bfd5-402f-a4dd-e7a3e83f1578", // "Remarkable Page Turner"
+			"4d763cad-5f31-4afd-bcd8-e7e77dd9ee60", // "Old notes - v1" 
+			"4a6d27f9-affc-4280-95b4-bbca0964ae6b", // "Old notes - v2" 
+			"7e16a6a5-a592-44d0-9b2e-f1c110650a6f", // "Old notes - v3" 
+			// "051a804c-9d36-4617-96d5-41091e89c520", // "V4 Notes"       
+			"05593124-305f-478d-b603-1a62993f0c20", // "Drawings        
+			// "4f668058-bfd5-402f-a4dd-e7a3e83f1578", // "Install Instructions"
 		];
-		// Get the directories for the "Remarkable Page Turner/Old notes" directory.
+		// console.log("Generated the dirIds:", dirIds);
+		
+		// Get the directories for the "Remarkable Page Turner" directory.
 		for(let key in files.CollectionType){
 			let rec = files.CollectionType[key];
 			if(dirIds.indexOf(rec.extra._thisFileId) != -1){
 				newFilesJson.CollectionType[rec.extra._thisFileId] = rec;
 			}
 		}
+		
 		// Get the files for the "Remarkable Page Turner" directory.
 		for(let key in files.DocumentType){
 			let rec = files.DocumentType[key];
@@ -593,9 +601,13 @@ const updateRemoteDemo         = async function(){
 		
 		// Modify the "Remarkable Page Turner" (first dirId) directory to change it's parent to "".
 		newFilesJson.CollectionType[dirIds[0]].metadata.parent = "";
+
 		// Change the "Getting Started" notebook to have a parent of "". (should be the lowest parent of the other folders in dirIds.)
-		newFilesJson.DocumentType["78f004b5-c3ec-44f6-b624-0f47d1eacb0c"].metadata.parent = "";
+		// newFilesJson.DocumentType["78f004b5-c3ec-44f6-b624-0f47d1eacb0c"].metadata.parent = ""; // old getting started.
+		newFilesJson.DocumentType["6fa5ae80-08ee-4c30-99ca-babe9ea1254a"].metadata.parent = ""; // new getting started.
 		
+		// console.log("Generated CollectionType/DocumentType:", newFilesJson);
+
 		// Create a demo_files.json with only that data.
 		fs.writeFileSync(config.demo_filesjson, JSON.stringify(newFilesJson,null,1), function(err){
 			if (err) { console.log("ERROR: ", err); reject(err); }
@@ -615,17 +627,18 @@ const updateRemoteDemo         = async function(){
 		fs.writeFileSync(config.demo_filter, filterText.join("\n"), function(err){
 			if (err) { console.log("ERROR: ", err); reject(err); }
 		});
+		// console.log("Generated config.demo_filter:", filterText.join("\n"));
 		
 		// Break up the script into parts (easier to debug.)
 		let cmd;
 		cmd = `cd ${config.scriptsPath} && ./updateRemoteDemo.sh `;
 		let resp1, resp2, resp3, resp4, resp5, resp6;
-		try{ console.log("(SERVER)             - part1: "); resp1 = await runCommand_exec_progress(cmd + " part1", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part1", e); reject(); }
-		try{ console.log("(configFile.json)    - part2: "); resp2 = await runCommand_exec_progress(cmd + " part2", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part2", e); reject(); }
-		try{ console.log("(Html)               - part3: "); resp3 = await runCommand_exec_progress(cmd + " part3", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part3", e); reject(); }
-		try{ console.log("(files.json)         - part4: "); resp4 = await runCommand_exec_progress(cmd + " part4", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part4", e); reject(); }
-		try{ console.log("(DEVICE_DATA)        - part5: "); resp5 = await runCommand_exec_progress(cmd + " part5", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part5", e); reject(); }
-		try{ console.log("(DEVICE_DATA_IMAGES) - part6: "); resp6 = await runCommand_exec_progress(cmd + " part6", 0, false).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part6", e); reject(); }
+		try{ console.log("(SERVER)             - part1: "); resp1 = await runCommand_exec_progress(cmd + " part1", 0, true).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part1", e); reject(); }
+		try{ console.log("(configFile.json)    - part2: "); resp2 = await runCommand_exec_progress(cmd + " part2", 0, true).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part2", e); reject(); }
+		try{ console.log("(Html)               - part3: "); resp3 = await runCommand_exec_progress(cmd + " part3", 0, true).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part3", e); reject(); }
+		try{ console.log("(files.json)         - part4: "); resp4 = await runCommand_exec_progress(cmd + " part4", 0, true).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part4", e); reject(); }
+		try{ console.log("(DEVICE_DATA)        - part5: "); resp5 = await runCommand_exec_progress(cmd + " part5", 0, true).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part5", e); reject(); }
+		try{ console.log("(DEVICE_DATA_IMAGES) - part6: "); resp6 = await runCommand_exec_progress(cmd + " part6", 0, true).catch(function(e) { throw e; }); } catch(e){ console.log("Error in updateRemoteDemo: part6", e); reject(); }
 
 		let retObj = {
 			"part1": resp1 ,
