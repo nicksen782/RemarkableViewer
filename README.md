@@ -1,9 +1,15 @@
 # Remarkable Viewer
+
+- [LIVE DEMO](http://rmv.nicksen782.net/)
+- [YOUTUBE DEMO](https://youtu.be/iWdyE8wdYHM)
+#
+
 ### PURPOSE:
 - Sync your Remarkable data to your own PC/SERVER.
 - Replacement for the Remarkable Desktop app. 
 - This app is designed to NOT use the Remarkable cloud although it can still be used if desired.
 #
+
 
 ### IMPLEMENTED MAIN FEATURES:
 - Sync your data to the computer/server of your choice. (You can have complete custody of your data.)
@@ -39,7 +45,7 @@ To fix this:
 - ssh-keygen -f "/home/<YOUR_PC_USERNAME>/.ssh/known_hosts" -R "<REMARKABLE_WIFI_IP>"
 - ssh-keygen -f "/home/<YOUR_PC_USERNAME>/.ssh/known_hosts" -R "10.11.99.1"
 ```
-> Note: Conveniently, a Linux system will also provide you a command to copy/paste.
+> Note: Conveniently, a Linux system will also provide you a command to copy/paste if you encounter the error.
 
 ### Windows:
 - Edit: C:\Users\<YOUR_USERNAME>\.ssh\known_hosts
