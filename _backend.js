@@ -335,10 +335,12 @@ app.get('/debug/metadata_unsync'    , async (req, res) => {
 	catch(e){ 
 		console.trace("ERROR: /debug/metadata_unsync: ", e); 
 		res.send(JSON.stringify(e)); 
+		console.log("error!", JSON.stringify(e));
 		return; 
 	}
 
 	res.send(returnValue);
+	console.log("DONE!");
 });
 
 // START THE SERVER.

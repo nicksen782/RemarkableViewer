@@ -645,13 +645,18 @@ const updateRemoteDemo         = async function(){
 	});
 };
 
-//
+// Used to set your files as never synced to the cloud. (You still need to rsync them to the Remarkable Tablet.)
 const metadata_unsync          = async function(){
+	// EXAMPLE RSYNC: cd DEVICE_DATA && rsync --delete -r -v -a --stats  --exclude '.cache/' --exclude 'webusb' --exclude 'syncthirdparty' --exclude 'templates' --exclude '.gitkeep' . remarkableusb:/home/root/.local/share/remarkable/^C
 	return new Promise(async function(resolve,reject){
-		let files = await getItemsInDir("no_git/DEVICE_DATA_BK/xochitl", "files");
+		// Get the file names in the dir.
+		let files = await getItemsInDir(config.dataPath, "files");
+
+		// Remove all but the .metadata files. 
 		files = files.filter(function(d){
 			if(d.filepath.indexOf(".metadata") != -1){ return true; }
 		})
+		// Return only an array of filenames.
 		.map(
 			function(d){
 				let base = d.filepath.replace(config.dataPath, "");
@@ -659,35 +664,53 @@ const metadata_unsync          = async function(){
 			})
 		;
 
+		let bk;
+		let proms = [];
 		for(let i=0; i<files.length; i+=1){
 			let file = files[i];
-			//   'no_git/DEVICE_DATA_BK/xochitl/37af3fb2-de62-4af1-9390-8be175e47967.metadata',
+			proms.push(
+				 new Promise(async function(res,rej){
+				// Retrieve and open the file.
+					fs.readFile(file, function (err, file_buffer) {
+						// This is unlikely to happen since we provide a file list.
+						if(err){ console.log("ERROR: Could not read the file.", err); rej(err); return; }
+					
+						// Parse the file json.
+						let json = JSON.parse(file_buffer.toString()); 
+					
+						// Set "deleted" to false.
+						json.deleted = false;
+						
+						// Set "synced" to false (Means never synced to the cloud.)
+						json.synced = false;
+						
+						// Set "modified" to true (Means changed since last sync to the cloud.)
+						json.modified = true;
 
-			// Retrieve and open the file.
-			await fs.readFile(file, function (err, file_buffer) {
-				if(err){ console.log("opps!", err); return; }
-				
-				// Parse the file json.
-				let json = JSON.parse(file_buffer.toString()); 
-				
-				// Set "deleted" to false,
-				json.deleted = false;
-				
-				// Set "synced" to false,
-				json.synced = false;
-				
-				// Set "modified" to false
-				json.modifed = false;
+						// Update the file. 
+						fs.writeFileSync(file, JSON.stringify(json,null,1) );
 
-				// Update the file. 
-				fs.writeFileSync(file, JSON.stringify(json,null,1) );
-			});
-			
-		};
+						// Resolve this promise.
+						res(i);
+					});
+				})
+			)
+		}
 
-		console.log("process.cwd():", process.cwd());
-		console.log("files:", files);
-		resolve();
+		Promise.all(proms).then(
+			function(results){
+				// Indicate success.
+				console.log("DEVICE_DATA .metadata files updated.");
+				
+				// Indicate recreation of files.json.
+				createJsonFsData(true);
+				console.log("files.json updated.");
+
+				// Resolve. DONE!
+				resolve();
+			},
+			function(err){ console.log("promise error:", err); }
+		);
 	});
 };
 
