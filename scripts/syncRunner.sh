@@ -48,7 +48,7 @@ if [[ $STATUS != ok ]] ; then
 fi
 
 EXCLUDES="--exclude '.cache/' --exclude 'webusb' --exclude 'syncthirdparty' --exclude 'templates' --exclude '.gitkeep'"
-ARGS='--delete -r -v -a --stats '
+ARGS='--delete -r -v -a -t --stats '
 
 # Create the command. 
 CMD="time rsync $ARGS $EXCLUDES $SRC $DEST"

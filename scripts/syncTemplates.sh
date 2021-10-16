@@ -40,7 +40,7 @@ if [[ $STATUS != ok ]] ; then
 fi
 
 EXCLUDES="--exclude '.gitkeep'"
-ARGS='--delete -r -v -a --stats '
+ARGS='--delete -r -v -a -t --stats '
 
 # Create the command. 
 CMD="time rsync $ARGS $EXCLUDES $SRC $DEST"
