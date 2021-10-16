@@ -8,7 +8,6 @@ const fkill           = require('fkill');
 // const { performance } = require('perf_hooks');
 
 // Personal libraries/frameworks.
-// const timeIt = require('./modules/timeIt.js');
 const webApi           = require('./modules/webApi.js').webApi;
 const config           = require('./modules/config.js').config;
 const funcs            = require('./modules/funcs.js').funcs;
@@ -236,8 +235,6 @@ app.get('/updateFromDeviceTemplates' , async (req, res) => {
 	res.send(JSON.stringify(returnValue)); 
 });
 
-
-
 app.get('/debug/rebuildDeviceImages', async (req, res) => {
 	// console.log("\nroute: rebuildServerStorage2:", req.query);
 	
@@ -309,7 +306,6 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 	}
 	
 	// First, get the data.
-	let timeItIndex = timeIt.stamp("route: updateRemoteDemo", null);
 	let returnValue;
 	try{ 
 		returnValue = await funcs.updateRemoteDemo().catch(function(e) { throw e; });
@@ -320,13 +316,27 @@ app.get('/debug/updateRemoteDemo'    , async (req, res) => {
 		return; 
 	}
 
-	timeIt.stamp("route: updateRemoteDemo", timeItIndex);
+	res.send(returnValue);
+});
 
-	let timeStampString = timeIt.getStampString();
-	console.log("*".repeat(83));
-	console.log("timeIt_stamps:", timeStampString );
-	console.log("*".repeat(83));
-	// timeIt.clearTimeItStamps();
+app.get('/debug/metadata_unsync'    , async (req, res) => {
+	console.log("/debug/metadata_unsync");
+	if(config.environment != "local"){ 
+		console.log("Function is not available in the demo version."); 
+		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		return; 
+	}
+	
+	// First, get the data.
+	let returnValue;
+	try{ 
+		returnValue = await funcs.metadata_unsync().catch(function(e) { throw e; });
+	} 
+	catch(e){ 
+		console.trace("ERROR: /debug/metadata_unsync: ", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
+	}
 
 	res.send(returnValue);
 });

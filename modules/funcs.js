@@ -645,6 +645,52 @@ const updateRemoteDemo         = async function(){
 	});
 };
 
+//
+const metadata_unsync          = async function(){
+	return new Promise(async function(resolve,reject){
+		let files = await getItemsInDir("no_git/DEVICE_DATA_BK/xochitl", "files");
+		files = files.filter(function(d){
+			if(d.filepath.indexOf(".metadata") != -1){ return true; }
+		})
+		.map(
+			function(d){
+				let base = d.filepath.replace(config.dataPath, "");
+				return base;
+			})
+		;
+
+		for(let i=0; i<files.length; i+=1){
+			let file = files[i];
+			//   'no_git/DEVICE_DATA_BK/xochitl/37af3fb2-de62-4af1-9390-8be175e47967.metadata',
+
+			// Retrieve and open the file.
+			await fs.readFile(file, function (err, file_buffer) {
+				if(err){ console.log("opps!", err); return; }
+				
+				// Parse the file json.
+				let json = JSON.parse(file_buffer.toString()); 
+				
+				// Set "deleted" to false,
+				json.deleted = false;
+				
+				// Set "synced" to false,
+				json.synced = false;
+				
+				// Set "modified" to false
+				json.modifed = false;
+
+				// Update the file. 
+				fs.writeFileSync(file, JSON.stringify(json,null,1) );
+			});
+			
+		};
+
+		console.log("process.cwd():", process.cwd());
+		console.log("files:", files);
+		resolve();
+	});
+};
+
 module.exports = {
 	funcs : {
 		rejectionFunction       : rejectionFunction       ,
@@ -657,6 +703,7 @@ module.exports = {
 		createJsonFsData        : createJsonFsData        ,
 		getExistingJsonFsData   : getExistingJsonFsData   ,
 		updateRemoteDemo        : updateRemoteDemo        ,
+		metadata_unsync         : metadata_unsync         ,
 	},
 	
 	_version          : function(){ return "Version 2021-09-24"; }

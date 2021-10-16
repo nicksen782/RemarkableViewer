@@ -551,8 +551,8 @@ const webApi = {
 				if(!fs.existsSync(firstThumbnail)){ 
 					let msg = "ERROR: getThumbnail: firstThumbnail_path does not exist. " + firstThumbnail;
 					console.log(msg); 
-					throw msg; 
-					return; 
+					// throw msg; 
+					return null; 
 				};
 				
 				// Send the file.
@@ -580,7 +580,9 @@ const webApi = {
 				if(rec.metadata.parent == parentId || parentId == "deleted"){ 
 					let data;
 					try { data = getThumbnail(rec.extra._thisFileId, existingFilesJson); } catch(e){ console.log("ERROR: getThumbnail:", e); reject_top(JSON.stringify(e)); return; }	
-					recs[key] = data; 
+					if(data){
+						recs[key] = data; 
+					}
 				}
 			}
 
