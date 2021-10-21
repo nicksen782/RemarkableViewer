@@ -11,9 +11,7 @@
 	"dependencies": {
 		"express": "^4.17.1",
 		"fkill": "^7.2.1",
-		"pdf-image": "^2.0.0",
 		"promise-async": "^0.2.0",
 		"svgo": "^2.7.0"
 	}
-
 }

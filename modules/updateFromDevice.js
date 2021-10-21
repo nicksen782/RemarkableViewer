@@ -1,7 +1,6 @@
 const { spawn }                 = require('child_process');
 const fs                        = require('fs');
 const path                      = require('path');
-const PDFImage                  = require("pdf-image").PDFImage;
 const async_mapLimit            = require('promise-async').mapLimit;
 const { performance }           = require('perf_hooks');
 const { optimize, loadConfig  } = require('svgo');
