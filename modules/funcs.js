@@ -24,11 +24,6 @@ const rejectionFunction        = function(title, e, rejectFunction, sse=null){
 };
 
 //
-const getLastValueOfArray      = function(arr){
-	return arr[arr.length-1];
-};
-
-//
 const getRange                 = function(start, stop, step = 1) {
 	// EXAMPLE USAGES: 
 	// let pageRange = funcs.getRange( 0, 5, 1 ); // Gives [0,1,2,3,4,5]
@@ -721,7 +716,6 @@ module.exports = {
 	funcs : {
 		rejectionFunction       : rejectionFunction       ,
 		getRange                : getRange                ,
-		getLastValueOfArray     : getLastValueOfArray     ,
 		getItemsInDir           : getItemsInDir           ,
 		getParentDirName        : getParentDirName        ,
 		getParentPath           : getParentPath           ,
