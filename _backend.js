@@ -69,7 +69,6 @@ app.get('/getFilesJson'       , async (req, res) => {
 	try{ 
 		// Call with false so that we do not get the full version of files.json.
 		returnValue = await funcs.getExistingJsonFsData(false).catch(function(e) { throw e; });
-		returnValue = returnValue.files;
 	} 
 	catch(e){ 
 		console.trace("ERROR: /getFilesJson:", e); 

@@ -171,7 +171,6 @@ const webApi = {
 			let fileData ;
 			try{ 
 				fileData = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });
-				fileData = fileData.files; 
 			} 
 			catch(e){ 
 				console.log("ERROR:", e); 
@@ -406,7 +405,6 @@ const webApi = {
 			let files ;
 			try{ 
 				files = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });; 
-				files = files.files; 
 			} 
 			catch(e){ 
 				console.log("ERROR:", e); 
@@ -563,7 +561,6 @@ const webApi = {
 			let existingFilesJson ;
 			try{ 
 				existingFilesJson = await funcs.getExistingJsonFsData(true).catch(function(e) { throw e; });; 
-				existingFilesJson = existingFilesJson.files; 
 			} 
 			catch(e){ 
 				console.log("ERROR: getThumbnails:", e); 

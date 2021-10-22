@@ -471,9 +471,9 @@ const getExistingJsonFsData    = async function(fullVersion=true){
 	// throw "TEST1";
 	return new Promise(async function(resolve,reject){
 		let files;
-		let recreateall = false;
 		if( !fs.existsSync(config.filesjson) ){
 			try{ 
+				// Generate new config.filesjson and write the file to disk. 
 				files = await createJsonFsData(true).catch(function(e) { throw e; }); 
 			} 
 			catch(e){ 
@@ -481,19 +481,22 @@ const getExistingJsonFsData    = async function(fullVersion=true){
 				reject(JSON.stringify(e)); 
 				return; 
 			}
-			recreateall = true;
 		}
 		else{
+			// Read the config.filesjson file. 
 			files = fs.readFileSync(config.filesjson);
+
+			// Parse the file into JSON.
 			files = JSON.parse(files);
 		}
 
+		// If fullVersion is false then reduce the data that returned 
 		if(!fullVersion){
 			// Remove some data from the CollectionTypes.
 			for(let key in files.CollectionType){
 				let rec = files.CollectionType[key];
 				
-				// Delete from object root:
+				// Delete "name" from the object root. This is redundant.
 				delete rec.name;
 			}
 			
@@ -503,35 +506,30 @@ const getExistingJsonFsData    = async function(fullVersion=true){
 
 				// Save the only the first page. 
 				if(!rec.extra._firstPageId){
-					console.log("Adding missing rec.extra._firstPageId");
+					console.log("getExistingJsonFsData: Adding missing rec.extra._firstPageId");
 					rec.extra._firstPageId = rec.content.pages[0];
 				}
 
-				// Delete from .content:
+				// Delete from .content.
 				let keys_content = Object.keys(rec.content);
 				let keep_content = ["pageCount", "fileType", "textScale", "orientation", "margins"];
+				
+				// Debug: Add key(s) to the keep_content list. 
 				keep_content.push("pages");
+
+				// Remove all keys that are not specified by keep_content.
 				keys_content.forEach(function(d){
 					if(keep_content.indexOf(d) == -1){
 						delete rec.content[d];
 					}
 				});
-				// delete rec.content.pages;
 
-				// Remove the remaining unneeded keys.
-				// delete newObj.content.coverPageNumber;
-				// delete newObj.content.documentMetadata;
-				// delete newObj.content.extraMetadata;
-				// delete newObj.content.fontName;
-				// delete newObj.content.lineHeight;
-				// delete newObj.content.transform;
-
-				// Delete from object root:
+				// Delete "name" from the object root. This is redundant.
 				delete rec.name;
 			}
 		}
 
-		resolve({recreateall:recreateall, files:files});
+		resolve( files );
 	});
 };
 //
@@ -552,7 +550,6 @@ const updateRemoteDemo         = async function(){
 
 		let files;
 		try{ files = await getExistingJsonFsData(true).catch(function(e) { throw e; }); } catch(e){ console.log("ERROR:", e); reject(JSON.stringify(e)); return; }
-		files = files.files;
 
 		// Get a list of all files and directories within "Remarkable Page Turner"
 		let newFilesJson = {

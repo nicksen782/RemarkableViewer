@@ -727,7 +727,7 @@ const updateFromDevice   = function(obj){
 		try{
 			// Break out the properties of the object into variables. 
 			// let { req, res } = obj;
-			let { interface, recreateAll } = obj.options;
+			let { interface } = obj.options;
 
 			// START SSE.
 			sse.start(obj);
