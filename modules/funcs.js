@@ -30,6 +30,9 @@ const getLastValueOfArray      = function(arr){
 
 //
 const getRange                 = function(start, stop, step = 1) {
+	// EXAMPLE USAGES: 
+	// let pageRange = funcs.getRange( 0, 5, 1 ); // Gives [0,1,2,3,4,5]
+	// let pageRange = funcs.getRange( 0, 6, 2 ); // Gives [0,2,4,6]
 	return Array( Math.ceil((stop - start) / step) )
 	.fill(start)
 	.map((x, y) => x + y * step);
@@ -187,147 +190,124 @@ const runCommand_exec_progress = async function(cmd, expectedExitCode=0, progres
 const createJsonFsData         = async function(writeFile){
 	return new Promise(async function(resolve, reject){
 		const getAllJson = function(fileList, basePath){
-			return new Promise(function(res, rej){
+			return new Promise(async function(res, rej){
 				let json = {
 					"CollectionType": [],
 					"DocumentType": [],
 				};
 
+				let getFileData = function(filename, type){ 
+					return new Promise(function(res1, rej1){
+						let obj = {
+							"filename" : filename,
+							"type"     : type,
+							"data"     : null,
+							"error"    : null,
+						};
+
+						fs.readFile(filename, function (err, file_buffer) {
+							if (err) {
+								obj.error = `Error on file access: ${err.code}`;
+								rej1(obj);
+								return;
+							}
+							else{
+								if(type == "json"){
+									obj.data = JSON.parse(file_buffer);
+									res1(obj);
+									return;
+								}
+								else if(type == "text"){
+									obj.data = file_buffer.toString();
+									res1(obj);
+									return;
+								}
+								else{
+									obj.error = "File type is invalid.";
+									rej1(obj);
+									return;
+								}
+							}
+						});
+					}); 
+				};
+
+				let getFilenames = function(basePath, file){
+					let obj = {};
+					obj.metadata = path.join(basePath, file);
+					obj.content  = path.join(basePath, file.replace(".metadata", ".content") );
+					obj.pagedata = path.join(basePath, file.replace(".metadata", ".pagedata") );
+					return obj;
+				};
+
 				let proms = [];
-				// fileList.forEach(function(file){
 				for(let index = 0; index<fileList.length; index+=1){
-					let file = fileList[index];
+					let _thisFileId = fileList[index].replace(".metadata", "");
+					let filenames     = getFilenames(basePath, fileList[index]);
+					let metadata_file = await getFileData( filenames.metadata, "json").catch(function(e) { return e; });
+					let content_file  = await getFileData( filenames.content , "json").catch(function(e) { return e; });
+					let pagedata_file = await getFileData( filenames.pagedata, "text").catch(function(e) { return e; });
+
+					// If either the metadata or the content file is missing then we cannot continue.
+					if(metadata_file.error){
+						rej([filenames.metadata, metadata_file.error]); 
+						return;
+					}
+					else if(content_file.error){
+						rej([filenames.content, content_file.error]); 
+						return;
+					}
 
 					proms.push(
 						new Promise(function(res1, rej1){
-							// Generate the .metadata filename. 
-							let metadata_filename = path.join(basePath, file);
+							// Start creating the new json entry.
+							let newObj = {};
 
-							// Read in the .metadata file. 
-							fs.readFile(metadata_filename, function (err, file_buffer) {
-								// Handle error.
-								if (err) {
-									console.log("ERROR READING .metadata file:", metadata_filename, err); 
-									rej1([metadata_filename, err]); 
-									return;
-								}
-								
-								// Start creating the new json entry.
-								let newObj = {};
-		
-								// Create metadata.
-								newObj.metadata = JSON.parse(file_buffer);
+							// METADATA
+							newObj.metadata = metadata_file.data;
 
-								// Create content.
-								newObj.content = {};
-		
-								// DEBUG: Remove keys
-								if(newObj.metadata.type == "CollectionType"){
-									// delete newObj.metadata.deleted;
-									// delete newObj.metadata.modified;
-									// delete newObj.metadata.pinned;
-									// delete newObj.metadata.synced;
-									// delete newObj.metadata.metadatamodified;
+							// CONTENT
+							newObj.content = {};
+							newObj.content = content_file.data;
 
-									// delete newObj.metadata.lastModified;
-									// delete newObj.metadata.version;
-								}
-								else if(newObj.metadata.type == "DocumentType"){
-									// delete newObj.metadata.deleted;
-									// delete newObj.metadata.modified;
-									// delete newObj.metadata.pinned;
-									// delete newObj.metadata.synced;
-									// delete newObj.metadata.metadatamodified;
-									// delete newObj.metadata.lastOpened;     
-									// delete newObj.metadata.lastOpenedPage; 
+							// EXTRA
+							newObj.extra = {};
+							newObj.extra["_thisFileId"] = _thisFileId; 
 
-									// delete newObj.metadata.lastModified;
-									// delete newObj.metadata.version;
-								}
-		
-								// Create extra.
-								newObj.extra = {};
-								newObj.extra["_thisFileId"] = file.replace(".metadata", "");
+							// ********** NEW PRE-FILTERING **********
+							let check0 = newObj.metadata.type         == "CollectionType";
+							let check1 = newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
+							let check2 = newObj.content.dummyDocument != false;
 
-								// Generate the .content filename. 
-								let content_filename = path.join(basePath, file.replace(".metadata", ".content") );
+							// Allow all CollectionType (no further checks.)
+							if(check0){ 
+								json[newObj.metadata.type].push(newObj); 
+								res1(); 
+								return;
+							}
 
-								// Read in the .content file. 
-								fs.readFile(content_filename, function (err, file_buffer2) {
-									// Handle error.
-									if (err) {
-										console.log("ERROR READING .content file:", content_filename, err); 
-										rej1([content_filename, err]); 
-										return;
-									}
-		
-									// Create content.
-									newObj.content = JSON.parse(file_buffer2);
-		
-									// ********** NEW PRE-FILTERING **********
-									let check0 = newObj.metadata.type         == "CollectionType";
-									// let check1 = false; //newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
-									let check1 = newObj.content.fileType      != "notebook" && newObj.content.fileType != "pdf";
-									let check2 = newObj.content.dummyDocument != false;
-									// let check3 = newObj.metadata.parent       == "trash";
+							// Allow notebook and pdf. 
+							else if(check1){ res1(); return; }
 
-									// Allow all CollectionType.
-									if(check0){
-										json[newObj.metadata.type].push(newObj);
-										res1(); return; // Resolve.
-									}
+							// Disallow dummyDocument.
+							else if(check2){ res1(); return; }
 
-									// Only compare notebooks. 
-									else if(check1){
-										// console.log("Skipping non-notebook.");
-										res1(); return; // Resolve.
-									}
+							// PAGEDATA
+							newObj.pagedata = pagedata_file.data.trim().split("\n");
 
-									// Ignore dummyDocument true.
-									else if(check2){
-										// console.log("Skipping dummyDocument.");
-										res1(); return; // Resolve.
-									}
-									
-									// Add the completed record.
-									else {
-										// Get the .pagedata file too if it exists.
-										let pagedata_filename = path.join(basePath, file.replace(".metadata", ".pagedata") );
-										if( fs.existsSync(pagedata_filename) ) {
-											fs.readFile(pagedata_filename, function (err, file_buffer3) {
-												// Handle error.
-												if (err) {
-													console.log("ERROR READING FILE 3", pagedata_filename, err); 
-													rej1([pagedata_filename, err]); 
-													return;
-												}
-
-												newObj.pagedata = file_buffer3.toString().trim().split("\n");
-												newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
-												json[newObj.metadata.type].push(newObj);
-												res1(); return; // Resolve.
-											});
-										}
-										else{
-											newObj.pagedata = "";
-											newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
-											json[newObj.metadata.type].push(newObj);
-											res1(); return; // Resolve.
-										}
-
-									}
-									
-								});
-		
-							});
+							// Save the first page id.
+							newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
+							
+							// Add the completed record.
+							json[newObj.metadata.type].push(newObj);
+							res1(); 
+							return; 
 						})
 					);
 				}
-				// );
 		
 				Promise.all(proms).then(
 					function(success){
-						// console.log("SUCCESS: createJsonFsData: ", success.length, "files.");
 						res(json);
 					},
 					function(error){
@@ -356,7 +336,7 @@ const createJsonFsData         = async function(writeFile){
 						extra   : d.extra,
 						
 						// DEBUG
-						path: [],
+						path: "",
 						name: d.metadata.visibleName
 					};
 
@@ -378,7 +358,7 @@ const createJsonFsData         = async function(writeFile){
 						pagedata: d.pagedata,
 						
 						// DEBUG
-						path: [],
+						path: "",
 						name: d.metadata.visibleName
 					};
 				});
@@ -389,10 +369,10 @@ const createJsonFsData         = async function(writeFile){
 						"deleted": false,
 						"lastModified": "0",
 						"metadatamodified": false,
-						"modified": false,
+						"modified": true,
 						"parent": "",
 						"pinned": false,
-						"synced": true,
+						"synced": false,
 						"type": "CollectionType",
 						"version": 1,
 						"visibleName": "trash"
@@ -403,7 +383,7 @@ const createJsonFsData         = async function(writeFile){
 					},
 
 					// DEBUG
-					path: [],
+					path: "",
 					name: "trash"
 				};
 				// Create a "directory" for deleted.
@@ -412,10 +392,10 @@ const createJsonFsData         = async function(writeFile){
 						"deleted": false,
 						"lastModified": "0",
 						"metadatamodified": false,
-						"modified": false,
+						"modified": true,
 						"parent": "",
 						"pinned": false,
-						"synced": true,
+						"synced": false,
 						"type": "CollectionType",
 						"version": 1,
 						"visibleName": "deleted"
@@ -426,7 +406,7 @@ const createJsonFsData         = async function(writeFile){
 					},
 
 					// DEBUG
-					path: [],
+					path: "",
 					name: "deleted"
 				};
 
@@ -440,6 +420,7 @@ const createJsonFsData         = async function(writeFile){
 					let rec = fin.CollectionType[key];
 					rec.path = getParentPath(rec.extra._thisFileId, "CollectionType", fin);
 				}
+				
 				// Update the path value for DocumentType.
 				for(let key in fin.DocumentType){
 					let rec = fin.DocumentType[key];
@@ -458,7 +439,7 @@ const createJsonFsData         = async function(writeFile){
 			if(d.filepath.indexOf(".metadata") != -1){ return true; }
 		});
 
-		// Further filter each anem to remove the full config.dataPath.
+		// Further filter each name to remove the full config.dataPath.
 		files = files.map( function(d){
 			let filename = d.filepath.split("/");
 			filename = filename[filename.length-1];
