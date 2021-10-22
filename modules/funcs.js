@@ -39,42 +39,60 @@ const getRange                 = function(start, stop, step = 1) {
 }
 
 //
-const getItemsInDir            = async function(targetPath, type, ext=""){
-	if(["files", "dirs"].indexOf(type) == -1){
-		let msg = "";
-		console.log(msg);
-		throw msg;
-		return ;
-	}
-
-	const files = await fs.promises.readdir(targetPath).catch(function(e) { throw e; });
-	const fetchedFiles = [];
-
-	for (let file of files) {
-		try {
-			const filepath = path.join(targetPath, file);
-			const stats = await fs.promises.lstat(filepath).catch(function(e) { throw e; });
-	
-			if(type=="files"){
-				if (stats.isFile() && file.lastIndexOf(ext) != -1) {
-					fetchedFiles.push({ filepath });
-				}
-			}
-			
-			else if(type=="dirs"){
-				if (stats.isDirectory() && file.lastIndexOf(ext) != -1) {
-					fetchedFiles.push({ filepath });
-				}
-			}
-		} 
-		catch (err) {
-			console.error(err);
-			throw err;
-			return;
+const getItemsInDir            = function(targetPath, type, ext=""){
+	return new Promise(function(resolve, reject){
+		// Check for the correct type.
+		if(["files", "dirs"].indexOf(type) == -1){
+			let msg = "Invalid type specified.";
+			console.log("getItemsInDir:", msg);
+			reject(msg);
+			return ;
 		}
-	}
-  
-	return fetchedFiles;
+
+		// Read the file list for the indicated targetPath.
+		fs.promises.readdir(targetPath)
+			.then(async function(files){
+				const fetchedFiles = [];
+				
+				// Go through each file/dir returned by readdir.
+				for (let file of files) {
+					try {
+						// Get the filepath. 
+						const filepath = path.join(targetPath, file);
+			
+						// Get the stats for this file. 
+						const stats = await fs.promises.lstat(filepath).catch(function(e) { throw e; });
+				
+						// Handle "files".
+						if (type=="files" && stats.isFile() && file.lastIndexOf(ext) != -1) {
+							fetchedFiles.push({ filepath });
+						}
+						
+						// Handle "dirs".
+						if (type=="dirs" && stats.isDirectory() && file.lastIndexOf(ext) != -1) {
+							fetchedFiles.push({ filepath });
+						}
+					} 
+					catch (err) {
+						console.error(err);
+						throw err;
+						return;
+					}
+				}
+
+				// Return the data.
+				resolve(fetchedFiles);
+				return; 
+
+			})
+			.catch(function(e){ 
+				console.log("getItemsInDir:", "Error while reading file stats.", e);
+				reject(e);
+				return;
+			})
+		;
+	
+	});
 };
 // Get the visibleName of the file found within files. 
 const getParentDirName         = function(file, files, returnNameAndId=false){
@@ -432,13 +450,8 @@ const createJsonFsData         = async function(writeFile){
 		};
 
 		// Get a list of all the files in the xochitil folder.
-		let files = await getItemsInDir(config.dataPath, "files").catch(function(e) { throw e; });
+		let files = await getItemsInDir(config.dataPath, "files", ".metadata").catch(function(e) { throw e; });
 		
-		// Filter that list to only include the .metadata files. 
-		files = files.filter(function(d){
-			if(d.filepath.indexOf(".metadata") != -1){ return true; }
-		});
-
 		// Further filter each name to remove the full config.dataPath.
 		files = files.map( function(d){
 			let filename = d.filepath.split("/");
@@ -644,14 +657,10 @@ const metadata_unsync          = async function(){
 	// EXAMPLE RSYNC: cd DEVICE_DATA && rsync --delete -r -v -a --stats  --exclude '.cache/' --exclude 'webusb' --exclude 'syncthirdparty' --exclude 'templates' --exclude '.gitkeep' . remarkableusb:/home/root/.local/share/remarkable/^C
 	return new Promise(async function(resolve,reject){
 		// Get the file names in the dir.
-		let files = await getItemsInDir(config.dataPath, "files");
+		let files = await getItemsInDir(config.dataPath, "files", ".metadata");
 
-		// Remove all but the .metadata files. 
-		files = files.filter(function(d){
-			if(d.filepath.indexOf(".metadata") != -1){ return true; }
-		})
 		// Return only an array of filenames.
-		.map(
+		files.map(
 			function(d){
 				let base = d.filepath.replace(config.dataPath, "");
 				return base;
