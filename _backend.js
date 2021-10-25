@@ -79,6 +79,7 @@ app.get('/getFilesJson'       , async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
+
 app.get('/getGlobalUsageStats', async (req, res) => {
 	// console.log("\nroute: getGlobalUsageStats:", req.query);
 	
@@ -95,6 +96,7 @@ app.get('/getGlobalUsageStats', async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
+
 app.get('/getSvgs'            , async (req, res) => {
 	let returnValue;
 	let arg1 = req.query.documentId;
@@ -111,6 +113,7 @@ app.get('/getSvgs'            , async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
+
 app.get('/getThumbnails'      , async (req, res) => {
 	let returnValue;
 	try{ 
@@ -125,6 +128,7 @@ app.get('/getThumbnails'      , async (req, res) => {
 	// Should be JSON already.
 	res.send(returnValue);
 });
+
 app.get('/getSettings'        , async (req, res) => {
 	// Get the file.
 	let settings;
@@ -162,10 +166,11 @@ app.get('/getSettings'        , async (req, res) => {
 	// Should be JSON already.
 	res.send(settings);
 });
+
 app.post('/updateSettings'    ,express.json(), async (req, res) => {
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
-		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		res.send(JSON.stringify("Function is not available in the demo version.",null,0)); 
 		return; 
 	}
 
@@ -185,12 +190,12 @@ app.post('/updateSettings'    ,express.json(), async (req, res) => {
 });
 
 // WEB UI - ROUTES (local only)
-app.get('/updateFromDevice'          , async (req, res) => {
+app.get('/updateFromDevice'         , async (req, res) => {
 	console.log("\nroute: updateFromDevice:", req.query);
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
-		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		res.send(JSON.stringify("Function is not available in the demo version.",null,0)); 
 		return; 
 	}
 
@@ -211,12 +216,12 @@ app.get('/updateFromDevice'          , async (req, res) => {
 	res.json("Templates have been updated");
 });
 
-app.get('/updateFromDeviceTemplates' , async (req, res) => {
+app.get('/updateFromDeviceTemplates', async (req, res) => {
 	// console.log("\nroute: updateFromDeviceTemplates:", req.query);
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
-		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		res.send(JSON.stringify("Function is not available in the demo version.",null,0)); 
 		return; 
 	}
 
@@ -239,7 +244,7 @@ app.get('/debug/rebuildDeviceImages', async (req, res) => {
 	
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
-		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		res.send(JSON.stringify("Function is not available in the demo version.",null,0)); 
 		return; 
 	}
 
@@ -296,11 +301,11 @@ app.get('/debug/rebuildDeviceImages', async (req, res) => {
 	// No return response here. It is handled by webApi.updateFromDevice instead. 
 });
 
-app.get('/debug/updateRemoteDemo'    , async (req, res) => {
+app.get('/debug/updateRemoteDemo'   , async (req, res) => {
 	console.log("/debug/updateRemoteDemo");
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
-		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		res.send(JSON.stringify("Function is not available in the demo version.",null,0)); 
 		return; 
 	}
 	
@@ -322,7 +327,7 @@ app.get('/debug/metadata_unsync'    , async (req, res) => {
 	console.log("/debug/metadata_unsync");
 	if(config.environment != "local"){ 
 		console.log("Function is not available in the demo version."); 
-		res.send(JSON.stringify("Function is not available in the demo version."),null,0); 
+		res.send(JSON.stringify("Function is not available in the demo version.",null,0)); 
 		return; 
 	}
 	
@@ -340,6 +345,93 @@ app.get('/debug/metadata_unsync'    , async (req, res) => {
 
 	res.send(returnValue);
 	console.log("DONE!");
+});
+
+app.get('/debug/getSite_config'     , async (req, res) => {
+	// Get the file.
+	let site_config;
+
+	if(config.environment != "local"){ 
+		console.log("Function is not available in the demo version."); 
+		res.send(JSON.stringify("Function is not available in the demo version.",null,0)); 
+		return; 
+	}
+
+	// Get the local version settings.
+	try{ 
+		site_config = fs.readFileSync("configFile.json"); 
+	} 
+	catch(e){ 
+		console.trace("ERROR: /debug/getSite_config:", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
+	}
+	
+	// Should be JSON already.
+	res.send(site_config);
+});
+
+app.post('/debug/updateSite_config' ,express.json(), async (req, res) => {
+	if(config.environment != "local"){ 
+		console.log("Function is not available in the demo version."); 
+		res.send(JSON.stringify("Function is not available in the demo version.",null,0)); 
+		return; 
+	}
+
+	// Accepts JSON object, returns formatted JSON string. 
+	const jsonFormatter = function(inputJsonObj){
+		// Get max key length.
+		let keys = Object.keys(inputJsonObj);
+		let maxLen = 0;
+		keys.forEach(function(key){
+			if(key.length > maxLen) { maxLen = key.length; }
+		});
+
+		// Create the jsonString. 
+		let jsonString = "";
+		jsonString += "{\n";
+		keys.forEach(function(key, key_i){
+			let thisKey = `"${key}"${" ".repeat(maxLen-key.length)}`;
+			
+			// Determine the dataType of the value. 
+			let thisValue;
+			if(typeof inputJsonObj[key] == "boolean") { thisValue = `${inputJsonObj[key]}`; }
+			else if(typeof inputJsonObj[key] == "number")  { thisValue = `${inputJsonObj[key]}`; }
+			else{
+				// Assume it is a string.
+				thisValue = `"${inputJsonObj[key]}"`;
+			}
+			
+			// Create the line. 
+			jsonString += "\t" + `${thisKey} : ${thisValue}`;
+
+			// Add a "," unless this is the last line. 
+			if(key_i+1 != keys.length){ jsonString += ","; }
+
+			// Move to the next line. 
+			jsonString += "\n";
+		});
+		jsonString += "}\n";
+
+		return jsonString;
+	};
+
+	// Format the JSON into a jsonString.
+	let jsonString = jsonFormatter( req.body );
+
+	// Write the new file. 
+	try{
+		fs.writeFileSync("configFile.json", jsonString );
+	}
+	catch(e){ 
+		console.trace("ERROR: /debug/updateSite_config:", e); 
+		res.send(JSON.stringify(e)); 
+		return; 
+	}
+
+	// Return a response.
+	// console.log(jsonString);
+	res.json("Settings have been updated.");
 });
 
 // START THE SERVER.
@@ -385,6 +477,7 @@ app.get('/debug/metadata_unsync'    , async (req, res) => {
 		function() {
 			// Set virtual paths.
 			app.use('/'                  , express.static(config.htmlPath));
+			app.use('/_debug_'           , express.static(config.debugPath));
 			app.use('/node_modules'      , express.static( path.join(__dirname, 'node_modules') ));
 			app.use('/DEVICE_DATA'       , express.static( path.join(__dirname, 'DEVICE_DATA') ));
 			app.use('/DEVICE_DATA_IMAGES', express.static( path.join(__dirname, 'DEVICE_DATA_IMAGES') ));

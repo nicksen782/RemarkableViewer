@@ -18,6 +18,9 @@ debug/*
 _WebUI/*
 !_WebUI/.gitkeep
 !_WebUI/Html
+!_WebUI/_debug_
+_WebUI/HtmlV4
+
 _WebUI/Html/oldcode/*
 
 scripts/updateRemoteDemo.resps.json
