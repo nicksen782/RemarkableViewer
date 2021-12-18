@@ -33,11 +33,11 @@
 ### TESTED REMARKABLE OS VERSIONS:
 - 2.9.1.217 (last tested: 2021-10-07) 
 - 2.10.1.332 (last tested: 2021-10-07) 
+- 2.10.3.379 (last tested: 2021-11-10) 
 #
 
 ## REMARKABLE OS UPDATE BUG:
 If the remote host indentification changes then the app will fail to sync.
-
 To fix this:
 
 ### LINUX: 
