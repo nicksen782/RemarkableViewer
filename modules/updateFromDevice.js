@@ -1,7 +1,6 @@
 const { spawn }                 = require('child_process');
 const fs                        = require('fs');
 const path                      = require('path');
-const PDFImage                  = require("pdf-image").PDFImage;
 const async_mapLimit            = require('promise-async').mapLimit;
 const { performance }           = require('perf_hooks');
 const { optimize, loadConfig  } = require('svgo');
@@ -728,7 +727,7 @@ const updateFromDevice   = function(obj){
 		try{
 			// Break out the properties of the object into variables. 
 			// let { req, res } = obj;
-			let { interface, recreateAll } = obj.options;
+			let { interface } = obj.options;
 
 			// START SSE.
 			sse.start(obj);
