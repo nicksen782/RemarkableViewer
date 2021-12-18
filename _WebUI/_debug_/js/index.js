@@ -59,6 +59,7 @@ var funcs = {
 			row.setAttribute("key", key);
 			let cell_key   = row.insertCell(0);
 			let cell_value = row.insertCell(1);
+			rowCount += 1;
 
 			// Input for the value:
 			let textInput = document.createElement("input");

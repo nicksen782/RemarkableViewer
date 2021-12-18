@@ -436,24 +436,62 @@ app.post('/debug/updateSite_config' ,express.json(), async (req, res) => {
 
 // START THE SERVER.
 (async function startServer() {
+	let oldStartType = true;
+	
 	// Make sure the process on the server port is removed before trying to listen on that port. 
 	try { 
-		// Remove process that is using the config.port. 
-		await fkill(`:${config.port}`).catch(function(e) { throw e; }); 
+		if(oldStartType){
+			// Remove process that is using the config.port. 
+			await fkill(`:${config.port}`).catch(function(e) { throw e; }); 
+			
+			// Output message.
+			let msg = `Process using tcp port ${config.port} has been REMOVED`;
+			console.log("-".repeat(msg.length));
+			console.log(msg); 
+			console.log("-".repeat(msg.length));
+			
+			// Wait 2 seconds. 
+			const sleep = function(ms){
+				return new Promise((resolve) => {
+					setTimeout(resolve, ms);
+				});
+			};
+			await sleep(2000).catch(function(e) { throw e; }); 
+		}
+		else{
+			let cmd = `ps -o ppid=,cmd= -p ${process.ppid}`;
+			let resp1;
+			try { 
+				resp1 = await funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
+				console.log("resp1:", resp1.stdOutHist.trim());
+			} 
+			catch(e){ console.log("Error", e); }
 
-		// Output message.
-		let msg = `Process using tcp port ${config.port} has been REMOVED`;
-		console.log("-".repeat(msg.length));
-		console.log(msg); 
-		console.log("-".repeat(msg.length));
+			// We need the parent of the parent process which should be nodemon.
+			// ps -o ppid= -p ${process.ppid}
+			// console.log("hi");
+			// let ptree = require("process-tree");
+			// console.log("hib");
+			// console.log("hi2----------------------", await ptree(
+			// 	function(arg1,arg2){ console.log(arg1, arg2); }
+			// 	)
+			// );
+			// 	console.log("hic");
 
-		// Wait 2 seconds. 
-		const sleep = function(ms){
-			return new Promise((resolve) => {
-				setTimeout(resolve, ms);
-			});
-		};
-		await sleep(2000).catch(function(e) { throw e; }); 
+			// require("process-tree")
+			// (pid, function(err, children){
+			// 	console.log("hi2");
+			// 	if(err){
+			// 		console.error(err);
+			// 	}else{
+			// 		console.log(JSON.stringify(children, null, 4));
+			// 		console.assert(children[0].ppid === pid);
+			// 		console.log(children[0].children[0].pid);
+			// 		console.log(children[0].name); // "Name" from wmic, "comm" from ps
+			// 	}
+			// });
+
+		}
 
 		// Done.
 		// console.log("done");
@@ -475,6 +513,9 @@ app.post('/debug/updateSite_config' ,express.json(), async (req, res) => {
 			// signal     : null , // signal      <AbortSignal> An AbortSignal that may be used to close a listening server.	
 		}, 
 		function() {
+			// Set process name.
+			process.title = "RMViewer";
+
 			// Set virtual paths.
 			app.use('/'                  , express.static(config.htmlPath));
 			app.use('/_debug_'           , express.static(config.debugPath));
