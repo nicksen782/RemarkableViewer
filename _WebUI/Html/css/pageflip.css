@@ -137,7 +137,7 @@
 	border-style: solid !important;
 	border-color: black !important;
 	border-width: 0px 0px 0px 22px !important;
-	border-image: url('../../images/spiral_r.png') 5 0 10 22 repeat repeat !important;
+	border-image: url('../images/spiral_r.png') 5 0 10 22 repeat repeat !important;
 	opacity: 0.30;
 	transform: translate(0px, 0px);
 	/* background-color:white; */
@@ -155,7 +155,7 @@
 	border-color: black !important;
 	border-style: solid !important;
 	border-width: 0px 22px 0px 0px !important;
-	border-image: url('../../images/spiral_l.png') 5 22 10 0 repeat repeat !important;
+	border-image: url('../images/spiral_l.png') 5 22 10 0 repeat repeat !important;
 	opacity: 0.30;
 	transform: translate(0px, 0px);
 /* 	background-color:black; */
