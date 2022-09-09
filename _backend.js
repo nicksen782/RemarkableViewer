@@ -4,7 +4,15 @@ const express         = require('express'); // npm install express
 const app             = express();
 const path            = require('path');
 const fs              = require('fs');
-
+const zlib = require('zlib');
+const compression = require('compression');
+const shouldCompress = (req, res) => {
+	if (req.headers['x-no-compression']) {
+		return false
+	}
+	// return true;
+	return compression.filter(req, res);
+}
 // Personal libraries/frameworks.
 const _APP            = require('./backend/modules/M_main.js')(app, express);
 
@@ -51,6 +59,17 @@ app.get('/fullSSE'       , async (req, res) => {
 
 // START THE SERVER.
 (async function startServer() {
+	const compressionObj = {
+		filter    : shouldCompress,
+		memLevel  : zlib.constants.Z_DEFAULT_MEMLEVEL,
+		level     : zlib.constants.Z_DEFAULT_COMPRESSION,
+		chunkSize : zlib.constants.Z_DEFAULT_CHUNK,
+		strategy  : zlib.constants.Z_DEFAULT_STRATEGY,
+		threshold : 0,
+		windowBits: zlib.constants.Z_DEFAULT_WINDOWBITS,
+	};
+	// app.use( compression(compressionObj) );
+
 	// Init the modules.
 	await _APP.module_inits(); 
 			

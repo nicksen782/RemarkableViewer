@@ -44,6 +44,25 @@ let _MOD = {
 		});
 
 		//
+		_APP.addToRouteList({ path: "/updateToDeviceTemplates", method: "get", args: ['interface'], file: __filename, desc: "" });
+		app.get('/updateToDeviceTemplates'    ,express.json(), async (req, res) => {
+			let envCheck = _APP.m_funcs.environmentCheck1();
+			if(!envCheck.allowed){ res.send(JSON.stringify(envCheck.msg,null,0)); return; }
+	
+			try{ 
+				returnValue = await _MOD.updateToDeviceTemplates(req.query.interface).catch(function(e) { throw e; }); 
+			} 
+			catch(e){
+				console.trace("ERROR: /updateToDeviceTemplates:", e); 
+				res.send(JSON.stringify(e)); 
+				return; 
+			}
+			
+			// No return response here. It is handled by _APP.m_webApi.updateFromDevice instead. 
+			res.send(JSON.stringify(returnValue)); 
+		});
+
+		//
 		_APP.addToRouteList({ path: "/updateFromDevice", method: "get", args: ['interface'], file: __filename, desc: "Outputs a list of manually registered routes." });
 		app.get('/updateFromDevice'         , async (req, res) => {
 			console.log("\nroute: updateFromDevice:", req.query);
@@ -91,6 +110,31 @@ let _MOD = {
 			} 
 			catch(e){ 
 				console.log("Error in updateFromDeviceTemplates:", e); 
+				reject_top(); 
+				return;
+			}
+		});
+	},
+
+	// ROUTED: Update /usr/share/remarkable/templates on the device with specific files.
+	updateToDeviceTemplates : function(interface){
+		return new Promise(async function(resolve_top,reject_top){
+			// Make sure the interface is correct.
+			if( ["WIFI", "USB"].indexOf(interface) == -1 ) {
+				let msg = "ERROR: Invalid 'interface': " + interface;
+				reject_top( msg );
+				return;
+			}
+
+			let resp1;
+			let cmd = `cd ${path.join(path.resolve("./"), `${_APP.m_config.config.scriptsPath}`)} && ./syncTemplatesUP.sh ${interface}`;
+			try{ 
+				resp1 = await _APP.m_funcs.runCommand_exec_progress(cmd, 0, false).catch(function(e) { throw e; }); 
+				resolve_top(resp1);
+				return;
+			} 
+			catch(e){ 
+				console.log("Error in updateToDeviceTemplates:", e); 
 				reject_top(); 
 				return;
 			}

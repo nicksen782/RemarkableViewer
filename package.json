@@ -9,6 +9,7 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
+		"compression": "^1.7.4",
 		"express": "^4.17.1",
 		"fkill": "^7.2.1",
 		"promise-async": "^0.2.0",

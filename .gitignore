@@ -39,3 +39,5 @@ rmChanges_.json
 ; _WebUI/Html/clientSettings.json
 
 docker_workspace.code-workspace
+
+OLD/*

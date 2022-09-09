@@ -188,9 +188,13 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
             # Fix the pen if required.
             pen = fixPen(pen)
 
-            # Change all non-erase pens to the fine-liner. (Some pens output as garbage.)
+            # Change all non-erase pens to the ball-point pen. (Some pens output as garbage.)
             if pen != 6 and pen != 8:
-                pen = 4
+                pen = 2
+
+            # Change all non-erase pens to the fine-liner. (Some pens output as garbage.)
+            # if pen != 6 and pen != 8:
+                # pen = 4
 
             #if i_unk != 0: # No theory on that one
                 #print('Unexpected value at offset {}'.format(offset - 12))
@@ -218,15 +222,33 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
                 print('Unknown pen: {}'.format(pen))
                 opacity = 0.
 
-            width /= 2.3 # adjust for transformation to A4
+            # width /= 2.3 # adjust for transformation to A4
+
             # width = math.ceil(width)
-            width = 2.85
+            # width = 2.85 # known good - most used.
             # width = 3
             # print('PEN:', pen, ', WIDTH:', width, end = '')
             # print('PEN:', pen, ', WIDTH:', width)
 
             #print('Stroke {}: pen={}, colour={}, width={}, nsegments={}'.format(stroke, pen, colour, width, nsegments))
-            output.write('<polyline pen="' + str(pen) + '" style="fill:none;stroke:{};stroke-width:{:.1f};opacity:{}" points="'.format(stroke_colour[colour], width, opacity)) # BEGIN stroke
+
+            # TODO: Fix proper.
+			# If colour is not in stroke_colour then set colour to 1 (gray). (Catches crash due to the new highlighters.)
+            try:
+                stroke_colour[colour]
+            except Exception as inst:
+                colour = 1
+
+            try:
+                output.write('<polyline pen="' + str(pen) + '" style="fill:none;stroke:{};stroke-width:{:.1f};opacity:{}" points="'.format(stroke_colour[colour], width, opacity)) # BEGIN stroke
+            except Exception as inst:
+				# TODO: An exception doesn't seem to just skip the certain part but the rest of the document.
+                # print(type(inst))    # the exception instance
+                # print(inst.args)     # arguments stored in .args
+                # print(inst)          # __str__ allows args to be printed directly,
+                #                      # but may be overridden in exception subclasses
+                print('ERROR -->>: Stroke {}: pen={}, colour={}, width={}, nsegments={}'.format(stroke, pen, colour, width, nsegments))
+                continue
 
             # Iterate through the segments to form a polyline
             for segment in range(nsegments):

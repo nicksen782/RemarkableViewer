@@ -4,6 +4,13 @@
 - [YOUTUBE DEMO](https://youtu.be/iWdyE8wdYHM)
 #
 
+### INSTALL
+git clone https://github.com/nicksen782/RemarkableViewer.git
+cd RemarkableViewer
+npm install
+node _backend.js
+
+
 ### PURPOSE:
 - Sync your Remarkable data to your own PC/SERVER.
 - Replacement for the Remarkable Desktop app. 
@@ -20,7 +27,8 @@
 - Opened documents appear and operate in a two-page book-like view.
 - Pages are changed/flipped with animation.
 - Only minimal writing to the Remarkable tablet will be available.
-#
+
+
 ### UPCOMING FEATURES:
 - TODO: One-page document view.
 - TODO: Rotated document view for landscape.
@@ -29,16 +37,19 @@
 - TODO: Move document (metadata change.)
 - TODO: Rename document (metadata change.)
 - TODO: Send to trash (metadata change.)
-#
+
+
 ### TESTED REMARKABLE OS VERSIONS:
 - 2.9.1.217 (last tested: 2021-10-07) 
 - 2.10.1.332 (last tested: 2021-10-07) 
 - 2.10.3.379 (last tested: 2021-11-10) 
-#
+- 2.14.0.861 (last tested: 2022-06-24) 
+
 
 ## REMARKABLE OS UPDATE BUG:
 If the remote host indentification changes then the app will fail to sync.
 To fix this:
+
 
 ### LINUX: 
 ```sh

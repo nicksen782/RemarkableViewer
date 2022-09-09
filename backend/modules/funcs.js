@@ -549,7 +549,8 @@ let _MOD = {
 
 	//
 	rejectionFunction        : function(title, e, rejectFunction, sse=null){
-		let msg = `ERROR in ${title}: ${e}`;
+		let msg = `---------------ERROR in ${title}: ${JSON.stringify(e,null,1)}`;
+		// let msg = `---------------ERROR in ${title}: ${e}`;
 		console.log(msg); 
 		if(sse){ sse.write(JSON.stringify(msg)); }
 		
