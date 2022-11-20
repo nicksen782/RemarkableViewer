@@ -406,12 +406,22 @@ let _MOD = {
 						await _MOD.pdfPageToPng(`${changeRec.srcFile}[${pageRange}]`,  _APP.m_config.config.imagesPath + changeRec.docId + `/pages/${name}` ).catch(function(e) { throw e; }); 
 	
 						// Clear the console status. 
-						process.stdout.clearLine();
-						process.stdout.cursorTo(0);
-	
-						// Update the console status.
-						process.stdout.cursorTo(2);
-						process.stdout.write(((i/pages.length)*100).toFixed(2) + '%' + " pages pre-processed. " + `(${i+1} of ${pages.length})`);
+						try{
+							if(process.stdout.clearLine){
+								console.log("(process                 :", process);
+								console.log("(process.stdout          :", process.stdout);
+								console.log("(process.stdout.clearLine:", process.stdout.clearLine);
+								process.stdout.clearLine();
+								process.stdout.cursorTo(0);
+			
+								// Update the console status.
+								process.stdout.cursorTo(2);
+								process.stdout.write(((i/pages.length)*100).toFixed(2) + '%' + " pages pre-processed. " + `(${i+1} of ${pages.length})`);
+							}
+						}
+						catch(e){
+							console.log("Error:", e);
+						}
 	
 						// Increment start and stop by step.
 						start += step;
@@ -419,8 +429,15 @@ let _MOD = {
 					}
 	
 					// Clear the console status. 
-					process.stdout.clearLine();
-					process.stdout.cursorTo(0);
+					try{
+						if(process.stdout.clearLine){
+							process.stdout.clearLine();
+							process.stdout.cursorTo(0);
+						}
+					}
+					catch(e){
+						console.log("Error:", e);
+					}
 				}
 				catch(e){
 					msg = `convertAndOptimize/pdfConvert/pdfPageToPng: (batch) ` + `FAILURE: "${fileRec.path + fileRec.metadata.visibleName}"`;
