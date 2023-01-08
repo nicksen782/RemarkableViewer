@@ -44,7 +44,8 @@ node _backend.js
 - 2.10.1.332 (last tested: 2021-10-07) 
 - 2.10.3.379 (last tested: 2021-11-10) 
 - 2.14.0.861 (last tested: 2022-06-24) 
-
+- 2.15.1.1189 (last tested: 2022-October)
+- DOES NOT WORK ON REMARKABLE v3 OR LATER -- YET! (as of 2023-01-08)
 
 ## REMARKABLE OS UPDATE BUG:
 If the remote host indentification changes then the app will fail to sync.
