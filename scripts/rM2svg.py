@@ -151,6 +151,12 @@ def rm2svg(input_file, output_name, coloured_annotations=False,
     _stroke_fmt_by_vers = {
         '3': '<IIIfI',
 	'5': '<IIIfII' }
+
+    # DEBUG
+    if (not re_expected_header_match):
+        print(f"ERROR: NO HEADER MATCH: header: {header}")
+        sys.exit(0)
+
     _stroke_fmt = _stroke_fmt_by_vers[re_expected_header_match.groups(1)[0]]
     output = open(output_name, 'w')
     output.write('<svg xmlns="http://www.w3.org/2000/svg" height="{}" width="{}">'.format(y_width, x_width)) # BEGIN Notebook

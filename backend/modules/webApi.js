@@ -369,12 +369,15 @@ let _MOD = {
 					layer2_files.info.showFoundText = true;
 					
 					// Layer 1: Background templates: Get layer1_files.
+					// console.log("****************", fileData.DocumentType[documentId].pagedata);
 					fileData.DocumentType[documentId].pagedata.forEach(function(d, i){
+						// console.log("***", _APP.m_config.config.templatesPath, d);
 						layer1_files.data.push(
 							[
 								{ file: `${_APP.m_config.config.templatesPath}${d}.min.svg`                  , pageNum: i+1, text: `TYPE A: (.min.svg)` },
 								{ file: `${_APP.m_config.config.templatesPath}${d}.svg`                      , pageNum: i+1, text: `TYPE B: (.svg)    ` },
 								{ file: `${_APP.m_config.config.templatesPath}${d}.png`                      , pageNum: i+1, text: `TYPE C: (.png)    ` },
+								{ file: `${_APP.m_config.config.templatesPath}${d}.jpg`                      , pageNum: i+1, text: `TYPE D: (.jpg)    ` },
 							]
 						);
 					});
@@ -467,6 +470,7 @@ let _MOD = {
 			// Perform the actions.
 			console.log(`Retrieving page files for: ${visibleName} (${fileType})`);
 			let layerFiles = getFilenames();
+			// console.log(JSON.stringify(layerFiles, null, 1));
 			layers.layer1 = findingFunction(layerFiles.layer1_files);
 			layers.layer2 = findingFunction(layerFiles.layer2_files);
 			// console.log(`DONE`);

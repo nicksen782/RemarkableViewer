@@ -355,11 +355,76 @@ let _MOD = {
 								// Disallow dummyDocument.
 								else if(check2){ res1(); return; }
 	
-								// PAGEDATA
-								newObj.pagedata = pagedata_file.data.trim().split("\n");
-	
+								// Check for the new V6 content changes. Check for cPages existing instead of pages.
+								if(newObj.content.cPages && ! newObj.content.pages){
+									// Probably a V6 format. Check the formatVersion for 2.
+									if(newObj.content.formatVersion == 2){
+										// Is V6 with the new formatVersion.
+
+										// Read the cPages.pages values to get a replacement list for .pages and save .pages.
+										newObj.content.pages = newObj.content.cPages.pages.map(p=>{
+											return p.id;
+										});
+
+										// PAGEDATA (templates)
+										// newObj.pagedata = newObj.content.pages;
+										newObj.pagedata = newObj.content.cPages.pages.map(p=>{
+											// Use the template.value if template exists.
+											if(p.template){
+												return p.template.value;
+											}
+											// No template specified? Set "Blank".
+											else{
+												return "Blank";
+											}
+										});
+									}
+									else{
+										// Odd. This should not have happened.
+										console.log("FAILURE - Seems to be formatVersion:2 but formatVersion is not 2. VALUE:", newObj.content.formatVersion);
+									}
+								}
+								// V5 format. 
+								else{
+									if(newObj.content.formatVersion == undefined){
+										newObj.content.formatVersion = 1;
+									}
+									// console.log("Is formatVersion:1. VALUE:", newObj.content.formatVersion);
+
+									// PAGEDATA
+									newObj.pagedata = pagedata_file.data.trim().split("\n");
+								}
+
 								// Save the first page id.
 								newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
+
+								// // Save the first page id.
+								// try{
+								// 	newObj.extra["_firstPageId"] = newObj.content.pages[0]; // Save the first page. 
+								// }
+								// catch(e){
+								// 	console.log("e                   :", e);
+								// 	// console.log("newObj              :", newObj);
+								// 	// console.log("newObj.content      :", newObj.content);
+								// 	console.log("newObj.metadata.visibleName:", newObj.metadata.visibleName);
+								// 	// console.log("newObj.content.pages:", newObj.content.pages);
+								// 	console.log("newObj.content.cPages:", JSON.stringify(newObj.content.cPages,null,1));
+								// 	// console.log("KEYS: newObj.content.pages:", Object.keys(newObj.content));
+								// 	//  2|RemarkableViewer  | 2023-01-08 19:35 -05:00: KEYS: newObj.content.pages: [
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'cPages',                'coverPageNumber',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'customZoomCenterX',     'customZoomCenterY',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'customZoomOrientation', 'customZoomPageHeight',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'customZoomPageWidth',   'customZoomScale',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'documentMetadata',      'dummyDocument',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'extraMetadata',         'fileType',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'fontName',              'formatVersion',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'lineHeight',            'margins',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'orientation',           'pageCount',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'pageTags',              'sizeInBytes',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'tags',                  'textAlignment',
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00:   'textScale',             'zoomMode'
+								// 	// 	2|RemarkableViewer  | 2023-01-08 19:35 -05:00: ]
+								// }
 								
 								// Add the completed record.
 								json[newObj.metadata.type].push(newObj);
