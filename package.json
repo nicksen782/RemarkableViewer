@@ -1,18 +1,18 @@
 {
-	"name": "remarkable-viewer",
-	"version": "1.0.0",
-	"description": "This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 12.1.1.",
-	"main": "_backend.js",
-	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
-	},
-	"author": "",
-	"license": "ISC",
-	"dependencies": {
-		"compression": "^1.7.4",
-		"express": "^4.17.1",
-		"fkill": "^7.2.1",
-		"promise-async": "^0.2.0",
-		"svgo": "^2.7.0"
-	}
+  "name": "remarkable-viewer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "compression": "^1.7.4",
+    "express": "^4.18.2",
+    "http": "^0.0.1-security",
+    "https": "^1.0.0",
+    "svgo": "^3.0.2"
+  }
 }

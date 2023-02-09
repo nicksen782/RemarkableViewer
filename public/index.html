@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Remarkable Viewer (ALT1)</title>
+    <!-- <base href="/"> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+    <script src="js/index.js"></script>
+    <link rel="stylesheet" href="css/index.css">
+</head>
+
+<body>
+
+    <div id="topNavbar">
+        <div class="navButton" id="navbar_debug1_button">DEBUG1</div>
+        <div class="navButton" id="navbar_debug2_button">DEBUG2</div>
+    </div>
+
+    <div id="navViews">
+        <div class="navView" id="navbar_debug1_view">
+            <div>
+                Sync device json data and thumbnails<br>
+                <button id="rsyncUpdate">rsyncUpdate</button>
+            </div>
+            <br>
+
+            <div>
+                Detect changes on the device and add/update needsUpdate.json<br>
+                <button id="detectAndRecordChanges">detectAndRecordChanges</button>
+            </div>
+            <br>
+
+            <div>
+                Download .pdf from the device<br>
+                <button id="getData2">2023 02 February Work Notes.pdf</button>
+                <button id="getData3">2023 01 January Work Notes.pdf</button>
+                <button id="getData4">New Sync Method.pdf</button>
+            </div>
+            <br>
+
+            <div>
+                Convert .pdf to individual .svg pages<br>
+                <button id="pdf2svg_test1">2023 02 February Work Notes.pdf</button>
+                <button id="pdf2svg_test2">2023 01 January Work Notes.pdf</button>
+                <button id="pdf2svg_test3">New Sync Method.pdf</button>
+            </div>
+            <br>
+
+            <div>
+                Optimize individual .svg pages<br>
+                <button id="svgo_test1">2023 02 February Work Notes.pdf</button>
+                <button id="svgo_test2">2023 01 January Work Notes.pdf</button>
+                <button id="svgo_test3">New Sync Method.pdf</button>
+            </div>
+            <br>
+
+            <div>
+                BOTH .pdf to .svg pages and optimize .svg (version 1)<br>
+                <button id="both_test1">2023 02 February Work Notes.pdf</button>
+                <button id="both_test2">2023 01 January Work Notes.pdf</button>
+                <button id="both_test3">New Sync Method.pdf</button>
+            </div>
+            <br>
+
+            <div>
+                BOTH .pdf to .svg pages and optimize .svg (version 2)<br>
+                <button id="both2_test1">2023 02 February Work Notes.pdf</button>
+                <button id="both2_test2">2023 01 January Work Notes.pdf</button>
+                <button id="both2_test3">New Sync Method.pdf</button>
+            </div>
+            <br>
+        </div>
+        <div class="navView" id="navbar_debug2_view">debug2</div>
+    </div>
+
+</body>
+
+</html>

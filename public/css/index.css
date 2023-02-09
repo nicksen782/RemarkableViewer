@@ -1,0 +1,35 @@
+/* ********** */
+/* NAVIGATION */
+/* ********** */
+#navbar {
+    border: 1px solid black;
+    background-color: #6495ed;
+}
+.navButton{
+    border: 1px solid black;
+    border-radius: 5px;
+    margin: 5px;
+    text-align: center;
+    width: 225px;
+    display: inline-block;
+    background-color: #407ae4;
+
+    -webkit-user-select: none; /* Safari */
+    -ms-user-select: none; /* IE 10 and IE 11 */
+    user-select: none; /* Standard syntax */
+}
+.navButton:hover{
+    background-color: #86a5e0;
+    cursor:pointer;
+}
+.navButton.active{
+    background-color: #b0c4de;
+}
+
+#navViews{}
+.navView{
+    display:none;
+}
+.navView.active{
+    display:initial;
+}
