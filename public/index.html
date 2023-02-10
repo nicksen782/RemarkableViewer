@@ -17,6 +17,7 @@
     <div id="topNavbar">
         <div class="navButton" id="navbar_debug1_button">DEBUG1</div>
         <div class="navButton" id="navbar_debug2_button">DEBUG2</div>
+        <div class="navButton" id="navbar_debug3_button">DEBUG3</div>
     </div>
 
     <div id="navViews">
@@ -73,7 +74,24 @@
             </div>
             <br>
         </div>
-        <div class="navView" id="navbar_debug2_view">debug2</div>
+        <div class="navView" id="navbar_debug2_view">
+            <div>
+                Run rsyncUpdate AND detectAndRecordChanges<br>
+                <button id="rsyncUpdate_and_detectAndRecordChanges">rsyncUpdate_and_detectAndRecordChanges</button>
+            </div>
+            <br>
+
+            <div>
+                Display neededChanges<br>
+                <button id="display_needed_changes">display_needed_changes</button>
+                <div id="needed_changes"></div>
+            </div>
+            <br>
+        </div>
+        <div class="navView" id="navbar_debug3_view">
+            DEBUG3
+            <br>
+        </div>
     </div>
 
 </body>
