@@ -96,8 +96,10 @@ var rm_fs = {
 };
 
 var obj = {
+    // Holds an abstraction of the Remarkable's file system for local use. Mostly metadata.
     rm_fs : {},
 
+    // Used for running shell commands. 
     runCommand_exec_progress : async function(cmd, expectedExitCode=0, progress=true){
         return new Promise(function(cmd_res, cmd_rej){
             const proc = spawn(cmd, { shell: true });
@@ -142,6 +144,7 @@ var obj = {
         });
     },
 
+    // Loaded once at program start.
     serverLoad: async function(){
         console.log("LOADING: Remarkable Viewer V4");
 
@@ -191,25 +194,59 @@ var obj = {
 
         server.listen(conf, async function(){
             console.log("LOADED: Remarkable Viewer V4");
+            console.log("");
         });
     },
 
+    // Returns the rm_fs.json file.
     get_rm_fsFile: async function(){
         let data = fs.readFileSync(`deviceData/config/rm_fs.json`, {encoding:'utf8', flag:'r'});
         return JSON.parse(data);
     },
 
+    // Returns the needsUpdate.json file.
     getNeededChanges: async function(){
         let data = fs.readFileSync(`deviceData/config/needsUpdate.json`, {encoding:'utf8', flag:'r'});
         return JSON.parse(data);
     },
 
-    // Sync down all .metadata files, .content files, and .thumbnails dirs.
+    // Runs rsyncUpdate and detectAndRecordChanges in sequence.
+    rsyncUpdate_and_detectAndRecordChanges: async function(){
+        let res1, res2;
+        // Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
+        try{ res1 = await this.rsyncUpdate(); }
+        catch(e){ console.log("ERROR running rsyncUpdate", e); throw e; }
+        console.log(`  RSYNC:`);
+        console.log(`    UUIDs updated: ${res1.uuids_updated} of ${res1.uuids_total}`);
+        console.log(`    Total of fileType: DocumentType: ${res1.uuids_DocumentType}, CollectionType: ${res1.uuids_CollectionType}`);
+        console.log(`    Total of doc formats: V6: ${res1.v6_docs}, V5: ${res1.v5_docs}`);
+
+        // Detect changes since timestamp and add/update needsUpdate.json.
+        try{ res2 = await this.detectAndRecordChanges(); }
+        catch(e){ console.log("ERROR running detectAndRecordChanges", e); throw e; }
+        console.log(`  UPDATE of needsUpdate.json:`);
+        console.log(`    Updates: new: ${res2.count_new}, updated: ${res2.count_updated}, total: ${res2.count_all}`);
+        console.log(`    needsUpdate.json updated: ${res2.needsUpdateFileUpdated ? "YES" : "NO"}`);
+        if(res2.needsUpdateFileUpdated){
+            console.log(`    Files updated:`)
+            console.log(`      ` + res2.updates.map(d=>{ return `[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}"` ; }).join("\n      ") )
+        }
+        else{
+            console.log(`    No updates were needed.`)
+        }
+
+        return {
+            "rsync"  : res1,
+            "updates": res2,
+        }
+    },
+
+    // Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
     rsyncUpdate: async function(){
         let cmd1 = `bash ./deviceData/scripts/syncDownMetafiles.sh`;
         
         let results1;
-        results1 = await this.runCommand_exec_progress(cmd1, 0, true).catch(function(e) { throw e; }); 
+        results1 = await this.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; }); 
 
         // Create lists of filenames. 
         let files_metadata = await rm_fs.getItemsInDir("deviceData/queryData/meta/metadata", "files", ".metadata").catch(function(e) { throw e; });
@@ -318,10 +355,22 @@ var obj = {
         // Update rm_fs in memory.
         this.rm_fs = data;
 
-        // Return the rm_fs.json data.
+        // Determine the number of updated uuids.
+        let results1b = results1.stdOutHist.trim().split("\n").map(d=>d.split(" ")[1]).filter(d=>d);
+        let syncedUuids = new Set();
+        for(let i=0; i<results1b.length; i+=1){ syncedUuids.add( results1b[i].trim().split(".")[0] ); }
+
+        // Get counts of the V5 and the V6 docs.
+        let v5_docs = this.rm_fs.DocumentType.filter(d=>d.formatVersion == 1);
+        let v6_docs = this.rm_fs.DocumentType.filter(d=>d.formatVersion == 2);
+
         return {
-            // "finished": finished,
-            "rm_fs": data,
+            "uuids_updated"       : syncedUuids.size,
+            "uuids_total"         : uuids.length,
+            "uuids_DocumentType"  : this.rm_fs.DocumentType.length,
+            "uuids_CollectionType": this.rm_fs.CollectionType.length,
+            "v5_docs"             : v5_docs.length,
+            "v6_docs"             : v6_docs.length,
         };
     },
 
@@ -359,11 +408,11 @@ var obj = {
         for(let i=0; i<uuids.length; i+=1){
             // Find this record in the updates array. Fail if not found. 
             let updates = json2.find(d=>{ return d.uuid == uuids[i]; });
-            if(!updates){ console.log("BAD", uuids[i]); }
+            if(!updates){ console.log("ERROR: COULD NOT FIND UPDATE DATA", uuids[i]); }
 
             // Find the record in the rm_fs. Fail if not found.
             let recData = this.rm_fs.DocumentType.find(d=>uuids[i]==d.uuid); 
-            if(!recData){ console.log("BAD", uuids[i]); }
+            if(!recData){ console.log("ERROR: COULD NOT FIND RECDATA", uuids[i]); }
 
             // Determine if this record needs an update.
             let _needsUpdate = lastSync < updates.time ? true : false;
@@ -391,6 +440,8 @@ var obj = {
 
         // Determine if this is a new update or an update to an existing update record.
         let write_needsUpdate_file = false;
+        let updatedUpdates = 0;
+        let newUpdates = 0;
         for(let i=0; i<needsUpdate.length; i+=1){
             // Try to find an existing record in the file.
             let rec = needsUpdate[i];
@@ -398,7 +449,7 @@ var obj = {
 
             // If found then update the record.
             if(found){
-                console.log("Updating existing record for:", `(${rec.fileType}) (${rec.visibleName}) (${rec.pageCount} pages) (${rec.uuid})`);
+                // console.log("Updating existing record for:", `(${rec.fileType}) (${rec.visibleName}) (${rec.pageCount} pages) (${rec.uuid})`);
                 
                 // TODO: Must confirm that moving a notebook to another directory also updates the notebook directory too.
                 // TODO: Must confirm that moving a page from one notebook to another also updates the notebook directories too.
@@ -416,11 +467,14 @@ var obj = {
                 // Set the write_needsUpdate_file flag.
                 write_needsUpdate_file = true;
 
+                //
+                updatedUpdates += 1;
+
                 continue;
             };
 
             // This is a new record. Add it to the file. 
-            console.log("Adding new record for:", `(${rec.fileType}) (${rec.visibleName}) (${rec.pageCount} pages) (${rec.uuid})`);
+            // console.log("Adding new record for:", `(${rec.fileType}) (${rec.visibleName}) (${rec.pageCount} pages) (${rec.uuid})`);
             needsUpdate_file.push({
                 uuid       : rec.uuid,
                 visibleName: rec.visibleName,
@@ -432,7 +486,7 @@ var obj = {
                 _time      : rec._time,
                 // _time3     : rec._time3,
             });
-            // newUpdatesNeeded += 1;
+            newUpdates += 1;
             
             // Set the write_needsUpdate_file flag.
             write_needsUpdate_file = true;
@@ -444,11 +498,11 @@ var obj = {
             needsUpdate_file.sort((a, b) => b._time - a._time);
             
             // Write the file. 
-            console.log("Updating needsUpdate.json...");
+            // console.log("Updating needsUpdate.json...");
             fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
         }
         else{
-            console.log("No update was needed for needsUpdate.json");
+            // console.log("No update was needed for needsUpdate.json");
         }
 
         // Update the lastSync file.
@@ -463,7 +517,12 @@ var obj = {
         }
 
         return {
-            needsUpdate: needsUpdate,
+            updates      : needsUpdate,
+            count_updated: updatedUpdates,
+            count_new    : newUpdates,
+            count_all    : needsUpdate_file.length,
+            needsUpdateFileUpdated : write_needsUpdate_file,
+
             // prevUpdatesNeeded: prevUpdatesNeeded,     // Previous count of new updates needed.
             // newUpdatesNeeded : newUpdatesNeeded,      // Count of new updates needed.
             // totalUpdatesNeeded : (prevUpdatesNeeded + newUpdatesNeeded), // Full count of all updates needed.
@@ -474,88 +533,7 @@ var obj = {
         };
     },
 
-    rsyncUpdate_and_detectAndRecordChanges: async function(){
-        let res1 = await this.rsyncUpdate();
-        let res2 = await this.detectAndRecordChanges();
-
-        return [res1, res2];
-    },
-
-    downloadPdfFile: async function(filePath=null, fileName, fileUUID){
-        let results1;
-        filePath = `deviceData/pdf/${fileUUID}/`;
-        try{ 
-            // If the dir does not exist then create it.
-            if( !fs.existsSync(`${filePath}`) ){ fs.mkdirSync(`${filePath}`); }
-            
-            // TODO
-            // Create/update the pages_manifest.json file. 
-            
-            let cmd1 = `curl -s --compressed --insecure -o "${filePath}${fileName}.pdf" http://10.11.99.1/download/${fileUUID}/pdf`;
-            results1 = await this.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { console.log("failure in downloadPdfFile"); throw e; }); 
-            results1 = results1.stdOutHist.trim().split("\n"); 
-
-            // TODO
-            // Remove this file from the updatesNeeded file.
-        }
-        catch(e){
-            console.log("ERROR?", e);
-        }
-
-        return [filePath, fileName, fileUUID, results1];
-    },
-
-    run_pdf2svg_and_svgo: async function(uuid, filename){
-        // Get the .metadata file from local.
-        let metadata = fs.readFileSync(`deviceData/queryData/meta/metadata/${uuid}.metadata`, {encoding:'utf8', flag:'r'});
-        metadata = JSON.parse(metadata);
-
-        // Get the .content file from local.
-        let content = fs.readFileSync(`deviceData/queryData/meta/content/${uuid}.content`, {encoding:'utf8', flag:'r'});
-        content = JSON.parse(content);
-
-        let estimated = 1320 * content.pageCount;
-        
-        console.log(`V1: .pdf to .svg, optimize .svg: name: ${metadata.visibleName}, ${content.pageCount} pages. Estimated time: ${estimated} ms`);
-        await this.pdf2svg(uuid, filename);
-        await this.svgo(uuid, filename);
-        console.log(`Estimated time was: ${estimated} ms for ${content.pageCount} pages.`);
-
-        return ["run_pdf2svg_and_svgo", uuid, filename, results1];
-    },
-    run_pdf2svg_and_svgo2: async function(uuid, filename){
-        //
-        let basePath = `deviceData/pdf/${uuid}`; ///${filename}`;
-        let results1;
-
-        // If the dir does not exist then create it.
-        if( !fs.existsSync(`${basePath}/svg`) ){ fs.mkdirSync(`${basePath}/svg`); }
-        // if( !fs.existsSync(`${basePath}/svg_min`) ){ fs.mkdirSync(`${basePath}/svg_min`); }
-
-        let cmd1 = `pdf2svg '${basePath}/${filename}' ${basePath}/svg/output-page%04d.svg all`;
-        let cmd2 = `node_modules/svgo/bin/svgo --config 'deviceData/svgo.config.js' --recursive -f ${basePath}/svg/`;
-        let cmd3 = `${cmd1} && ${cmd2}`;
-
-        // Get the .metadata file from local.
-        let metadata = fs.readFileSync(`deviceData/queryData/meta/metadata/${uuid}.metadata`, {encoding:'utf8', flag:'r'});
-        metadata = JSON.parse(metadata);
-
-        // Get the .content file from local.
-        let content = fs.readFileSync(`deviceData/queryData/meta/content/${uuid}.content`, {encoding:'utf8', flag:'r'});
-        content = JSON.parse(content);
-
-        let estimated = 1280 * content.pageCount;
-        
-        console.log(`V2: .pdf to .svg, optimize .svg: name: ${metadata.visibleName}, ${content.pageCount} pages. Estimated time: ${estimated} ms`);
-
-        results1 = await this.runCommand_exec_progress(cmd3, 0, false).catch(function(e) { throw e; }); 
-
-        // console.log(`Estimated time was: ${estimated} ms for ${content.pageCount} pages.`);
-        // return "DONE";
-
-        return ["run_pdf2svg_and_svgo2", uuid, filename, results1];
-    },
-
+    // Download pdf, convert to svg files, optimize svg files, clear the record from needsUpdate.json.
     run_fullDownloadAndProcessing: async function(uuid, filename){
         // Get the current newsUpdate.json file. 
         let needsUpdate_file = fs.readFileSync(`deviceData/config/needsUpdate.json`, {encoding:'utf8', flag:'r+'});
@@ -572,15 +550,13 @@ var obj = {
 
         //
         let basePath = `deviceData/pdf/${uuid}`;
-        let results0;
         let results1;
         let results2;
+        let results3;
 
         // If the dir does not exist then create it.
         if( !fs.existsSync(`${basePath}`) ){ fs.mkdirSync(`${basePath}`); }
         if( !fs.existsSync(`${basePath}/svg`) ){ fs.mkdirSync(`${basePath}/svg`); }
-
-        let ts = performance.now();
 
         // Find the record in the rm_fs. Fail if not found.
         let recData = this.rm_fs.DocumentType.find(d=>uuid==d.uuid); 
@@ -592,128 +568,84 @@ var obj = {
         let cmd2 = `node_modules/svgo/bin/svgo --config "deviceData/svgo.config.js" --recursive -f ${basePath}/svg/`;
 
         // DOWNLOAD PDF.
+        let ts1 = performance.now();
         try{
-            console.log(` DOWNLOAD PDF    : NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results0 = await this.runCommand_exec_progress(cmd0, 0, false)
-            .catch(function(e) { console.log("ERROR: parta 1", results0); throw e; }); 
+            // console.log(` DOWNLOAD PDF    : NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
+            results1 = await this.runCommand_exec_progress(cmd0, 0, false)
+            .catch(function(e) { console.log("ERROR: parta 1", results1); throw e; }); 
         } 
         catch(e){ console.log("ERROR: parta 2", e); throw e; }
+        ts1 = (performance.now() - ts1)/1000;
+        console.log(`  DOWNLOAD PDF           : ${(ts1).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
 
         // PDF TO SVG PAGES
+        let ts2 = performance.now();
         try{
-            console.log(` PDF TO SVG PAGES: NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results1 = await this.runCommand_exec_progress(cmd1, 0, false)
+            // console.log(` PDF TO SVG PAGES: NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
+            results2 = await this.runCommand_exec_progress(cmd1, 0, false)
             .catch(function(e) { console.log("ERROR: partb 1", results2); throw e; }); 
         } 
         catch(e){ console.log("ERROR: partb 2", e); throw e; }
+        ts2 = (performance.now() - ts2)/1000;
+        console.log(`  PDF TO SVG PAGES       : ${(ts2).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
         
         // SVG OPTIMIZE.
+        let ts3 = performance.now();
         try{ 
-            console.log(` SVG OPTIMIZE    : NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results2 = await this.runCommand_exec_progress(cmd2, 0, false)
+            // console.log(` SVG OPTIMIZE    : NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
+            results3 = await this.runCommand_exec_progress(cmd2, 0, false)
             .catch(function(e) { console.log("ERROR: partc 1", results3); throw e; }); 
         } 
         catch(e){ console.log("ERROR: partc 2", e); throw e; }
+        ts3 = (performance.now() - ts3)/1000;
+        console.log(`  SVG OPTIMIZE           : ${(ts3).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
 
         // Can now remove this entry from needsUpdate.json
         needsUpdate_file = needsUpdate_file.filter(d=>d.uuid != uuid);
 
         // Write the file. 
-        console.log(" UPDATE          : needsUpdate.json");
         fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
+        console.log("  UPDATE needsUpdate.json: DONE");
 
-        return true;// ["run_fullDownloadAndProcessing", uuid, filename, results1];
-    },
-
-    // 
-    pdf2svg: async function(uuid, filename){
-        // pdf2svg 'New Sync Method.pdf' output-page%04d.svg all
-        
-        let basePath = `deviceData/pdf/${uuid}`; ///${filename}`;
-        let cmd1 = `pdf2svg '${basePath}/${filename}' ${basePath}/svg/output-page%04d.svg all`;
-        let results1;
-        
-        // If the dir does not exist then create it.
-        if( !fs.existsSync(`${basePath}/svg`) ){ fs.mkdirSync(`${basePath}/svg`); }
-        // if( !fs.existsSync(`${basePath}/svg_min`) ){ fs.mkdirSync(`${basePath}/svg_min`); }
-
-        results1 = await this.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; }); 
-        // console.log(cmd1);
-        // console.log(results1);
-        return ["pdf2svg", uuid, filename, results1];
-    },
-    
-    //
-    svgo: async function(uuid, filename){
-        // SVGO conversion
-        let basePath = `deviceData/pdf/${uuid}`; ///${filename}`;
-        
-        // If the dir does not exist then create it.
-        if( !fs.existsSync(`${basePath}/svg`) )    { fs.mkdirSync(`${basePath}/svg`); }
-        // if( !fs.existsSync(`${basePath}/svg_min`) ){ fs.mkdirSync(`${basePath}/svg_min`); }
-
-        // let cmd1 = `` +
-        //     `find ${basePath}/svg ` +
-        //     `-name '*.svg' ` +
-        //     `-exec node_modules/svgo/bin/svgo ` +
-        //     `--config 'deviceData/svgo.config.js' ` +
-        //     `-o ${basePath}/svg_min/ ` +
-        //     `-i {} +`; 
-
-        let cmd1 = `` +
-            `node_modules/svgo/bin/svgo ` +
-            `--config 'deviceData/svgo.config.js' ` +
-            `--recursive `+
-            `-f ${basePath}/svg/ ` + 
-            // `-o ${basePath}/svg_min/ ` +
-            ``;
-        ``;
-        
-        // console.log("basePath:", basePath);
-        // console.log("cmd1:", cmd1);
-        
-        results1 = await this.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; }); 
-        return ["svgo", uuid, filename, results1];
+        return {
+            // "name" : filename,
+            // "uuid" : uuid,
+            "fileType": recData.fileType,
+            "pages"   : recData.pageCount,
+            // "recData" : recData,
+            "t_pdf"   : ts1,
+            "t_toSvg" : ts2,
+            "t_svgo"  : ts3,
+        };
     },
 
     addRoutes: async function(){
         app.post('/get_rm_fsFile', express.json(), async (req, res) => {
             let ts_s = performance.now();
-            console.log("STARTED: get_rm_fsFile");
+            // console.log("STARTED: get_rm_fsFile");
             let resp = await this.get_rm_fsFile();
-            console.log(`FINISH : get_rm_fsFile: ${(performance.now() - ts_s).toFixed(3)} ms`);
+            // console.log(`FINISH : get_rm_fsFile: ${(performance.now() - ts_s).toFixed(3)} ms`);
+            // console.log("");
             res.json( resp ) ;
          });
         app.post('/getNeededChanges', express.json(), async (req, res) => {
             let ts_s = performance.now();
-            console.log("STARTED: getNeededChanges");
+            // console.log("STARTED: getNeededChanges");
             let resp = await this.getNeededChanges();
-            console.log(`FINISH : getNeededChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+            // console.log(`FINISH : getNeededChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+            // console.log("");
             res.json( resp ) ;
          });
-        app.post('/rsyncUpdate', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            console.log("STARTED: rsyncUpdate");
-            let resp = await this.rsyncUpdate();
-            console.log(`FINISH : rsyncUpdate: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            res.json( resp ) ;
-         });
-        app.post('/detectAndRecordChanges', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            console.log("STARTED: detectAndRecordChanges");
-            let resp = await this.detectAndRecordChanges();
-            console.log(`FINISH : detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            res.json( resp ) ;
-         });
-         
+
          app.post('/rsyncUpdate_and_detectAndRecordChanges', express.json(), async (req, res) => {
-             let ts_s = performance.now();
-             console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
-             let resp = await this.rsyncUpdate_and_detectAndRecordChanges();
-             console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
-             res.json( resp ) ;
-          });
-         
+            let ts_s = performance.now();
+            console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
+            let resp = await this.rsyncUpdate_and_detectAndRecordChanges();
+            console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+            console.log("");
+            res.json( resp ) ;
+         });
+
          app.post('/run_fullDownloadAndProcessing', express.json(), async (req, res) => {
              let ts_s = performance.now();
              console.log("STARTED: run_fullDownloadAndProcessing");
@@ -722,68 +654,6 @@ var obj = {
              console.log("");
              res.json( resp ) ;
           });
-
-         app.post('/pdf2svg', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            console.log("STARTED: pdf2svg");
-            let resp = await this.pdf2svg(req.body.uuid, req.body.filename);
-            console.log(`FINISH : pdf2svg: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            res.json( { input: req.body, output: resp } ) ;
-         });
-         app.post('/svgo', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            console.log("STARTED: svgo");
-            let resp = await this.svgo(req.body.uuid, req.body.filename);
-            console.log(`FINISH : svgo: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            res.json( { input: req.body, output: resp } ) ;
-         });
-         app.post('/run_pdf2svg_and_svgo', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            console.log("STARTED: run_pdf2svg_and_svgo");
-            let resp = await this.run_pdf2svg_and_svgo(req.body.uuid, req.body.filename);
-            console.log(`FINISH : run_pdf2svg_and_svgo: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            res.json( { input: req.body, output: resp } ) ;
-         });
-         app.post('/run_pdf2svg_and_svgo2', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            console.log("STARTED: run_pdf2svg_and_svgo2");
-            let resp = await this.run_pdf2svg_and_svgo2(req.body.uuid, req.body.filename);
-            console.log(`FINISH : run_pdf2svg_and_svgo2: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            res.json( { input: req.body, output: resp } ) ;
-         });
-
-
-        app.post('/getData2', express.json(), async (req, res) => {
-            let filePath = `/home/nick/`;
-            // let fileUUID = `b9f01279-3a76-4a4c-a319-8b9e8673c92e`;
-            // let fileName = `New Sync Method`;
-
-            fileUUID = "f061597e-d6f2-4b8d-a747-15f8cfd29c75";
-            fileName = "2023 02 February Work Notes";
-
-            res.json({
-             'data': await this.downloadPdfFile(filePath, fileName, fileUUID)
-            });
-         });
-        app.post('/getData3', express.json(), async (req, res) => {
-            let filePath = `/home/nick/`;
-            fileUUID = "97538bbb-e782-4f17-b6a4-75ee3600669c";
-            fileName = "2023 01 January Work Notes";
-
-            res.json({
-             'data': await this.downloadPdfFile(filePath, fileName, fileUUID)
-            });
-         });
-
-         app.post('/getData4', express.json(), async (req, res) => {
-            let filePath = `/home/nick/`;
-            fileUUID = "b9f01279-3a76-4a4c-a319-8b9e8673c92e";
-            fileName = "New Sync Method";
-            
-            res.json({
-             'data': await this.downloadPdfFile(filePath, fileName, fileUUID)
-            });
-         });
     },
 };
 // obj.init();

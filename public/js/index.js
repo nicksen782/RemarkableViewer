@@ -38,245 +38,9 @@ var debug = {
         // console.log( "Collections in <root>:", collections );
         // console.log( "Documents   in <root>:", folders );
     },
-    rsyncUpdate: async function(){
-        // Create the options and body data.
-        let dataOptions = {
-            type:"json", method:"POST",
-            body: { },
-        };
-
-        let data = await net.send(`rsyncUpdate`, dataOptions, false);
-        console.log(data);
-    },
-    detectAndRecordChanges: async function(){
-        // Create the options and body data.
-        let dataOptions = {
-            type:"json", method:"POST",
-            body: { },
-        };
-
-        let data = await net.send(`detectAndRecordChanges`, dataOptions, 300000);
-        console.log(data);
-    },
-
-    rsyncUpdate_and_detectAndRecordChanges: async function(){
-        // Create the options and body data.
-        let dataOptions = {
-            type:"json", method:"POST",
-            body: { },
-        };
-
-        let data = await net.send(`rsyncUpdate_and_detectAndRecordChanges`, dataOptions, 300000);
-        console.log(data);
-    },
-
-    pdf2svg_test1: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"f061597e-d6f2-4b8d-a747-15f8cfd29c75",
-                filename:"2023 02 February Work Notes",
-            }, 
-        };
-        let data = await net.send(`pdf2svg`, dataOptions, false);
-        console.log(data);
-    },
-    pdf2svg_test2: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"97538bbb-e782-4f17-b6a4-75ee3600669c",
-                filename:"2023 01 January Work Notes",
-            }, 
-        };
-        let data = await net.send(`pdf2svg`, dataOptions, false);
-        console.log(data);
-    },
-    pdf2svg_test3: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"b9f01279-3a76-4a4c-a319-8b9e8673c92e",
-                filename:"New Sync Method",
-            }, 
-        };
-        let data = await net.send(`pdf2svg`, dataOptions, false);
-        console.log(data);
-    },
-    svgo_test1: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"f061597e-d6f2-4b8d-a747-15f8cfd29c75",
-                filename:"2023 02 February Work Notes",
-            }, 
-        };
-        let data = await net.send(`svgo`, dataOptions, false);
-        console.log(data);
-    },
-    svgo_test2: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"97538bbb-e782-4f17-b6a4-75ee3600669c",
-                filename:"2023 01 January Work Notes",
-            }, 
-        };
-        let data = await net.send(`svgo`, dataOptions, false);
-        console.log(data);
-    },
-    svgo_test3: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"b9f01279-3a76-4a4c-a319-8b9e8673c92e",
-                filename:"New Sync Method",
-            }, 
-        };
-        let data = await net.send(`svgo`, dataOptions, false);
-        console.log(data);
-    },
-
-    both_test1: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"f061597e-d6f2-4b8d-a747-15f8cfd29c75",
-                filename:"2023 02 February Work Notes",
-            }, 
-        };
-        let data = await net.send(`run_pdf2svg_and_svgo`, dataOptions, false);
-        console.log(data);
-    },
-
-    both_test2: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"97538bbb-e782-4f17-b6a4-75ee3600669c",
-                filename:"2023 01 January Work Notes",
-            }, 
-        };
-        let data = await net.send(`run_pdf2svg_and_svgo`, dataOptions, false);
-        console.log(data);
-    },
-
-    both_test3: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"b9f01279-3a76-4a4c-a319-8b9e8673c92e",
-                filename:"New Sync Method",
-            }, 
-        };
-        let data = await net.send(`run_pdf2svg_and_svgo`, dataOptions, false);
-        console.log(data);
-    },
-
-    both2_test1: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"f061597e-d6f2-4b8d-a747-15f8cfd29c75",
-                filename:"2023 02 February Work Notes",
-            }, 
-        };
-        let data = await net.send(`run_pdf2svg_and_svgo2`, dataOptions, false);
-        console.log(data);
-    },
-
-    both2_test2: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"97538bbb-e782-4f17-b6a4-75ee3600669c",
-                filename:"2023 01 January Work Notes",
-            }, 
-        };
-        let data = await net.send(`run_pdf2svg_and_svgo2`, dataOptions, false);
-        console.log(data);
-    },
-
-    both2_test3: async function(){
-        let dataOptions = { 
-            type:"json", method:"POST", 
-            body: {
-                uuid:"b9f01279-3a76-4a4c-a319-8b9e8673c92e",
-                filename:"New Sync Method",
-            }, 
-        };
-        let data = await net.send(`run_pdf2svg_and_svgo2`, dataOptions, false);
-        console.log(data);
-    },
-
-    // Get data files - style 2
-    getData2: async function(){
-        // Create the options and body data.
-        let dataOptions = {
-            type:"json", method:"POST",
-            body: {
-                'arg1': 'value1'
-            },
-        };
-
-        let data = await net.send(`getData2`, dataOptions, 300000);
-        console.log(data);
-    },
-
-    // Get data files - style 3
-    getData3: async function(){
-        // Create the options and body data.
-        let dataOptions = {
-            type:"json", method:"POST",
-            body: {
-                'arg1': 'value1'
-            },
-        };
-
-        let data = await net.send(`getData3`, dataOptions, 300000);
-        console.log(data);
-    },
-
-    // Get data files - style 4
-    getData4: async function(){
-        // Create the options and body data.
-        let dataOptions = {
-            type:"json", method:"POST",
-            body: {
-                "files": [
-                ],
-            },
-        };
-
-        let data = await net.send(`getData4`, dataOptions, 300000);
-        console.log(data);
-    },
 
     init: async function(){
         await this.get_rm_fsFile();
-        
-        document.getElementById('rsyncUpdate').addEventListener("click", ()=>{ this.rsyncUpdate(); }, false);
-        document.getElementById('detectAndRecordChanges').addEventListener("click", ()=>{ this.detectAndRecordChanges(); }, false);
-        document.getElementById('rsyncUpdate_and_detectAndRecordChanges').addEventListener("click", ()=>{ this.rsyncUpdate_and_detectAndRecordChanges(); }, false);
-        
-        document.getElementById('getData2').addEventListener("click", ()=>{ this.getData2(); }, false);
-        document.getElementById('getData3').addEventListener("click", ()=>{ this.getData3(); }, false);
-        document.getElementById('getData4').addEventListener("click", ()=>{ this.getData4(); }, false);
-        
-        document.getElementById('pdf2svg_test1').addEventListener("click", ()=>{ this.pdf2svg_test1(); }, false);
-        document.getElementById('pdf2svg_test2').addEventListener("click", ()=>{ this.pdf2svg_test2(); }, false);
-        document.getElementById('pdf2svg_test3').addEventListener("click", ()=>{ this.pdf2svg_test3(); }, false);
-        document.getElementById('svgo_test1').addEventListener("click", ()=>{ this.svgo_test1(); }, false);
-        document.getElementById('svgo_test2').addEventListener("click", ()=>{ this.svgo_test2(); }, false);
-        document.getElementById('svgo_test3').addEventListener("click", ()=>{ this.svgo_test3(); }, false);
-
-        document.getElementById('both_test1').addEventListener("click", ()=>{ this.both_test1(); }, false);
-        document.getElementById('both_test2').addEventListener("click", ()=>{ this.both_test2(); }, false);
-        document.getElementById('both_test3').addEventListener("click", ()=>{ this.both_test3(); }, false);
-
-        document.getElementById('both2_test1').addEventListener("click", ()=>{ this.both2_test1(); }, false);
-        document.getElementById('both2_test2').addEventListener("click", ()=>{ this.both2_test2(); }, false);
-        document.getElementById('both2_test3').addEventListener("click", ()=>{ this.both2_test3(); }, false);
     },
 };
 var net = {
@@ -473,6 +237,7 @@ var app = {
         // Holds the DOM for elements within this view.
         DOM: {
             // Action buttons.
+            'rsyncUpdate_and_detectAndRecordChanges' : 'rsyncUpdate_and_detectAndRecordChanges',
             'display_needed_changes' : 'display_needed_changes',
             'needed_changes'         : 'needed_changes',
         },
@@ -542,6 +307,17 @@ var app = {
             return fullPath.trim();
         },
 
+        rsyncUpdate_and_detectAndRecordChanges: async function(){
+            // Create the options and body data.
+            let dataOptions = {
+                type:"json", method:"POST",
+                body: { },
+            };
+    
+            let data = await net.send(`rsyncUpdate_and_detectAndRecordChanges`, dataOptions, 300000);
+            console.log(data);
+        },
+
         run_fullDownloadAndProcessing: async function(uuid, visibleName){
             let dataOptions = { 
                 type:"json", method:"POST", 
@@ -555,6 +331,7 @@ var app = {
             return data;
         },
 
+        history:[],
         convert: async function(recDiv, data, divCount=null){
             return new Promise( async (res,rej) => {
                 if(!recDiv || !data){
@@ -568,26 +345,28 @@ var app = {
                 recDiv.style['background-color'] = "yellow";
                 recDiv.classList.add("processing");
                 let resp = await this.run_fullDownloadAndProcessing(data.uuid, data.visibleName.replace(/[/\\?%*:|"<>]/g, '-'));
-                // console.log(`FINISHED Convert for: NAME: ${data.visibleName}, UUID: ${data.uuid}. PAGES: ${data.pageCount}, TIME: ${performance.now() - ts}`);
-                if(divCount != null){
-                    console.log(`${divCount.i+1}/${divCount.len} FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${performance.now() - ts}`);
-                }
-                else{
-                    console.log(`FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${performance.now() - ts}`);
-                }
                 
-                if(resp == true){
-                    recDiv.remove();
-                    res();
-                }
-                else{
+                if(resp === false){
                     recDiv.style['background-color'] = "red";
                     console.log("convert: there was an error.");
                     rej("convert: there was an error.");
                 }
+                else{
+                    this.history.push(resp);
+                    if(divCount != null){
+                        console.log(`${divCount.i+1}/${divCount.len} FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, resp);
+                    }
+                    else{
+                        console.log(`FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, resp);
+                    }
+
+                    recDiv.remove();
+
+                    res();
+                }
             });
         },
-        convertAll: async function(){
+        convertAll: async function(fileType=null){
             let divs = this.DOM['needed_changes'].querySelectorAll(".neededUpdateDiv");
             console.log(`There are ${divs.length} records to process.`);
             for(let i=0; i<divs.length; i+=1){
@@ -599,6 +378,7 @@ var app = {
                 if(divs[i].classList.contains("processing")){ console.log("Already processing this one", data.visibleName); continue; }
                 await this.convert( divs[i], data, {i:i, len:divs.length} );
             }
+            console.log("HISTORY:", this.history);
             console.log("DONE");
 
         },
@@ -610,6 +390,9 @@ var app = {
             }
 
             // ADD EVENT LISTENERS.
+
+            // Rsync, update needsUpdate.json
+            this.DOM['rsyncUpdate_and_detectAndRecordChanges'].addEventListener("click", ()=>{ this.rsyncUpdate_and_detectAndRecordChanges(); }, false);
 
             // Create the needed_changes table.
             this.DOM['display_needed_changes'].addEventListener("click", async () => {
@@ -633,14 +416,16 @@ var app = {
                     recDiv.classList.add("neededUpdateDiv");
                     recDiv.setAttribute("uuid", data[i].uuid);
                     recDiv.setAttribute("title", `NAME: ${data[i].visibleName}\nUUID: ${data[i].uuid}`);
+                    recDiv.setAttribute("fileType", data[i].fileType);
                     let recDiv_l1 = document.createElement("div");
                     let recDiv_l2 = document.createElement("div");
                     let recDiv_l3 = document.createElement("div");
                     let recDiv_l4 = document.createElement("div");
 
-                    recDiv_l1.innerText = `NAME: ${data[i].visibleName}`;
-                    recDiv_l2.innerText = `PATH: ${pathOnly}`;
-                    recDiv_l3.innerText = `PAGES: ${data[i].pageCount} - Estimated Time: ${(timeEstimate).toFixed(2)} seconds`;
+                    recDiv_l1.innerText = `[${data[i].fileType.toUpperCase()}]`;
+                    recDiv_l2.innerText = `NAME: ${data[i].visibleName}`;
+                    recDiv_l3.innerText = `PATH: ${pathOnly}`;
+                    recDiv_l4.innerText = `PAGES: ${data[i].pageCount} - Estimated Time: ${(timeEstimate).toFixed(2)} seconds`;
                     recDiv_l4.style = `border-bottom:5px solid black;`;
 
                     let convertButton = document.createElement("button");
@@ -674,8 +459,6 @@ var app = {
                 console.log(`totalTimeEstimate: ${((totalTimeEstimate/60)/60).toFixed(2)} hours`);
 
             }, false);
-
-            document.getElementById('both2_test3').addEventListener("click", ()=>{ this.both2_test3(); }, false);
         },
     },
 
