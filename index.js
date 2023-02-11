@@ -241,7 +241,7 @@ var obj = {
         }
     },
 
-    // Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
+    // HELPER: Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
     rsyncUpdate: async function(){
         let cmd1 = `bash ./deviceData/scripts/syncDownMetafiles.sh`;
         
@@ -302,17 +302,48 @@ var obj = {
                         if(file.cPages && ! file.pages){
                             // Probably a V6 format. Check the formatVersion for 2.
                             if(file.formatVersion == 2){
-                                // Is V6 with the new formatVersion.
-            
-                                // Read the cPages.pages values to get a replacement list for .pages and save .pages.
-                                finished[uuid].pages = file.cPages.pages.map(p=>{ return p.id; });
+                                // Add the formatVersion.
                                 finished[uuid].formatVersion = file.formatVersion;
+
+                                // Generate and store the list of pages for this document. 
+
+                                // Filter out deleted pages.
+                                finished[uuid].pages = file.cPages.pages.filter(p=>{
+                                    // Include if the key of "deleted" is not present.
+                                    if(undefined == p.deleted) { return true; }
+                                    
+                                    // Is this set as deleted?
+                                    else if(p.deleted.value) { 
+                                        // Do not include entries that have the key of "deleted" and the "value" of 1.
+                                        // console.log("Deleted page detected:", finished[uuid].visibleName, ", deleted obj:", p.deleted); 
+                                        return false; 
+                                    }
+
+                                    // No. It may still be possible to have the deleted key but it's value not set to 1.
+                                    else{ return true; }
+                                    
+                                })
+
+                                // Sort each page based on idx.value (Example values are: "ba", "bb", "bc", etc.)
+                                .sort(function(a, b){
+                                    // Convert to lowercase (Might not be needed.)
+                                    let keya = a.idx.value.toLowerCase();
+                                    let keyb = b.idx.value.toLowerCase();
+                                    
+                                    // Sort ascending.
+                                    if (keya < keyb) { return -1; }
+                                    if (keya > keyb) { return  1; }
+                                    return 0; 
+                                })
+
+                                // Return only the page ids.
+                                .map(p=>{ return p.id; });
                             }
                             else{
                                 // Odd. This should not have happened.
                                 console.log("FAILURE - Seems to be formatVersion:2 but formatVersion is not 2. VALUE:", file.formatVersion);
                                 rej(`FAILURE - Seems to be formatVersion:2 but formatVersion is not 2. VALUE: ${file.formatVersion}`);
-                                throw "";
+                                return;
                             }
                         }
                         // V5 format.
@@ -341,15 +372,11 @@ var obj = {
         let uuids = Object.keys(finished);
         for(let i=0; i<uuids.length; i+=1){
             let rec = finished[uuids[i]];
-            if(rec.type == "CollectionType"){
-                data.CollectionType.push(rec);
-            }
-            else if( rec.type == "DocumentType"){
-                data.DocumentType.push(rec);
-            }
+            if(rec.type == "CollectionType"){ data.CollectionType.push(rec); }
+            else if( rec.type == "DocumentType"){ data.DocumentType.push(rec); }
         }
 
-        // Write the rm_fs.json file.
+        // Write the rm_fs.json file using the separated "finished" data.
         fs.writeFileSync(`deviceData/config/rm_fs.json`, JSON.stringify(data,null,1));
         
         // Update rm_fs in memory.
@@ -371,10 +398,11 @@ var obj = {
             "uuids_CollectionType": this.rm_fs.CollectionType.length,
             "v5_docs"             : v5_docs.length,
             "v6_docs"             : v6_docs.length,
+            "rm_fs"               : this.rm_fs ,
         };
     },
 
-    // Detect changes since timestamp and add/update needsUpdate.json.
+    // HELPER: Detect changes since timestamp and add/update needsUpdate.json.
     detectAndRecordChanges: async function(){
         // Get the list of folders (with no extension) in the xochitl folder. 
         // Include folder name, folder update time, and UUID.
@@ -619,6 +647,81 @@ var obj = {
         };
     },
 
+    //
+    getAvailablePages: async function(uuid){
+        // Get the pages from metadata.
+            // pages array and pageCount.
+            // (Note: page starts at 0, not 1.)
+        // Determine which of the pages specified by metadata exists.
+            // Search the .thumbnail folder.
+        // Get the pages in the svg folder. 
+            // The number at the end of each filename is the page number. (Note: page starts at 1, not 0.)
+            // output-page0001.svg
+            // output-page0002.svg
+            // output-page0003.svg
+            // output-page0004.svg
+            // output-page0005.svg
+            // output-page0006.svg
+            // output-page0007.svg
+            // output-page0008.svg
+            // output-page0009.svg
+            // output-page0010.svg
+            // output-page0011.svg
+            // output-page0012.svg
+        // There should be a 1-1 on the number of svg files and pages. If not then a new sync/process is required.
+
+        let basePath_svgs   = `deviceData/pdf/${uuid}/svg`;
+        let basePath_thumbs = `deviceData/queryData/meta/thumbnails/${uuid}.thumbnails`;
+
+        // SVG files are numbered but may still need to be sorted.
+        let files_svgs   = await rm_fs.getItemsInDir(`${basePath_svgs}`  , "files", ".svg").catch(function(e) { throw e; });
+        files_svgs = files_svgs.map(d=>path.basename(d.filepath));
+        files_svgs.sort();
+
+        // Thumbs do not need to be sorted.
+        let files_thumbs = await rm_fs.getItemsInDir(`${basePath_thumbs}`, "files", ".jpg").catch(function(e) { throw e; });
+        files_thumbs = files_thumbs.map(d=>path.basename(d.filepath));
+
+        // This will determine the sort order of the pages. 
+        let metaPages = this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages;
+
+        let output = [];
+        missing = [];
+        for(let i=0; i<metaPages.length; i+=1){
+            let thumb = files_thumbs.find(d=>d.split(".")[0] == metaPages[i]);
+
+            // If the thumb does not exist then do not include this file.
+            if(!thumb){ 
+                missing.push(metaPages[i]);
+                console.log("skipping"); 
+                continue; 
+            }
+
+            // let svg   = files_svgs.find(d=>d.split(".")[0] == metaPages[i]);
+            let svg   = files_svgs[i];
+            output.push({
+                thumb  : thumb || "",
+                svg    : svg   || "",
+                pageId : metaPages[i],
+                meta: this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages
+            });
+        }
+
+        return { 
+            files_svgs   : files_svgs,
+            files_thumbs : files_thumbs,
+
+            metaPages       : metaPages,
+            basePath_svgs   : basePath_svgs,
+            basePath_thumbs : basePath_thumbs,
+
+            output:output,
+            missing:missing,
+        };
+
+    },
+
+
     addRoutes: async function(){
         app.post('/get_rm_fsFile', express.json(), async (req, res) => {
             let ts_s = performance.now();
@@ -627,7 +730,7 @@ var obj = {
             // console.log(`FINISH : get_rm_fsFile: ${(performance.now() - ts_s).toFixed(3)} ms`);
             // console.log("");
             res.json( resp ) ;
-         });
+            });
         app.post('/getNeededChanges', express.json(), async (req, res) => {
             let ts_s = performance.now();
             // console.log("STARTED: getNeededChanges");
@@ -635,25 +738,34 @@ var obj = {
             // console.log(`FINISH : getNeededChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
             // console.log("");
             res.json( resp ) ;
-         });
+            });
 
-         app.post('/rsyncUpdate_and_detectAndRecordChanges', express.json(), async (req, res) => {
+        app.post('/rsyncUpdate_and_detectAndRecordChanges', express.json(), async (req, res) => {
+        let ts_s = performance.now();
+        console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
+        let resp = await this.rsyncUpdate_and_detectAndRecordChanges();
+        console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+        console.log("");
+        res.json( resp ) ;
+        });
+
+        app.post('/run_fullDownloadAndProcessing', express.json(), async (req, res) => {
             let ts_s = performance.now();
-            console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
-            let resp = await this.rsyncUpdate_and_detectAndRecordChanges();
-            console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+            console.log("STARTED: run_fullDownloadAndProcessing");
+            let resp = await this.run_fullDownloadAndProcessing(req.body.uuid, req.body.filename);
+            console.log(`FINISH : run_fullDownloadAndProcessing: ${(performance.now() - ts_s).toFixed(3)} ms`);
             console.log("");
             res.json( resp ) ;
-         });
+        });
 
-         app.post('/run_fullDownloadAndProcessing', express.json(), async (req, res) => {
-             let ts_s = performance.now();
-             console.log("STARTED: run_fullDownloadAndProcessing");
-             let resp = await this.run_fullDownloadAndProcessing(req.body.uuid, req.body.filename);
-             console.log(`FINISH : run_fullDownloadAndProcessing: ${(performance.now() - ts_s).toFixed(3)} ms`);
-             console.log("");
-             res.json( resp ) ;
-          });
+        app.post('/getAvailablePages', express.json(), async (req, res) => {
+            let ts_s = performance.now();
+            console.log("STARTED: getAvailablePages");
+            let resp = await this.getAvailablePages(req.body.uuid);
+            console.log(`FINISH : getAvailablePages: ${(performance.now() - ts_s).toFixed(3)} ms`);
+            console.log("");
+            res.json( resp ) ;
+        });
     },
 };
 // obj.init();

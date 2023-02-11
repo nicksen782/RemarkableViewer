@@ -153,7 +153,7 @@ var app = {
 
         let data = await net.send(`get_rm_fsFile`, dataOptions, false);
         app.rm_fs = data;
-        console.log("app.rm_fs      :", app.rm_fs);
+        // console.log("app.rm_fs      :", app.rm_fs);
 
         // let collections = app.rm_fs.CollectionType
         //     .filter(d=>{ if(!d.deleted) { return d.parent == ""; } })
@@ -165,6 +165,17 @@ var app = {
 
         // console.log( "Collections in <root>:", collections );
         // console.log( "Documents   in <root>:", folders );
+    },
+    getAvailablePages: async function(uuid){
+        // Create the options and body data.
+        let dataOptions = {
+            type:"json", method:"POST",
+            body: { uuid: uuid },
+        };
+
+        let data = await net.send(`getAvailablePages`, dataOptions, false);
+        // console.log("getAvailablePages      :", data);
+        return data;
     },
     // Returns the full path for the given uuid and type.
     getParentPath: function(uuid, type, addVisibleNameToEnd=false){
@@ -428,6 +439,15 @@ var app = {
             };
     
             let data = await net.send(`rsyncUpdate_and_detectAndRecordChanges`, dataOptions, 300000);
+
+            // A new copy of rm_fs should have been included. Update the local copy.
+            app.rm_fs = data.rsync.rm_fs;
+            // console.log("app.rm_fs      :", app.rm_fs);
+            
+            // Update the active file nav.
+            let activeCollection = document.querySelector(".crumb.activeCollection");
+            if(activeCollection){ activeCollection.click(); }
+
             console.log(data);
         },
 
@@ -580,11 +600,86 @@ var app = {
         DOM: {
             // Action buttons.
             // 'display_needed_changes' : 'display_needed_changes',
-            'filelistDiv'         : 'd3_filelist',
+            'filelistDiv' : 'd3_filelist',
+            'thumbs'      : 'openedDoc_thumbs',
+            'dispPages'   : 'openedDoc_dispPages',
         },
 
-        showDocument: function(uuid){
+        showDocument: async function(uuid){
             console.log("showDocument:", uuid);
+            let pages = await app.getAvailablePages(uuid);
+            console.log("showDocument: pages:", pages);
+
+            // basePath_svgs:"deviceData/pdf/b9f01279-3a76-4a4c-a319-8b9e8673c92e/svg"
+            // basePath_thumbs:"deviceData/queryData/meta/thumbnails/b9f01279-3a76-4a4c-a319-8b9e8673c92e.thumbnails"
+
+            let createThumb = (uuid, thumbFile, pageNum)=>{
+                let div = document.createElement("div");
+                div.classList.add("openedDoc_thumb");
+                div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${thumbFile}?")`;
+                div.title = `Page: ${pageNum+1}\nPageId: ${pages.output[pageNum].pageId}`;
+                div.onclick = ()=>{ 
+                    if(pages.output[pageNum].svg){ updatePage(uuid, pageNum, "svg"); }
+                    else if(pages.output[pageNum].thumb){ updatePage(uuid, pageNum, "thumb"); }
+                    else{
+                        console.log("ERROR: This page does not appear to be in the pages list."); 
+                    }
+                };
+                
+                let div2 = document.createElement("div");
+                div2.innerText = `Page: ${pageNum+1}`;
+                div.append(div2);
+
+                return div;
+            };
+            let createPage = (uuid, file, type)=>{
+                let div = document.createElement("div");
+                div.classList.add("openedDoc_page");
+                if(type == "svg"){
+                    div.style['background-image'] = `url("deviceSvg/${uuid}/svg/${file}?")`;
+                }
+                else if(type == "thumb"){
+                    div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${file}?")`;
+                }
+                return div;
+            };
+            let updatePage = (uuid, pageNum, type)=>{
+                let div;
+                if(type=="svg"){
+                    div = createPage(uuid, pages.output[pageNum].svg, "svg");
+                }
+                else if(type=="thumb"){
+                    div = createPage(uuid, pages.output[pageNum].thumb, "thumb");
+                }
+
+                this.DOM['dispPages'].innerHTML = "";
+                this.DOM['dispPages'].append(div);
+            };
+
+            let thumbs_frag = document.createDocumentFragment();
+            for(let i=0; i<pages.output.length; i+=1){
+                thumbs_frag.append( createThumb(uuid, pages.output[i].thumb, i) );
+            }
+
+            // Display the first page.
+            let dispPages_frag = document.createDocumentFragment();
+            if     (pages.output[0].svg)  { dispPages_frag.append( createPage(uuid, pages.output[0].svg  , "svg")   ); }
+            else if(pages.output[0].thumb){ dispPages_frag.append( createPage(uuid, pages.output[0].thumb, "thumb") ); }
+            else{
+                console.log("ERROR: This page does not appear to be in the pages list."); 
+            }
+
+            // Clear the thumbs and the displayed pages.
+            this.DOM['thumbs'].innerHTML = "";
+            this.DOM['dispPages'].innerHTML = "";
+
+            // Add the frag for the thumbs.
+            this.DOM['thumbs'].append(thumbs_frag);
+            
+            // Add the frag for the first page.
+            this.DOM['dispPages'].append(dispPages_frag);
+
+            app.nav.showOne("debug4");
         },
         showCollection: function(parent){
             let entries = app.getEntriesInCollectionType(parent); 
@@ -649,6 +744,12 @@ var app = {
                     else{
                         crumb.innerHTML = parentPathBreadcrumbs.visibleNames[i];
                     }
+
+                    // Is this the last crumb? If so then add the "activeCollection" class.
+                    if(i+1 == maxLen){
+                        crumb.classList.add("activeCollection");
+                    }
+
                     // Add click listener so that the user can click to navigate to the collection.
                     crumb.onclick = ()=>{ this.showCollection(parentPathBreadcrumbs.uuids[i]); }
 
@@ -707,13 +808,6 @@ var app = {
 
             frag.append( document.createElement("br") );
             for(i=0; i<entries.CollectionType.length; i+=1){
-                // let rec = entries.CollectionType[i];
-                // let div = document.createElement("div");
-                // div.innerText = rec.visibleName;
-                // div.title = `${rec.visibleName} (${rec.uuid})`;
-                // div.onclick = ()=>{ this.showCollection(rec.uuid); }
-                // frag.append(div);
-
                 frag.append(createCollectionTypeContainer( entries.CollectionType[i] ));
             }
             frag.append( document.createElement("br") );
@@ -737,6 +831,7 @@ var app = {
             }
             
             this.showCollection("");
+            // this.showCollection("9bc9f1d7-eec4-46ee-9cda-0ac50ffdb7a2");
 
             // ADD EVENT LISTENERS.
 
