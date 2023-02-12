@@ -616,7 +616,17 @@ var app = {
             let createThumb = (uuid, thumbFile, pageNum)=>{
                 let div = document.createElement("div");
                 div.classList.add("openedDoc_thumb");
-                div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${thumbFile}?")`;
+                
+                // Do not try to load the thumbnail if the pageId is in the pages.missing array.
+                let pageId = pages.output[pageNum].pageId;
+                let isMissing = pages.missing.find(d=>d==pageId);
+                if(!isMissing){
+                    div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${thumbFile}?")`;
+                }
+                else{
+                    // console.log(`The thumb is missing for "${pageId}"`);
+                }
+
                 div.title = `Page: ${pageNum+1}\nPageId: ${pages.output[pageNum].pageId}`;
                 div.onclick = ()=>{ 
                     if(pages.output[pageNum].svg){ updatePage(uuid, pageNum, "svg"); }
@@ -625,6 +635,7 @@ var app = {
                         console.log("ERROR: This page does not appear to be in the pages list."); 
                     }
                 };
+                div.setAttribute("index", pageNum);
                 
                 let div2 = document.createElement("div");
                 div2.innerText = `Page: ${pageNum+1}`;
@@ -632,25 +643,34 @@ var app = {
 
                 return div;
             };
-            let createPage = (uuid, file, type)=>{
+            let updatePage = (uuid, pageNum, type)=>{
                 let div = document.createElement("div");
                 div.classList.add("openedDoc_page");
-                if(type == "svg"){
-                    div.style['background-image'] = `url("deviceSvg/${uuid}/svg/${file}?")`;
+
+                let newer = pages.output[pageNum].newer;
+                if(newer == "svg"){
+                    div.style['background-image'] = `url("deviceSvg/${uuid}/svg/${pages.output[pageNum].svg}?")`; 
                 }
-                else if(type == "thumb"){
-                    div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${file}?")`;
+                else if(newer == "thumb"){
+                    div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${pages.output[pageNum].thumb}?")`; 
                 }
-                return div;
-            };
-            let updatePage = (uuid, pageNum, type)=>{
-                let div;
-                if(type=="svg"){
-                    div = createPage(uuid, pages.output[pageNum].svg, "svg");
+                else{
+                    // Missing file.
+                    console.log(`The page files (both) are missing for: "${pages.output[pageNum].pageId}" newer: ${newer}`, pages.output[pageNum]);
                 }
-                else if(type=="thumb"){
-                    div = createPage(uuid, pages.output[pageNum].thumb, "thumb");
-                }
+
+                // if     (type == "svg")  { div.style['background-image'] = `url("deviceSvg/${uuid}/svg/${pages.output[pageNum].svg}?")`; }
+                // else if(type == "thumb"){ div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${pages.output[pageNum].thumb}?")`; }
+
+                let thumbDivs = document.querySelectorAll(".openedDoc_thumb");
+                let thisThumbDiv;
+                thumbDivs.forEach(d=>{ 
+                    d.classList.remove("active"); 
+                    if(d.getAttribute("index") == pageNum){
+                        thisThumbDiv = d;
+                    }
+                });
+                thisThumbDiv.classList.add("active");
 
                 this.DOM['dispPages'].innerHTML = "";
                 this.DOM['dispPages'].append(div);
@@ -661,21 +681,21 @@ var app = {
                 thumbs_frag.append( createThumb(uuid, pages.output[i].thumb, i) );
             }
 
-            // Display the first page.
-            let dispPages_frag = document.createDocumentFragment();
-            if     (pages.output[0].svg)  { dispPages_frag.append( createPage(uuid, pages.output[0].svg  , "svg")   ); }
-            else if(pages.output[0].thumb){ dispPages_frag.append( createPage(uuid, pages.output[0].thumb, "thumb") ); }
-            else{
-                console.log("ERROR: This page does not appear to be in the pages list."); 
-            }
-
             // Clear the thumbs and the displayed pages.
             this.DOM['thumbs'].innerHTML = "";
             this.DOM['dispPages'].innerHTML = "";
 
             // Add the frag for the thumbs.
             this.DOM['thumbs'].append(thumbs_frag);
-            
+
+            // Display the first page.
+            let dispPages_frag = document.createDocumentFragment();
+            if     (pages.output[0].svg)  { dispPages_frag.append( updatePage(uuid, 0  , "svg")   ); }
+            else if(pages.output[0].thumb){ dispPages_frag.append( updatePage(uuid, 0, "thumb") ); }
+            else{
+                console.log("ERROR: This page does not appear to be in the pages list."); 
+            }
+
             // Add the frag for the first page.
             this.DOM['dispPages'].append(dispPages_frag);
 
@@ -830,8 +850,8 @@ var app = {
                 this.DOM[key] = document.getElementById(this.DOM[key]);
             }
             
-            this.showCollection("");
-            // this.showCollection("9bc9f1d7-eec4-46ee-9cda-0ac50ffdb7a2");
+            // this.showCollection("");
+            this.showCollection("9bc9f1d7-eec4-46ee-9cda-0ac50ffdb7a2");
 
             // ADD EVENT LISTENERS.
 

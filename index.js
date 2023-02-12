@@ -64,12 +64,24 @@ var rm_fs = {
                     
                             // Handle "files".
                             if (type=="files" && stats.isFile() && file.lastIndexOf(ext) != -1) {
-                                fetchedFiles.push({ filepath });
+                                fetchedFiles.push({ 
+                                    filepath:filepath, 
+                                    mtimeMs: stats.mtimeMs, 
+                                    // mtime: stats.mtime, 
+                                    // mtimeDate: new Date(stats.mtime).toString(), 
+                                    ext: ext 
+                                });
                             }
                             
                             // Handle "dirs".
                             if (type=="dirs" && stats.isDirectory() && file.lastIndexOf(ext) != -1) {
-                                fetchedFiles.push({ filepath });
+                                fetchedFiles.push({ 
+                                    filepath:filepath, 
+                                    mtimeMs: stats.mtimeMs, 
+                                    // mtime: stats.mtime, 
+                                    // mtimeDate: new Date(stats.mtime).toString(), 
+                                    ext: ext 
+                                });
                             }
                         } 
                         catch (err) {
@@ -659,61 +671,93 @@ var obj = {
             // output-page0001.svg
             // output-page0002.svg
             // output-page0003.svg
-            // output-page0004.svg
-            // output-page0005.svg
-            // output-page0006.svg
-            // output-page0007.svg
-            // output-page0008.svg
-            // output-page0009.svg
-            // output-page0010.svg
-            // output-page0011.svg
-            // output-page0012.svg
         // There should be a 1-1 on the number of svg files and pages. If not then a new sync/process is required.
+        // If a page is removed then it won't be displayed to the client even though an .svg for it still may exist.
+        // The rm_fs pages array determines what pages are in a document.
 
         let basePath_svgs   = `deviceData/pdf/${uuid}/svg`;
         let basePath_thumbs = `deviceData/queryData/meta/thumbnails/${uuid}.thumbnails`;
 
         // SVG files are numbered but may still need to be sorted.
         let files_svgs   = await rm_fs.getItemsInDir(`${basePath_svgs}`  , "files", ".svg").catch(function(e) { throw e; });
-        files_svgs = files_svgs.map(d=>path.basename(d.filepath));
-        files_svgs.sort();
+        files_svgs.forEach((d)=>{ d.filepath = path.basename(d.filepath); });
+
+        // Sort each page based on filepath alphabetically.
+        files_svgs.sort(function(a, b){
+            // Convert to lowercase (Might not be needed.)
+            let keya = a.filepath.toLowerCase();
+            let keyb = b.filepath.toLowerCase();
+            
+            // Sort ascending.
+            if (keya < keyb) { return -1; }
+            if (keya > keyb) { return  1; }
+            return 0; 
+        });
 
         // Thumbs do not need to be sorted.
         let files_thumbs = await rm_fs.getItemsInDir(`${basePath_thumbs}`, "files", ".jpg").catch(function(e) { throw e; });
-        files_thumbs = files_thumbs.map(d=>path.basename(d.filepath));
-
+        files_thumbs.forEach((d)=>{ d.filepath = path.basename(d.filepath); });
+        
         // This will determine the sort order of the pages. 
         let metaPages = this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages;
 
         let output = [];
         missing = [];
         for(let i=0; i<metaPages.length; i+=1){
-            let thumb = files_thumbs.find(d=>d.split(".")[0] == metaPages[i]);
+            // Try to find the thumbnail file that matches this page id.
+            let thumb = files_thumbs.find(d=>{ return d.filepath.split(".")[0] == metaPages[i]; });
 
-            // If the thumb does not exist then do not include this file.
-            if(!thumb){ 
-                missing.push(metaPages[i]);
-                console.log("skipping"); 
-                continue; 
+            // The svg files are expected to be in order (sorted).
+            let svg = files_svgs[i];
+
+            // Determine which is newer: The .svg file or the .jpg thumbnail file.
+            let newer = "";
+
+            // Using !thumb early as to "short-circuit" the rest which could throw an error.
+            try{
+                // If you have both the svg and the thumb...
+                if(thumb && svg){
+                    if(svg.mtimeMs > thumb.mtimeMs){ newer = "svg"; }
+                    else{ newer = "thumb"; }
+                }
+
+                // If you have the thumb but not the svg...
+                else if(thumb && !svg){ newer = "thumb"; }
+
+                // If you have the svg but not the thumb...
+                else if(!thumb && svg){ newer = "svg"; }
+
+                // If you have neither the thumb or the svg...
+                else{ newer = ""; }
+            }
+            catch(e){
+                console.log(e);
+                console.log("thumb:", thumb);
+                console.log("svg  :", svg);
             }
 
-            // let svg   = files_svgs.find(d=>d.split(".")[0] == metaPages[i]);
-            let svg   = files_svgs[i];
+            // If the thumb was not found add this page id to the missing list.
+            if(!thumb){ 
+                missing.push(metaPages[i]);
+            }
+
+            // Add to the output.
             output.push({
-                thumb  : thumb || "",
-                svg    : svg   || "",
+                thumb  : thumb ? thumb.filepath : "",
+                svg    : svg ? svg.filepath : "",
                 pageId : metaPages[i],
-                meta: this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages
+                newer  : newer,
+                // meta: this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages
             });
         }
 
         return { 
-            files_svgs   : files_svgs,
-            files_thumbs : files_thumbs,
+            // files_svgs   : files_svgs,
+            // files_thumbs : files_thumbs,
 
-            metaPages       : metaPages,
-            basePath_svgs   : basePath_svgs,
-            basePath_thumbs : basePath_thumbs,
+            // metaPages       : metaPages,
+            // basePath_svgs   : basePath_svgs,
+            // basePath_thumbs : basePath_thumbs,
 
             output:output,
             missing:missing,

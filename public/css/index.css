@@ -192,8 +192,15 @@ div#d3_filelist {
     background-size: contain;
     width: 120px;
     height: 150px;
-    border: 1px solid black;
+    border: 2px solid black;
     margin: 5px;
+}
+.openedDoc_thumb:hover{
+	border: 2px solid crimson;
+}
+.openedDoc_thumb.active{
+	border: 2px solid red;
+	background-color: red;
 }
 
 #openedDoc_thumbs {
