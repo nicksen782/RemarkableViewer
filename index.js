@@ -773,7 +773,7 @@ var obj = {
             let thumb = files_thumbs.find(d=>{ return d.filepath.split(".")[0] == metaPages[i]; });
             
             // Try to find the svg file that matches this page id.
-            let svg = files_svgs[i].find(d=>{ return d.filepath.split(".")[0] == metaPages[i]; });;
+            let svg = files_svgs.find(d=>{ return d.filepath.split(".")[0] == metaPages[i]; });;
 
             // Determine which is newer: The .svg file or the .jpg thumbnail file.
             let newer = "";
