@@ -306,14 +306,14 @@ var app = {
 
                 // End at root?
                 if(obj.parent == ""){
-                    console.log("End at ''");
+                    // console.log("End at ''");
                     results.visibleNames.unshift("My files");
                     results.uuids.unshift("");
                     break;
                 }
                 // End at trash?
                 else if(obj.parent == "trash"){
-                    console.log("End at 'trash'");
+                    // console.log("End at 'trash'");
                     results.visibleNames.unshift("trash");
                     results.uuids.unshift("trash");
                     break;
@@ -420,6 +420,14 @@ var app = {
         await this.debug2View.init();
         await this.debug3View.init();
         await this.debug4View.init();
+
+        // Global event for keydown.
+        document.body.onkeydown = (e)=>{ 
+            // For debug4View: 
+            if(app.nav.DOM.debug4.view.classList.contains("active")){
+                app.debug4View.goToAdjacentPage(e.key);
+            }
+        }
     },
 
     debug2View: {
@@ -498,7 +506,7 @@ var app = {
             }
         },
         display_needed_changes: async function(data=null){
-            console.log("Running real function. data:", data ? "provided" : "request");
+            // console.log("Running real function. data:", data ? "provided" : "request");
 
             // Data can either be passed to or requested from this program. Was data specified?
             if(!data){
@@ -509,7 +517,7 @@ var app = {
                 data = await net.send(`getNeededChanges`, dataOptions, false);
             }
 
-            console.log("Data:", data);
+            // console.log("Data:", data);
 
             let frag = document.createDocumentFragment();
             let totalTimeEstimate = 0;
@@ -549,10 +557,10 @@ var app = {
             this.DOM['needed_changes'].innerHTML = "";
             this.DOM['needed_changes'].append(frag);
 
-            console.log(`totalTimeEstimate: There are ${data.length} records to process.`);
-            console.log(`totalTimeEstimate: ${(totalTimeEstimate).toFixed(2)} seconds`);
-            console.log(`totalTimeEstimate: ${(totalTimeEstimate/60).toFixed(2)} minutes`);
-            console.log(`totalTimeEstimate: ${((totalTimeEstimate/60)/60).toFixed(2)} hours`);
+            // console.log(`totalTimeEstimate: There are ${data.length} records to process.`);
+            // console.log(`totalTimeEstimate: ${(totalTimeEstimate).toFixed(2)} seconds`);
+            // console.log(`totalTimeEstimate: ${(totalTimeEstimate/60).toFixed(2)} minutes`);
+            // console.log(`totalTimeEstimate: ${((totalTimeEstimate/60)/60).toFixed(2)} hours`);
         },
 
         history:[],
@@ -695,125 +703,21 @@ var app = {
         // Holds the DOM for elements within this view.
         DOM: {
             // Action buttons.
-            // 'display_needed_changes' : 'display_needed_changes',
             'filelistDiv' : 'd3_filelist',
-            'thumbs'      : 'openedDoc_thumbs',
-            'dispPages'   : 'openedDoc_dispPages',
         },
 
         showDocument: async function(uuid){
-            console.log("showDocument:", uuid);
-            let pages = await app.getAvailablePages(uuid);
-            console.log("showDocument: pages:", pages);
-
-            // Create a thumb image using the device's .jpg thumb or this program's .png thumb. Whichever is newer.
-            let createThumb = (uuid, thumbFile, pageNum)=>{
-                let div = document.createElement("div");
-                div.classList.add("openedDoc_thumb");
-                
-                // Do not try to load the thumbnail if the pageId is in the pages.missing array.
-                let pageId = pages.output[pageNum].pageId;
-                let isMissing = pages.missing.find(d=>d==pageId);
-                if(!isMissing){
-                    // Use the svgThumb png file if it is newer.
-                    if(pages.output[pageNum].newerThumb == "svgThumb"){
-                        div.style['background-image'] = `url("deviceSvg/${uuid}/svgThumbs/${pages.output[pageNum].svgThumb}?")`; 
-                    }
-                    // The .jpg thumb is newer.
-                    else{
-                        div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${thumbFile}?")`;
-                    }
-                }
-                else{
-                    if(pages.output[pageNum].newerThumb == "svgThumb"){
-                        div.style['background-image'] = `url("deviceSvg/${uuid}/svgThumbs/${pages.output[pageNum].svgThumb}?")`; 
-                    }
-                    else{
-                        // console.log(`The thumb is missing for "${pageId}"`);
-                    }
-                }
-
-                div.title = `Page: ${pageNum+1}\nPageId: ${pages.output[pageNum].pageId}`;
-                div.onclick = ()=>{ 
-                    if(pages.output[pageNum].svg){ updatePage(uuid, pageNum, "svg"); }
-                    else if(pages.output[pageNum].thumb){ updatePage(uuid, pageNum, "thumb"); }
-                    else{
-                        console.log("ERROR: This page does not appear to be in the pages list."); 
-                    }
-                };
-                div.setAttribute("index", pageNum);
-                
-                let div2 = document.createElement("div");
-                div2.innerText = `Page: ${pageNum+1}`;
-                div.append(div2);
-
-                return div;
-            };
-            // Create a page image using the device's .jpg thumb or this program's .svg. Whichever is newer.
-            let updatePage = (uuid, pageNum, type)=>{
-                let div = document.createElement("div");
-                div.classList.add("openedDoc_page");
-
-                let newer = pages.output[pageNum].newer;
-                if(newer == "svg"){
-                    div.style['background-image'] = `url("deviceSvg/${uuid}/svg/${pages.output[pageNum].svg}?")`; 
-                }
-                else if(newer == "thumb"){
-                    div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${pages.output[pageNum].thumb}?")`; 
-                }
-                else{
-                    // Missing file.
-                    console.log(`The page files (both) are missing for: "${pages.output[pageNum].pageId}" newer: ${newer}`, pages.output[pageNum]);
-                }
-
-                // if     (type == "svg")  { div.style['background-image'] = `url("deviceSvg/${uuid}/svg/${pages.output[pageNum].svg}?")`; }
-                // else if(type == "thumb"){ div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${pages.output[pageNum].thumb}?")`; }
-
-                let thumbDivs = document.querySelectorAll(".openedDoc_thumb");
-                let thisThumbDiv;
-                thumbDivs.forEach(d=>{ 
-                    d.classList.remove("active"); 
-                    if(d.getAttribute("index") == pageNum){
-                        thisThumbDiv = d;
-                    }
-                });
-                thisThumbDiv.classList.add("active");
-
-                this.DOM['dispPages'].innerHTML = "";
-                this.DOM['dispPages'].append(div);
-            };
-
-            //
-            let thumbs_frag = document.createDocumentFragment();
-            for(let i=0; i<pages.output.length; i+=1){
-                thumbs_frag.append( createThumb(uuid, pages.output[i].thumb, i) );
-            }
-
-            // Clear the thumbs and the displayed pages.
-            this.DOM['thumbs'].innerHTML = "";
-            this.DOM['dispPages'].innerHTML = "";
-
-            // Add the frag for the thumbs.
-            this.DOM['thumbs'].append(thumbs_frag);
-
-            // Display the first page.
-            let dispPages_frag = document.createDocumentFragment();
-            if     (pages.output[0].svg)  { dispPages_frag.append( updatePage(uuid, 0  , "svg")   ); }
-            else if(pages.output[0].thumb){ dispPages_frag.append( updatePage(uuid, 0, "thumb") ); }
-            else{
-                console.log("ERROR: This page does not appear to be in the pages list."); 
-            }
-
-            // Add the frag for the first page.
-            this.DOM['dispPages'].append(dispPages_frag);
-
+            // Show the view.
             app.nav.showOne("debug4");
+
+            // Load the document.
+            app.debug4View.showDocument(uuid);
         },
         showCollection: function(parent){
             let entries = app.getEntriesInCollectionType(parent); 
             // console.log("hi from debug3View", entries.parentPathBreadcrumbs.map(d=>d));
-            console.log("hi from debug3View", entries);
-            console.log("hi from debug3View", entries.parentPathBreadcrumbs.fullVisiblePath);
+            // console.log("hi from debug3View", entries);
+            // console.log("hi from debug3View", entries.parentPathBreadcrumbs.fullVisiblePath);
 
             // {
             //     parentPathBreadcrumbs : app.getParentPathBreadcrumbs(parent),
@@ -929,7 +833,7 @@ var app = {
                 div_displayed.innerText = "DISPLAYED";
                 if(rec.synced){ div_sync.classList.add("synced"); }
                 else          { div_sync.classList.add("notSynced"); }
-                div_sync.title = `Synced To RM Cloud: ${rec.synced}, Updates to synced: ${rec.modified}`;
+                div_sync.title = `Synced To RM Cloud: ${rec.synced}\nUpdated: ${rec.modified}`;
 
                 div_thumb.style['background-image'] = `url("deviceThumbs/${rec.uuid}.thumbnails/${rec.pages[0]}.jpg")`;
                 
@@ -986,9 +890,162 @@ var app = {
         // Holds the DOM for elements within this view.
         DOM: {
             // Action buttons.
-            // 'rsyncUpdate_and_detectAndRecordChanges' : 'rsyncUpdate_and_detectAndRecordChanges',
-            // 'display_needed_changes' : 'display_needed_changes',
-            // 'needed_changes'         : 'needed_changes',
+            'thumbs'      : 'openedDoc_thumbs',
+            'dispPages'   : 'openedDoc_dispPages',
+        },
+        pages: [],
+
+        // Create a thumb image using the device's .jpg thumb or this program's .png thumb. Whichever is newer.
+        createThumb: async function(uuid, thumbFile, pageNum){
+            let div = document.createElement("div");
+            div.classList.add("openedDoc_thumb");
+            
+            // Do not try to load the thumbnail if the pageId is in the pages.missing array.
+            let pageId = this.pages.output[pageNum].pageId;
+            let isMissing = this.pages.missing.find(d=>d==pageId);
+            if(!isMissing){
+                // Use the svgThumb png file if it is newer.
+                if(this.pages.output[pageNum].newerThumb == "svgThumb"){
+                    div.style['background-image'] = `url("deviceSvg/${uuid}/svgThumbs/${this.pages.output[pageNum].svgThumb}?")`; 
+                }
+                // The .jpg thumb is newer.
+                else{
+                    div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${thumbFile}?")`;
+                }
+            }
+            else{
+                if(this.pages.output[pageNum].newerThumb == "svgThumb"){
+                    div.style['background-image'] = `url("deviceSvg/${uuid}/svgThumbs/${this.pages.output[pageNum].svgThumb}?")`; 
+                }
+                else{
+                    // console.log(`The thumb is missing for "${pageId}"`);
+                }
+            }
+
+            div.title = `Page: ${pageNum+1}\nPageId: ${this.pages.output[pageNum].pageId}\nTHUMB: ${this.pages.output[pageNum].newerThumb}`;
+            div.onclick = async ()=>{ 
+                if(this.pages.output[pageNum].svg)  { await this.updatePage(uuid, pageNum, "svg"); }
+                else if(this.pages.output[pageNum].thumb){ await this.updatePage(uuid, pageNum, "thumb"); }
+                else{
+                    console.log("ERROR: This page does not appear to be in the pages list."); 
+                }
+            };
+            div.setAttribute("index", pageNum);
+            
+            let div2 = document.createElement("div");
+            div2.innerText = `Page: ${pageNum+1}`;
+            div.append(div2);
+
+            return div;
+        },
+        
+        // Create a page image using the device's .jpg thumb or this program's .svg. Whichever is newer.
+        updatePage: async function(uuid, pageNum){
+            let div = document.createElement("div");
+            div.classList.add("openedDoc_page");
+
+            let newer = this.pages.output[pageNum].newer;
+            if(newer == "svg"){
+                div.style['background-image'] = `url("deviceSvg/${uuid}/svg/${this.pages.output[pageNum].svg}?")`; 
+            }
+            else if(newer == "thumb"){
+                div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${this.pages.output[pageNum].thumb}?")`; 
+            }
+            else{
+                // Missing file.
+                console.log(`The page files (both) are missing for: "${this.pages.output[pageNum].pageId}" newer: ${newer}`, this.pages.output[pageNum]);
+            }
+
+            let thumbDivs = document.querySelectorAll(".openedDoc_thumb");
+            let thisThumbDiv;
+            thumbDivs.forEach(d=>{ 
+                d.classList.remove("active"); 
+                if(d.getAttribute("index") == pageNum){
+                    thisThumbDiv = d;
+                }
+            });
+            thisThumbDiv.classList.add("active");
+
+            this.DOM['dispPages'].innerHTML = "";
+            this.DOM['dispPages'].append(div);
+        },
+        
+        //
+        showDocument: async function(uuid){
+            this.pages = await app.getAvailablePages(uuid);
+            console.log(`showDocument: uuid: ${uuid}, pages:`, this.pages);
+
+            //
+            let thumbs_frag = document.createDocumentFragment();
+            for(let i=0; i<this.pages.output.length; i+=1){
+                thumbs_frag.append( await this.createThumb(uuid, this.pages.output[i].thumb, i) );
+            }
+
+            // Clear the thumbs and the displayed pages.
+            this.DOM['thumbs'].innerHTML = "";
+            this.DOM['dispPages'].innerHTML = "";
+
+            // Add the frag for the thumbs.
+            this.DOM['thumbs'].append(thumbs_frag);
+
+            // Display the first page.
+            let dispPages_frag = document.createDocumentFragment();
+            if     (this.pages.output[0].svg || this.pages.output[0].thumb)  { dispPages_frag.append( this.updatePage(uuid, 0)   ); }
+            // if     (this.pages.output[0].svg)  { dispPages_frag.append( this.updatePage(uuid, 0  , "svg")   ); }
+            // else if(this.pages.output[0].thumb){ dispPages_frag.append( this.updatePage(uuid, 0, "thumb") ); }
+            else{
+                console.log("ERROR: This page does not appear to be in the pages list."); 
+            }
+
+            // Add the frag for the first page.
+            this.DOM['dispPages'].append(dispPages_frag);
+            
+            // Show the view.
+            app.nav.showOne("debug4");
+        },
+        
+        //
+        goToAdjacentPage: function(key){
+            // Which page is displayed? Look to the thumbnails. 
+
+            // Get all the thumbnail divs.
+            let thumbs = document.querySelectorAll(".openedDoc_thumb");
+
+            // Get the total number of thumbnail divs. 
+            let numThumbs = thumbs.length;
+
+            // Determine the active thumbnail in the list of thumbnails. 
+            let activeThumb = false;
+            let activeThumbIndex = false;
+            for(let i=0; i<thumbs.length; i+=1){
+                // Is this thumbnail active? 
+                if(thumbs[i].classList.contains("active")){
+                    // Set the active thumb and the activeThumbIndex and break;
+                    activeThumb = thumbs[i];
+                    activeThumbIndex = i;
+                    break;
+                }
+            }
+
+            // Did we find the activeThumb?
+            if(activeThumb){
+                // Set the scrolling options. 
+                let options = {behavior: "auto", block: "nearest", inline: "center"};
+
+                // Load the next page and scroll the thumbnail view. (Do bounds-checking also.)
+                if(["ArrowLeft", "ArrowRight"].indexOf(key) != -1){
+                    if     (key == "ArrowLeft" && activeThumbIndex != 0){
+                        activeThumbIndex -= 1;
+                        thumbs[activeThumbIndex].click();
+                        thumbs[activeThumbIndex].scrollIntoView(options);
+                    }
+                    else if(key == "ArrowRight" && activeThumbIndex != numThumbs-1){
+                        activeThumbIndex += 1;
+                        thumbs[activeThumbIndex].click();
+                        thumbs[activeThumbIndex].scrollIntoView(options);
+                    }
+                }
+            }
         },
 
         init: async function(){
@@ -1000,6 +1057,7 @@ var app = {
                 // Cache the DOM.
                 this.DOM[key] = document.getElementById(this.DOM[key]);
             }
+
         },
     },
 };

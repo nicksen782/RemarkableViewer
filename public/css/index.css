@@ -1,4 +1,4 @@
-/* ********** */
+ /* ********** */
 /* NAVIGATION */
 /* ********** */
 #navbar {
@@ -82,34 +82,45 @@ div#d3_filelist {
     background-color: gray;
 }
 .DocumentType_file_info{
-    /* position: absolute; */
     vertical-align: top;
     height: 2em;
-    max-height: 2em;
-    line-height: 2em;
-    /* display: inline-block; */
-    /* right: 0px; */
     font-size: 85%;
     background-color: gainsboro;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    flex-wrap: nowrap;
 }
 .DocumentType_file_pages{
     height: 2em;
-    padding: 2px;
-    width: 180px;
-    position: relative;
+    line-height: 2em;
     vertical-align: top;
-    display: inline-block;
 }
 .DocumentType_file_displayed{
-    /* visibility: hidden; */
-    vertical-align: top;
-    display: inline-block;
+    background-color:#c9c9c9;
+    border-radius:4px;
+    border:1px solid black;
+    padding: 2px;
+    text-align: center;
+    visibility: hidden;
+}
+.DocumentType_file_displayed.active{
+	visibility:visible;
 }
 .DocumentType_file_sync{
-    background-image: url(../images/cloud_not_synced.png);
-    background-size: contain;
+    background-size: 100% 100%;
     background-repeat: no-repeat;
-    display: inline-block;
+    height: 2em;
+    line-height: 2em;
+    width: 2em;
+}
+.DocumentType_file_sync.synced{
+    background-image: url(../images/cloud_synced.png);
+}
+.DocumentType_file_sync.notSynced{
+    background-image: url(../images/cloud_not_synced.png);
 }
 
 /* CollectionType_file */
