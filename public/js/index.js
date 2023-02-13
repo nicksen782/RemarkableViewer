@@ -610,9 +610,7 @@ var app = {
             let pages = await app.getAvailablePages(uuid);
             console.log("showDocument: pages:", pages);
 
-            // basePath_svgs:"deviceData/pdf/b9f01279-3a76-4a4c-a319-8b9e8673c92e/svg"
-            // basePath_thumbs:"deviceData/queryData/meta/thumbnails/b9f01279-3a76-4a4c-a319-8b9e8673c92e.thumbnails"
-
+            // Create a thumb image using the device's .jpg thumb or this program's .png thumb. Whichever is newer.
             let createThumb = (uuid, thumbFile, pageNum)=>{
                 let div = document.createElement("div");
                 div.classList.add("openedDoc_thumb");
@@ -621,10 +619,22 @@ var app = {
                 let pageId = pages.output[pageNum].pageId;
                 let isMissing = pages.missing.find(d=>d==pageId);
                 if(!isMissing){
-                    div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${thumbFile}?")`;
+                    // Use the svgThumb png file if it is newer.
+                    if(pages.output[pageNum].newerThumb == "svgThumb"){
+                        div.style['background-image'] = `url("deviceSvg/${uuid}/svgThumbs/${pages.output[pageNum].svgThumb}?")`; 
+                    }
+                    // The .jpg thumb is newer.
+                    else{
+                        div.style['background-image'] = `url("deviceThumbs/${uuid}.thumbnails/${thumbFile}?")`;
+                    }
                 }
                 else{
-                    // console.log(`The thumb is missing for "${pageId}"`);
+                    if(pages.output[pageNum].newerThumb == "svgThumb"){
+                        div.style['background-image'] = `url("deviceSvg/${uuid}/svgThumbs/${pages.output[pageNum].svgThumb}?")`; 
+                    }
+                    else{
+                        // console.log(`The thumb is missing for "${pageId}"`);
+                    }
                 }
 
                 div.title = `Page: ${pageNum+1}\nPageId: ${pages.output[pageNum].pageId}`;
@@ -643,6 +653,7 @@ var app = {
 
                 return div;
             };
+            // Create a page image using the device's .jpg thumb or this program's .svg. Whichever is newer.
             let updatePage = (uuid, pageNum, type)=>{
                 let div = document.createElement("div");
                 div.classList.add("openedDoc_page");
@@ -676,6 +687,7 @@ var app = {
                 this.DOM['dispPages'].append(div);
             };
 
+            //
             let thumbs_frag = document.createDocumentFragment();
             for(let i=0; i<pages.output.length; i+=1){
                 thumbs_frag.append( createThumb(uuid, pages.output[i].thumb, i) );
@@ -817,7 +829,11 @@ var app = {
                 div_title.innerText = rec.visibleName;
                 div_title.title = rec.visibleName;
                 div_pages.innerText = `Pages: ${rec.pageCount}`;
+
                 div_thumb.style['background-image'] = `url("deviceThumbs/${rec.uuid}.thumbnails/${rec.pages[0]}.jpg")`;
+                
+                // Can use the .png from svgThumbs once it can be determined which is the newer file. It works now but I want whichever is the latest one for display.
+                // div_thumb.style['background-image'] = `url("deviceSvg/${rec.uuid}/svgThumbs/${rec.pages[0]}.png")`;
 
                 // Return.
                 return div_outer;

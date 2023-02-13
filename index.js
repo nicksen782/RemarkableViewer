@@ -600,11 +600,13 @@ var obj = {
         let results1;
         let results2;
         let results3;
+        let results4;
         
         // If the dir(s) does not exist then create it.
         let basePath = `deviceData/pdf/${uuid}`;
-        if( !fs.existsSync(`${basePath}`) )    { fs.mkdirSync(`${basePath}`); }
-        if( !fs.existsSync(`${basePath}/svg`) ){ fs.mkdirSync(`${basePath}/svg`); }
+        if( !fs.existsSync(`${basePath}`) )          { fs.mkdirSync(`${basePath}`); }
+        if( !fs.existsSync(`${basePath}/svg`) )      { fs.mkdirSync(`${basePath}/svg`); }
+        if( !fs.existsSync(`${basePath}/svgThumbs`) ){ fs.mkdirSync(`${basePath}/svgThumbs`); }
 
         // Find the record in the rm_fs. Fail if not found.
         let recData = this.rm_fs.DocumentType.find(d=>uuid==d.uuid); 
@@ -626,6 +628,7 @@ var obj = {
         let cmd0 = `curl -s --compressed --insecure -o "${basePath}/${filename}.pdf" http://10.11.99.1/download/${uuid}/pdf`;
         let cmd1 = `pdf2svg "${basePath}/${filename}.pdf" "${basePath}/svg/output-page%04d.svg" all`;
         let cmd2 = `node_modules/svgo/bin/svgo --config "deviceData/svgo.config.js" --recursive -f ${basePath}/svg/`;
+        let cmd3 = `bash ./deviceData/scripts/createThumbs.sh png 180 210 ${uuid}`;
 
         // Remove existing pdf file(s). (If document is renamed this will prevent there being more than 1 pdf in the folder.)
         let files_pdf   = await rm_fs.getItemsInDir(`${basePath}`  , "files", ".pdf").catch(function(e) { throw e; });
@@ -699,6 +702,10 @@ var obj = {
             fs.renameSync(files_svgs[i].filepath, newFullPathAndFilename);
         });
 
+        // Remove the .png files from the svgThumbs folder.
+        let files_svgsThumbs   = await rm_fs.getItemsInDir(`${basePath}/svgThumbs`  , "files", ".png").catch(function(e) { throw e; });
+        files_svgsThumbs.forEach((d)=>{ fs.unlinkSync( d.filepath ); });
+
         // Optimize the .svgs in the svg folder.
         let ts3 = performance.now();
         try{ 
@@ -709,6 +716,16 @@ var obj = {
         catch(e){ console.log("ERROR: partc 2", e); throw e; }
         ts3 = (performance.now() - ts3)/1000;
         console.log(`  DONE: SVG OPTIMIZE           : ${(ts3).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+
+        // Create thumbnails based on the .svg files.
+        let ts4 = performance.now();
+        try{ 
+            results3 = await this.runCommand_exec_progress(cmd3, 0, false)
+            .catch(function(e) { console.log("ERROR: partd 1", results3); throw e; }); 
+        } 
+        catch(e){ console.log("ERROR: partd 2", e); throw e; }
+        ts4 = (performance.now() - ts4)/1000;
+        console.log(`  DONE: THUMBS                 : ${(ts3).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
 
         // Can now remove this entry from needsUpdate.json
         needsUpdate_file = needsUpdate_file.filter(d=>d.uuid != uuid);
@@ -750,10 +767,12 @@ var obj = {
         let basePath        = `deviceData/pdf/${uuid}`;
         let basePath_svgs   = `deviceData/pdf/${uuid}/svg`;
         let basePath_thumbs = `deviceData/queryData/meta/thumbnails/${uuid}.thumbnails`;
+        let basePath_svgThumbs = `deviceData/pdf/${uuid}/svgThumbs`;;
         
         // If the dir(s) does not exist then create it.
-        if( !fs.existsSync(`${basePath}`) )     { fs.mkdirSync(`${basePath}`); }
-        if( !fs.existsSync(`${basePath_svgs}`) ){ fs.mkdirSync(`${basePath_svgs}`); }
+        if( !fs.existsSync(`${basePath}`) )          { fs.mkdirSync(`${basePath}`); }
+        if( !fs.existsSync(`${basePath_svgs}`) )     { fs.mkdirSync(`${basePath_svgs}`); }
+        if( !fs.existsSync(`${basePath_svgThumbs}`) ){ fs.mkdirSync(`${basePath_svgThumbs}`); }
 
         // Get the list of .svg files from the svg folder.
         let files_svgs   = await rm_fs.getItemsInDir(`${basePath_svgs}`  , "files", ".svg").catch(function(e) { throw e; });
@@ -762,6 +781,10 @@ var obj = {
         // Get the thumb .jpg files.
         let files_thumbs = await rm_fs.getItemsInDir(`${basePath_thumbs}`, "files", ".jpg").catch(function(e) { throw e; });
         files_thumbs.forEach((d)=>{ d.filepath = path.basename(d.filepath); });
+
+        // Get the svgThumbs files. 
+        let files_svgsThumbs   = await rm_fs.getItemsInDir(`${basePath_svgThumbs}`  , "files", ".png").catch(function(e) { throw e; });
+        files_svgsThumbs.forEach((d)=>{ d.filepath = path.basename(d.filepath); });
         
         // This will determine the output order of the pages. 
         let metaPages = this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages;
@@ -773,12 +796,13 @@ var obj = {
             let thumb = files_thumbs.find(d=>{ return d.filepath.split(".")[0] == metaPages[i]; });
             
             // Try to find the svg file that matches this page id.
-            let svg = files_svgs.find(d=>{ return d.filepath.split(".")[0] == metaPages[i]; });;
+            let svg = files_svgs.find(d=>{ return d.filepath.split(".")[0] == metaPages[i]; });
+
+            // Try to find the svgThumb file that matches this page id.
+            let svgThumb = files_svgsThumbs.find(d=>{ return d.filepath.split(".")[0] == metaPages[i]; });
 
             // Determine which is newer: The .svg file or the .jpg thumbnail file.
             let newer = "";
-
-            // Using !thumb early as to "short-circuit" the rest which could throw an error.
             try{
                 // If you have both the svg and the thumb...
                 if(thumb && svg){
@@ -799,10 +823,39 @@ var obj = {
                 // Display the error.
                 console.log(`catch in getAvailablePages while trying to determine the newer file:`, e, )
                 console.log(`thumb: ${thumb}`);
-                console.log(`svg: ${svg}`);
+                console.log(`svg  : ${svg}`);
 
                 // Set the svg and the thumb as objects with an empty string for filepath.
                 svg   = { filepath: "" };
+                thumb = { filepath: "" };
+            }
+
+            // Now determine which thumb is newer: The thumb from the device or the svgThumb.
+            let newerThumb = "";
+            try{
+                // If you have both the svgThumb and the thumb...
+                if(thumb && svgThumb){
+                    if(svgThumb.mtimeMs > thumb.mtimeMs){ newerThumb = "svgThumb"; }
+                    else{ newerThumb = "thumb"; }
+                }
+
+                // If you have the thumb but not the svgThumb...
+                else if(thumb && !svgThumb){ newerThumb = "thumb"; }
+
+                // If you have the svgThumb but not the thumb...
+                else if(!thumb && svgThumb){ newerThumb = "svgThumb"; }
+
+                // If you have neither the thumb or the svgThumb...
+                else{ newerThumb = ""; }
+            }
+            catch(e){
+                // Display the error.
+                console.log(`catch in getAvailablePages while trying to determine the newer thumb file:`, e, )
+                console.log(`thumb   : ${thumb}`);
+                console.log(`svgThumb: ${svg}`);
+
+                // Set the svgThumb and the thumb as objects with an empty string for filepath.
+                svgThumb = { filepath: "" };
                 thumb = { filepath: "" };
             }
 
@@ -813,10 +866,12 @@ var obj = {
 
             // Add to the output.
             output.push({
-                thumb  : thumb ? thumb.filepath : "",
-                svg    : svg ? svg.filepath : "",
-                pageId : metaPages[i],
-                newer  : newer,
+                thumb     : thumb ? thumb.filepath : "",
+                svg       : svg ? svg.filepath : "",
+                svgThumb  : svgThumb ? svgThumb.filepath : "",
+                pageId    : metaPages[i],
+                newer     : newer,
+                newerThumb: newerThumb,
                 // meta: this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages
             });
         }
@@ -866,9 +921,9 @@ var obj = {
 
         app.post('/getAvailablePages', express.json(), async (req, res) => {
             let ts_s = performance.now();
-            console.log("STARTED: getAvailablePages");
+            // console.log("STARTED: getAvailablePages");
             let resp = await this.getAvailablePages(req.body.uuid);
-            console.log(`FINISH : getAvailablePages: ${(performance.now() - ts_s).toFixed(3)} ms`);
+            // console.log(`FINISH : getAvailablePages: ${(performance.now() - ts_s).toFixed(3)} ms`);
             console.log("");
             res.json( resp ) ;
         });

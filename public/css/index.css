@@ -63,6 +63,7 @@ div#d3_filelist {
     height: 233px;
     background-size: 100% 100%;
     background-repeat: no-repeat;
+    background-color: whitesmoke;
     vertical-align: top;
     margin: auto;
     margin-bottom: 4px;
@@ -194,13 +195,14 @@ div#d3_filelist {
     height: 150px;
     border: 2px solid black;
     margin: 5px;
+    background-color: whitesmoke;
 }
 .openedDoc_thumb:hover{
 	border: 2px solid crimson;
 }
 .openedDoc_thumb.active{
 	border: 2px solid red;
-	background-color: red;
+	background-color: antiquewhite;
 }
 
 #openedDoc_thumbs {
