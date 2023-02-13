@@ -145,8 +145,8 @@ var obj = {
                     }); 
                 }
                 else{
-                    console.log(`  child process exited with code ${code}`);
-                    console.log(`  cmd: ${cmd}`);
+                    // console.log(`  child process exited with code ${code}`);
+                    // console.log(`  cmd: ${cmd}`);
                     cmd_rej({
                         "cmd": cmd,
                         "stdOutHist": stdOutHist,
@@ -227,26 +227,40 @@ var obj = {
     // Runs rsyncUpdate and detectAndRecordChanges in sequence.
     rsyncUpdate_and_detectAndRecordChanges: async function(){
         let res1, res2;
+        
         // Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
         try{ res1 = await this.rsyncUpdate(); }
-        catch(e){ console.log("ERROR running rsyncUpdate", e); throw e; }
-        console.log(`  RSYNC:`);
-        console.log(`    UUIDs updated: ${res1.uuids_updated} of ${res1.uuids_total}`);
-        console.log(`    Total of fileType: DocumentType: ${res1.uuids_DocumentType}, CollectionType: ${res1.uuids_CollectionType}`);
-        console.log(`    Total of doc formats: V6: ${res1.v6_docs}, V5: ${res1.v5_docs}`);
-
-        // Detect changes since timestamp and add/update needsUpdate.json.
-        try{ res2 = await this.detectAndRecordChanges(); }
-        catch(e){ console.log("ERROR running detectAndRecordChanges", e); throw e; }
-        console.log(`  UPDATE of needsUpdate.json:`);
-        console.log(`    Updates: new: ${res2.count_new}, updated: ${res2.count_updated}, total: ${res2.count_all}`);
-        console.log(`    needsUpdate.json updated: ${res2.needsUpdateFileUpdated ? "YES" : "NO"}`);
-        if(res2.needsUpdateFileUpdated){
-            console.log(`    Files updated:`)
-            console.log(`      ` + res2.updates.map(d=>{ return `[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}"` ; }).join("\n      ") )
+        catch(e){ 
+            console.log("ERROR running rsyncUpdate", e); 
+            res1 = { error: e };
+            res2 = { error: "Skipped: detectAndRecordChanges" };
         }
-        else{
-            console.log(`    No updates were needed.`)
+
+        if(!res1.error){
+            console.log(`  RSYNC:`);
+            console.log(`    UUIDs updated: ${res1.uuids_updated} of ${res1.uuids_total}`);
+            console.log(`    Total of fileType: DocumentType: ${res1.uuids_DocumentType}, CollectionType: ${res1.uuids_CollectionType}`);
+            console.log(`    Total of doc formats: V6: ${res1.v6_docs}, V5: ${res1.v5_docs}`);
+
+            // Detect changes since timestamp and add/update needsUpdate.json.
+            try{ res2 = await this.detectAndRecordChanges(); }
+            catch(e){ 
+                console.log("ERROR running detectAndRecordChanges", e); 
+                res2 = { error: e }; 
+            }
+
+            if(!res2.error){
+                console.log(`  UPDATE of needsUpdate.json:`);
+                console.log(`    Updates: new: ${res2.count_new}, updated: ${res2.count_updated}, total: ${res2.count_all}`);
+                console.log(`    needsUpdate.json updated: ${res2.needsUpdateFileUpdated ? "YES" : "NO"}`);
+                if(res2.needsUpdateFileUpdated){
+                    console.log(`    Files updated:`)
+                    console.log(`      ` + res2.updates.map(d=>{ return `[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}"` ; }).join("\n      ") )
+                }
+                else{
+                    console.log(`    No updates were needed.`)
+                }
+            }
         }
 
         // Return the outputs.
@@ -414,6 +428,7 @@ var obj = {
             "v5_docs"             : v5_docs.length,
             "v6_docs"             : v6_docs.length,
             "rm_fs"               : this.rm_fs ,
+            "error"               : false ,
         };
     },
 
@@ -561,11 +576,13 @@ var obj = {
 
         // Return data.
         return {
-            updates      : needsUpdate,
+            // updates      : needsUpdate,
+            updatesAll   : needsUpdate_file,
             count_updated: updatedUpdates,
             count_new    : newUpdates,
             count_all    : needsUpdate_file.length,
             needsUpdateFileUpdated : write_needsUpdate_file,
+            error : false,
         };
     },
 
@@ -725,7 +742,7 @@ var obj = {
         } 
         catch(e){ console.log("ERROR: partd 2", e); throw e; }
         ts4 = (performance.now() - ts4)/1000;
-        console.log(`  DONE: THUMBS                 : ${(ts3).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+        console.log(`  DONE: THUMBS                 : ${(ts4).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
 
         // Can now remove this entry from needsUpdate.json
         needsUpdate_file = needsUpdate_file.filter(d=>d.uuid != uuid);
@@ -741,9 +758,11 @@ var obj = {
             "fileType": recData.fileType,
             "pages"   : recData.pageCount,
             // "recData" : recData,
-            "t_pdf"   : ts1,
-            "t_toSvg" : ts2,
-            "t_svgo"  : ts3,
+            "t_TOTAL"     : ts1 + ts2 + ts3 + ts4,
+            "t_pdf"       : ts1,
+            "t_toSvg"     : ts2,
+            "t_svgo"      : ts3,
+            "t_svgThumbs" : ts4,
         };
     },
 

@@ -20,6 +20,15 @@
 # 1630865385 ./04dd4fbe-c530-4b65-8bbe-3d802acaebee
 # 1671314857 ./45ca7bf9-71b4-44ef-ae60-9278aade0a73
 
+# CONNECTION CHECK.
+SSHALIAS=remarkableusb
+STATUS=$(ssh -o BatchMode=yes -o ConnectTimeout=2 $SSHALIAS echo ok 2>&1)
+if [[ $STATUS != ok ]] ; then
+  echo "Could not connect to the device (SSH alias: '$SSHALIAS')."
+  echo "Please check connectivity and/or SSH config."
+  exit 1
+fi
+
 # Single line:
 # script='cd /home/root/.local/share/remarkable/xochitl && find . -type d | while read dir; do [ ! -e "$dir" ] && continue; [ ! -d "$dir" ] && continue; [[ "$(basename "$dir")" == *.* ]] && continue; echo $(stat -c "%Y" "$dir") "$dir"; done'
 
@@ -34,14 +43,5 @@ do \
  echo $(stat -c "%Y" "$dir") "$dir"; \
 done'
 
-# CONNECTION CHECK.
-SSHALIAS=remarkableusb
-STATUS=$(ssh -o BatchMode=yes -o ConnectTimeout=2 $SSHALIAS echo ok 2>&1)
-if [[ $STATUS != ok ]] ; then
-  echo "Could not connect to the device (SSH alias: '$SSHALIAS'). Please check connectivity and/or SSH config."
-  exit 1
-fi
-
 # Run the line against the device.
-ssh remarkableusb 'bash -s' <<< "$script"
-
+ssh $SSHALIAS 'bash -s' <<< "$script"

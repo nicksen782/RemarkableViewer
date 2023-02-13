@@ -431,26 +431,6 @@ var app = {
             'needed_changes'         : 'needed_changes',
         },
 
-        rsyncUpdate_and_detectAndRecordChanges: async function(){
-            // Create the options and body data.
-            let dataOptions = {
-                type:"json", method:"POST",
-                body: { },
-            };
-    
-            let data = await net.send(`rsyncUpdate_and_detectAndRecordChanges`, dataOptions, 300000);
-
-            // A new copy of rm_fs should have been included. Update the local copy.
-            app.rm_fs = data.rsync.rm_fs;
-            // console.log("app.rm_fs      :", app.rm_fs);
-            
-            // Update the active file nav.
-            let activeCollection = document.querySelector(".crumb.activeCollection");
-            if(activeCollection){ activeCollection.click(); }
-
-            console.log(data);
-        },
-
         run_fullDownloadAndProcessing: async function(uuid, visibleName){
             let dataOptions = { 
                 type:"json", method:"POST", 
@@ -462,6 +442,117 @@ var app = {
             let data = await net.send(`run_fullDownloadAndProcessing`, dataOptions, false);
             // console.log(data);
             return data;
+        },
+        rsyncUpdate_and_detectAndRecordChanges: async function(){
+            // Create the options and body data.
+            let dataOptions = {
+                type:"json", method:"POST",
+                body: { },
+            };
+    
+            let data = await net.send(`rsyncUpdate_and_detectAndRecordChanges`, dataOptions, 300000);
+
+            console.log(data);
+
+            // Detect errors.
+            if(data.rsync.error || data.updates.error){
+                let errorLines = [];
+
+                // Get the stdOut and stdErr lines. 
+                if(data.rsync.error.stdOutHist || data.rsync.error.stdErrHist){
+                    if(data.rsync.error.stdOutHist){
+                        errorLines.push(...data.rsync.error.stdOutHist.split("\n"));
+                    }
+                    if(data.rsync.error.stdErrHist){
+                        errorLines.push(...data.rsync.error.stdErrHist.split("\n"));
+                    }
+                }
+                else{
+                    errorLines.push(data.rsync.error);
+                }
+
+                // Filter out any blank lines. 
+                errorLines = errorLines.filter(d=>d.trim());
+
+                // Display the errors.
+                console.log("errorLines:", errorLines);
+            }
+            else{
+                // Update rm_fs and reload the current file nav view.
+                if(data.rsync.rm_fs){
+                    console.log("updating rm_fs");
+                    // Update the local rm_fs with the copy sent by the server.
+                    app.rm_fs = data.rsync.rm_fs;
+                    
+                    // Update the active file nav.
+                    console.log("updating current file view");
+                    let activeCollection = document.querySelector(".crumb.activeCollection");
+                    if(activeCollection){ activeCollection.click(); }
+                }
+
+                // If there are updates then display them.
+                if(data.updates.updates){
+                    console.log("Displaying needed updates", data.updates.updatesAll.length);
+                    this.display_needed_changes( data.updates.updatesAll );
+                }
+            }
+        },
+        display_needed_changes: async function(data=null){
+            console.log("Running real function. data:", data ? "provided" : "request");
+
+            // Data can either be passed to or requested from this program. Was data specified?
+            if(!data){
+                let dataOptions = {
+                    type:"json", method:"POST",
+                    body: {},
+                };
+                data = await net.send(`getNeededChanges`, dataOptions, false);
+            }
+
+            console.log("Data:", data);
+
+            let frag = document.createDocumentFragment();
+            let totalTimeEstimate = 0;
+            for(let i=0; i<data.length; i+=1){
+                let timeEstimate = data[i].pageCount * 1.8;
+                totalTimeEstimate += timeEstimate;
+                let pathOnly = app.getParentPath(data[i].uuid, "DocumentType");
+
+                // Create the containers and the sub containers.
+                let recDiv = document.createElement("div");
+                recDiv.classList.add("neededUpdateDiv");
+                recDiv.setAttribute("uuid", data[i].uuid);
+                recDiv.setAttribute("title", `NAME: ${data[i].visibleName}\nUUID: ${data[i].uuid}`);
+                recDiv.setAttribute("fileType", data[i].fileType);
+                let recDiv_l1 = document.createElement("div");
+                let recDiv_l2 = document.createElement("div");
+                let recDiv_l3 = document.createElement("div");
+                let recDiv_l4 = document.createElement("div");
+
+                recDiv_l1.innerText = `[${data[i].fileType.toUpperCase()}]`;
+                recDiv_l2.innerText = `NAME: ${data[i].visibleName}`;
+                recDiv_l3.innerText = `PATH: ${pathOnly}`;
+                recDiv_l4.innerText = `PAGES: ${data[i].pageCount} - Estimated Time: ${(timeEstimate).toFixed(2)} seconds`;
+                recDiv_l4.style = `border-bottom:5px solid black;`;
+
+                let convertButton = document.createElement("button");
+                convertButton.innerText = "Convert!";
+                convertButton.onclick = ()=>{
+                    this.convert(recDiv, data[i]);
+                };
+                recDiv_l3.append(convertButton);
+
+                recDiv.append(recDiv_l1, recDiv_l2, recDiv_l3, recDiv_l4);
+                frag.append(recDiv);
+            }
+
+            this.DOM['needed_changes'].innerHTML = "";
+            this.DOM['needed_changes'].append(frag);
+
+            console.log(`totalTimeEstimate: There are ${data.length} records to process.`);
+            console.log(`totalTimeEstimate: ${(totalTimeEstimate).toFixed(2)} seconds`);
+            console.log(`totalTimeEstimate: ${(totalTimeEstimate/60).toFixed(2)} minutes`);
+            console.log(`totalTimeEstimate: ${((totalTimeEstimate/60)/60).toFixed(2)} hours`);
         },
 
         history:[],
@@ -528,7 +619,12 @@ var app = {
             this.DOM['rsyncUpdate_and_detectAndRecordChanges'].addEventListener("click", ()=>{ this.rsyncUpdate_and_detectAndRecordChanges(); }, false);
 
             // Create the needed_changes table.
+            this.DOM['display_needed_changes'].addEventListener("click", ()=>this.display_needed_changes(null), false);
+
             this.DOM['display_needed_changes'].addEventListener("click", async () => {
+                console.log("Skipping");
+                return;
+
                 let dataOptions = {
                     type:"json", method:"POST",
                     body: {},
@@ -830,9 +926,15 @@ var app = {
                 div_title.title = rec.visibleName;
                 div_pages.innerText = `Pages: ${rec.pageCount}`;
 
+                div_displayed.innerText = "DISPLAYED";
+                if(rec.synced){ div_sync.classList.add("synced"); }
+                else          { div_sync.classList.add("notSynced"); }
+                div_sync.title = `Synced To RM Cloud: ${rec.synced}, Updates to synced: ${rec.modified}`;
+
                 div_thumb.style['background-image'] = `url("deviceThumbs/${rec.uuid}.thumbnails/${rec.pages[0]}.jpg")`;
                 
-                // Can use the .png from svgThumbs once it can be determined which is the newer file. It works now but I want whichever is the latest one for display.
+                // Can use the .png from svgThumbs once it can be determined which is the newer file. 
+                // It works now but I want whichever is the latest one for display.
                 // div_thumb.style['background-image'] = `url("deviceSvg/${rec.uuid}/svgThumbs/${rec.pages[0]}.png")`;
 
                 // Return.
