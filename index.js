@@ -2,10 +2,6 @@ const fs              = require('fs');
 const path            = require('path');
 const { spawn }       = require('child_process');
 const { performance } = require('perf_hooks');
-// const pdf2svg = require('pdf2svg');
-
-// const http = require("http");
-// const https = require("https");
 
 var server     ;// = require('https').createServer();
 const express    = require('express');
@@ -107,6 +103,19 @@ var rm_fs = {
         
         });
     },
+
+    // Retrieve the rm_fs.json file from disk and store in memory.
+    getFile_rm_fs: async function(){
+        // Get the rm_fs.json file.
+        let rm_fs = fs.readFileSync(`deviceData/config/rm_fs.json`, {encoding:'utf8', flag:'r'});
+        obj.rm_fs = JSON.parse(rm_fs);
+    },
+
+};
+
+var sync = {
+};
+var process = {
 };
 
 var obj = {
@@ -114,7 +123,11 @@ var obj = {
     rm_fs : {},
 
     // Used for running shell commands. 
-    runCommand_exec_progress : async function(cmd, expectedExitCode=0, progress=true){
+    runCommand_exec_progress : async function(cmd, expectedExitCode=0, progress=true, outputCallback=null){
+        // EXAMPLE: cmd="ls", expectedExitCode=0, progress=true, outputCallback=(msg)=>{ console.log(msg); }
+        // progress will output data as it is received by the command.
+        // outputCallback will be passed the data to be handled.
+
         return new Promise(function(cmd_res, cmd_rej){
             const proc = spawn(cmd, { shell: true });
     
@@ -123,8 +136,10 @@ var obj = {
     
             proc.stdout.on('data', (data) => {
                 if(progress){
-                    // console.log(`  stdout: ${data}`);
                     console.log(`${data}`);
+                }
+                if(outputCallback){
+                    outputCallback(`${data}`);
                 }
                 stdOutHist += data;
             });
@@ -132,7 +147,9 @@ var obj = {
             proc.stderr.on('data', (data) => {
                 if(progress){
                     console.error(`  ${data}`);
-                    // console.error(`  stderr: ${data}`);
+                }
+                if(outputCallback){
+                    outputCallback(`${data}`);
                 }
                 stdErrHist += data;
             });
@@ -159,63 +176,137 @@ var obj = {
     },
 
     // Loaded once at program start.
-    serverLoad: async function(){
-        console.log("LOADING: Remarkable Viewer V4");
+    serverInit: {
+        fileChecks: async function(){
+            // FILE CHECK.
+            if( !fs.existsSync(`deviceData/config`) ){ 
+                console.log("MISSING: config folder. Creating new folder.");
+                fs.mkdirSync(`deviceData/config`); 
+            }
+            if( !fs.existsSync(`deviceData/custTemplates`) ){ 
+                console.log("MISSING: custTemplates folder. Creating new folder.");
+                fs.mkdirSync(`deviceData/custTemplates`); 
+            }
+            if( !fs.existsSync(`deviceData/config/lastSync.txt`) ){
+                console.log("MISSING: lastSync.txt. Creating new file.");
+                fs.writeFileSync(`deviceData/config/lastSync.txt`, JSON.stringify(0,null,1));
+            }
+            if( !fs.existsSync(`deviceData/config/needsUpdate.json`) ){
+                console.log("MISSING: needsUpdate.json. Creating new file.");
+                fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify([],null,1));
+            }
+            if( !fs.existsSync(`deviceData/config/rm_fs.json`) ){
+                console.log("MISSING: rm_fs.json. Creating new file.");
+                fs.writeFileSync(`deviceData/config/rm_fs.json`, JSON.stringify({"CollectionType": [], "DocumentType": []},null,1));
+            }
+        },
+        loadRm_fs: async function(){
+            obj.rm_fs = (await obj.get_rm_fsFile()).rm_fs;
+        },
+        loadDeviceData: async function(){
+            // obj.rm_fs = (await this.get_rm_fsFile()).rm_fs;
+        },
+        defaultRoutes: async function(){
+            // Default routes:
+            app.use('/'            , express.static(path.join(process.cwd(), './public')));
+            app.use('/libs'        , express.static(path.join(process.cwd(), './node_modules')));
+            app.use('/deviceSvg'   , express.static(path.join(process.cwd(), './deviceData/pdf')));
+            app.use('/deviceThumbs', express.static(path.join(process.cwd(), './deviceData/queryData/meta/thumbnails')));
+        },
+        addRoutes: async function(){
+            app.post('/get_rm_fsFile', express.json(), async (req, res) => {
+                let ts_s = performance.now();
+                // console.log("STARTED: get_rm_fsFile");
+                let resp = await obj.get_rm_fsFile();
+                // console.log(`FINISH : get_rm_fsFile: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                // console.log("");
+                res.json( resp ) ;
+                });
+            app.post('/getNeededChanges', express.json(), async (req, res) => {
+                let ts_s = performance.now();
+                // console.log("STARTED: getNeededChanges");
+                let resp = await obj.getNeededChanges();
+                // console.log(`FINISH : getNeededChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                // console.log("");
+                res.json( resp ) ;
+                });
+    
+            app.post('/rsyncUpdate_and_detectAndRecordChanges', express.json(), async (req, res) => {
+                let ts_s = performance.now();
+                console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
+                let resp = await obj.rsyncUpdate_and_detectAndRecordChanges();
+                console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                console.log("");
+                res.json( resp ) ;
+            });
+    
+            app.post('/run_fullDownloadAndProcessing', express.json(), async (req, res) => {
+                let ts_s = performance.now();
+                console.log("STARTED: run_fullDownloadAndProcessing");
+                let resp = await obj.run_fullDownloadAndProcessing(req.body.uuid, req.body.filename);
+                console.log(`FINISH : run_fullDownloadAndProcessing: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                console.log("");
+                res.json( resp ) ;
+            });
+    
+            app.post('/getAvailablePages', express.json(), async (req, res) => {
+                let ts_s = performance.now();
+                // console.log("STARTED: getAvailablePages");
+                let resp = await obj.getAvailablePages(req.body.uuid);
+                // console.log(`FINISH : getAvailablePages: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                console.log("");
+                res.json( resp ) ;
+            });
+        },
+        activateServer: async function(){
+            let conf = {
+                host: "127.0.0.1", 
+                port: 2000,
+                useHttps: true,
+            };
+    
+            if(conf.useHttps){
+                const key  = fs.readFileSync("localhost-key.pem", "utf-8");
+                const cert = fs.readFileSync("localhost.pem", "utf-8");
+                
+                if(key && cert){
+                    server = require('https').createServer(  { key, cert }, app );
+                }
+            }
+            else{
+                // server = require('http').createServer()();
+                // server.on('request', app);
+                console.log("Non-https server is not currently supported.");
+            }
 
-        // FILE CHECK.
-        if( !fs.existsSync(`deviceData/config`) ){ 
-            console.log("MISSING: config folder. Creating new folder.");
-            fs.mkdirSync(`deviceData/config`); 
-        }
-        if( !fs.existsSync(`deviceData/config/lastSync.txt`) ){
-            console.log("MISSING: lastSync.txt. Creating new file.");
-            fs.writeFileSync(`deviceData/config/lastSync.txt`, JSON.stringify(0,null,1));
-        }
-        if( !fs.existsSync(`deviceData/config/needsUpdate.json`) ){
-            console.log("MISSING: needsUpdate.json. Creating new file.");
-            fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify([],null,1));
-        }
-        if( !fs.existsSync(`deviceData/config/rm_fs.json`) ){
-            console.log("MISSING: rm_fs.json. Creating new file.");
-            fs.writeFileSync(`deviceData/config/rm_fs.json`, JSON.stringify({"CollectionType": [], "DocumentType": []},null,1));
-        }
-
-        this.rm_fs = await this.get_rm_fsFile();
-
-        // Default routes:
-        app.use('/'            , express.static(path.join(process.cwd(), './public')));
-        app.use('/libs'        , express.static(path.join(process.cwd(), './node_modules')));
-        app.use('/deviceSvg'   , express.static(path.join(process.cwd(), './deviceData/pdf')));
-        app.use('/deviceThumbs', express.static(path.join(process.cwd(), './deviceData/queryData/meta/thumbnails')));
-
-        let conf = {
-            host: "127.0.0.1", 
-            port: 2000
-        };
-
-        const key  = fs.readFileSync("localhost-key.pem", "utf-8");
-        const cert = fs.readFileSync("localhost.pem", "utf-8");
-
-        if(key && cert){
-            server = require('https').createServer(  { key, cert }, app );
-        }
-        else{
-            // server = require('http').createServer()();
-            // server.on('request', app);
-        }
-
-        await this.addRoutes();
-
-        server.listen(conf, async function(){
-            console.log("LOADED: Remarkable Viewer V4");
-            console.log("");
-        });
+            server.listen(conf, async function(){
+                console.log("LOADED: Remarkable Viewer V4");
+                console.log("");
+            });
+        },
+        init: async function(){
+            await this.fileChecks();
+            await this.loadRm_fs();
+            await this.loadDeviceData();
+            await this.defaultRoutes();
+            await this.addRoutes();
+            await this.activateServer();
+        },
     },
-
+    
     // Returns the rm_fs.json file.
     get_rm_fsFile: async function(){
-        let data = fs.readFileSync(`deviceData/config/rm_fs.json`, {encoding:'utf8', flag:'r'});
-        return JSON.parse(data);
+        // Get the rm_fs.json file.
+        let rm_fs = fs.readFileSync(`deviceData/config/rm_fs.json`, {encoding:'utf8', flag:'r'});
+        rm_fs = JSON.parse(rm_fs);
+
+        // TODO: Get some device data.
+        //
+
+        // Return the data.
+        return {
+            rm_fs: rm_fs,
+        }
     },
 
     // Returns the needsUpdate.json file.
@@ -619,10 +710,10 @@ var obj = {
         }
 
         // These will hold the results from the commands.
-        let results1;
-        let results2;
-        let results3;
-        let results4;
+        let results0, results1, results2, results3;
+
+        // These will hold the time measurements.
+        let ts0, ts1, ts2, ts3;
         
         // If the dir(s) does not exist then create it.
         let basePath = `deviceData/pdf/${uuid}`;
@@ -639,7 +730,6 @@ var obj = {
                 "uuid" : uuid,
                 "fileType": "",
                 "pages"   : 0,
-                // "recData" : recData,
                 "t_pdf"   : 0,
                 "t_toSvg" : 0,
                 "t_svgo"  : 0,
@@ -647,7 +737,8 @@ var obj = {
         }
 
         // Commands.
-        let cmd0 = `curl -s --compressed --insecure -o "${basePath}/${filename}.pdf" http://10.11.99.1/download/${uuid}/pdf`;
+        // let cmd0 = `curl -s --compressed --insecure -o "${basePath}/${filename}.pdf" http://10.11.99.1/download/${uuid}/pdf`;
+        let cmd0 = `bash ./deviceData/scripts/downloadPdfFromDevice.sh "${uuid}" "${filename}.pdf"`;
         let cmd1 = `pdf2svg "${basePath}/${filename}.pdf" "${basePath}/svg/output-page%04d.svg" all`;
         let cmd2 = `node_modules/svgo/bin/svgo --config "deviceData/svgo.config.js" --recursive -f ${basePath}/svg/`;
         let cmd3 = `bash ./deviceData/scripts/createThumbs.sh png 180 210 ${uuid}`;
@@ -657,15 +748,15 @@ var obj = {
         files_pdf.forEach((d)=>{ fs.unlinkSync( d.filepath ); });
 
         // Download the pdf from the device.
-        let ts1 = performance.now();
+        ts0 = performance.now();
         try{
             // console.log(` DOWNLOAD PDF    : NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results1 = await this.runCommand_exec_progress(cmd0, 0, false)
-            .catch(function(e) { console.log("ERROR: parta 1", results1); throw e; }); 
+            results0 = await this.runCommand_exec_progress(cmd0, 0, false)
+            .catch(function(e) { console.log("ERROR: pdf 1", results0); throw e; }); 
         } 
-        catch(e){ console.log("ERROR: parta 2", e); throw e; }
-        ts1 = (performance.now() - ts1)/1000;
-        console.log(`  DONE: DOWNLOAD PDF           : ${(ts1).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+        catch(e){ console.log("ERROR: pdf 2", e); throw e; }
+        ts0 = (performance.now() - ts0)/1000;
+        console.log(`  DONE: DOWNLOAD PDF           : ${(ts0).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
 
         // Make sure that the .pdf file exists.
         if( !fs.existsSync(`${basePath}/${filename}.pdf`) ){ 
@@ -675,7 +766,6 @@ var obj = {
                 "uuid" : uuid,
                 "fileType": recData.fileType,
                 "pages"   : recData.pageCount,
-                // "recData" : recData,
                 "t_pdf"   : 0,
                 "t_toSvg" : 0,
                 "t_svgo"  : 0,
@@ -687,15 +777,15 @@ var obj = {
         files_svgs0.forEach((d)=>{ fs.unlinkSync( d.filepath ); });
 
         // Convert the .pdf to .svg pages.
-        let ts2 = performance.now();
+        ts1 = performance.now();
         try{
             // console.log(` PDF TO SVG PAGES: NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results2 = await this.runCommand_exec_progress(cmd1, 0, false)
-            .catch(function(e) { console.log("ERROR: partb 1", results2); throw e; }); 
+            results1 = await this.runCommand_exec_progress(cmd1, 0, false)
+            .catch(function(e) { console.log("ERROR: toSvg 1", results1); throw e; }); 
         } 
-        catch(e){ console.log("ERROR: partb 2", e); throw e; }
-        ts2 = (performance.now() - ts2)/1000;
-        console.log(`  DONE: PDF TO SVG PAGES       : ${(ts2).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+        catch(e){ console.log("ERROR: toSvg 2", e); throw e; }
+        ts1 = (performance.now() - ts1)/1000;
+        console.log(`  DONE: PDF TO SVG PAGES       : ${(ts1).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
         
         // Get a new list of svg files in the svg folder. 
         let files_svgs   = await rm_fs.getItemsInDir(`${basePath}/svg`  , "files", ".svg").catch(function(e) { throw e; });
@@ -729,30 +819,30 @@ var obj = {
         files_svgsThumbs.forEach((d)=>{ fs.unlinkSync( d.filepath ); });
 
         // Optimize the .svgs in the svg folder.
-        let ts3 = performance.now();
+        ts2 = performance.now();
         try{ 
             // console.log(` SVG OPTIMIZE    : NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results4 = await this.runCommand_exec_progress(cmd2, 0, false)
-            .catch(function(e) { console.log("ERROR: partc 1", results3); throw e; }); 
+            results2 = await this.runCommand_exec_progress(cmd2, 0, false)
+            .catch(function(e) { console.log("ERROR: svgo 1", results2); throw e; }); 
         } 
-        catch(e){ console.log("ERROR: partc 2", e); throw e; }
-        ts3 = (performance.now() - ts3)/1000;
-        console.log(`  DONE: SVG OPTIMIZE           : ${(ts3).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+        catch(e){ console.log("ERROR: svgo 2", e); throw e; }
+        ts2 = (performance.now() - ts2)/1000;
+        console.log(`  DONE: SVG OPTIMIZE           : ${(ts2).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
 
         // Create thumbnails based on the .svg files.
-        let ts4 = performance.now();
+        ts3 = performance.now();
         try{ 
             results3 = await this.runCommand_exec_progress(cmd3, 0, false)
-            .catch(function(e) { console.log("ERROR: partd 1", results3); throw e; }); 
+            .catch(function(e) { console.log("ERROR: svgThumbs 1", results3); throw e; }); 
         } 
-        catch(e){ console.log("ERROR: partd 2", e); throw e; }
-        ts4 = (performance.now() - ts4)/1000;
-        console.log(`  DONE: THUMBS                 : ${(ts4).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+        catch(e){ console.log("ERROR: svgThumbs 2", e); throw e; }
+        ts3 = (performance.now() - ts3)/1000;
+        console.log(`  DONE: THUMBS                 : ${(ts3).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
 
-        // Can now remove this entry from needsUpdate.json
+        // Can now remove this entry from needsUpdate_file.
         needsUpdate_file = needsUpdate_file.filter(d=>d.uuid != uuid);
 
-        // Write the file. 
+        // Write the needsUpdate.json file. 
         fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
         console.log("  UPDATE needsUpdate.json: DONE");
 
@@ -762,11 +852,11 @@ var obj = {
             "uuid"        : uuid,
             "fileType"    : recData.fileType,
             "pages"       : recData.pageCount,
-            "t_TOTAL"     : ts1 + ts2 + ts3 + ts4,
-            "t_pdf"       : ts1,
-            "t_toSvg"     : ts2,
-            "t_svgo"      : ts3,
-            "t_svgThumbs" : ts4,
+            "t_TOTAL"     : ts0 + ts1 + ts2 + ts3,
+            "t_pdf"       : ts0,
+            "t_toSvg"     : ts1,
+            "t_svgo"      : ts2,
+            "t_svgThumbs" : ts3,
         };
     },
 
@@ -952,5 +1042,5 @@ var obj = {
         });
     },
 };
-// obj.init();
-obj.serverLoad();
+
+obj.serverInit.init();

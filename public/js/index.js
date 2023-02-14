@@ -152,7 +152,8 @@ var app = {
         };
 
         let data = await net.send(`get_rm_fsFile`, dataOptions, false);
-        app.rm_fs = data;
+        app.rm_fs = data.rm_fs;
+        
         // console.log("app.rm_fs      :", app.rm_fs);
 
         // let collections = app.rm_fs.CollectionType
@@ -448,7 +449,6 @@ var app = {
                 }, 
             };
             let data = await net.send(`run_fullDownloadAndProcessing`, dataOptions, false);
-            // console.log(data);
             return data;
         },
         rsyncUpdate_and_detectAndRecordChanges: async function(){
@@ -459,8 +459,6 @@ var app = {
             };
     
             let data = await net.send(`rsyncUpdate_and_detectAndRecordChanges`, dataOptions, 300000);
-
-            console.log(data);
 
             // Detect errors.
             if(data.rsync.error || data.updates.error){
@@ -488,19 +486,19 @@ var app = {
             else{
                 // Update rm_fs and reload the current file nav view.
                 if(data.rsync.rm_fs){
-                    console.log("updating rm_fs");
+                    // console.log("updating rm_fs");
                     // Update the local rm_fs with the copy sent by the server.
                     app.rm_fs = data.rsync.rm_fs;
                     
                     // Update the active file nav.
-                    console.log("updating current file view");
+                    // console.log("updating current file view");
                     let activeCollection = document.querySelector(".crumb.activeCollection");
                     if(activeCollection){ activeCollection.click(); }
                 }
 
                 // If there are updates then display them.
                 if(data.updates.updates){
-                    console.log("Displaying needed updates", data.updates.updatesAll.length);
+                    // console.log("Displaying needed updates", data.updates.updatesAll.length);
                     this.display_needed_changes( data.updates.updatesAll );
                 }
             }
@@ -520,10 +518,10 @@ var app = {
             // console.log("Data:", data);
 
             let frag = document.createDocumentFragment();
-            let totalTimeEstimate = 0;
+            // let totalTimeEstimate = 0;
             for(let i=0; i<data.length; i+=1){
                 let timeEstimate = data[i].pageCount * 1.8;
-                totalTimeEstimate += timeEstimate;
+                // totalTimeEstimate += timeEstimate;
                 let pathOnly = app.getParentPath(data[i].uuid, "DocumentType");
 
                 // Create the containers and the sub containers.
@@ -545,9 +543,7 @@ var app = {
 
                 let convertButton = document.createElement("button");
                 convertButton.innerText = "Convert!";
-                convertButton.onclick = ()=>{
-                    this.convert(recDiv, data[i]);
-                };
+                convertButton.onclick = ()=>{ this.convert(recDiv, data[i]); };
                 recDiv_l3.append(convertButton);
 
                 recDiv.append(recDiv_l1, recDiv_l2, recDiv_l3, recDiv_l4);
@@ -566,32 +562,48 @@ var app = {
         history:[],
         convert: async function(recDiv, data, divCount=null){
             return new Promise( async (res,rej) => {
+                // Check for missing or null arguments. 
                 if(!recDiv || !data){
                     console.log("Missing arguments.");
                     rej("Missing arguments.");
                     return; 
                 }
+                // Do not allow more processing until this has finished processing.
                 if(recDiv.classList.contains("processing")){ console.log("Already processing this one", data.visibleName); res(); return; }
 
+                // Use a modified visible name for the output file. Strips out invalid filename characters.
+                let modifiedVisibleName = data.visibleName.replace(/[/\\?%*:|"<>]/g, '-');
+
+                // Request the processing.
                 let ts = performance.now();
                 recDiv.style['background-color'] = "yellow";
                 recDiv.classList.add("processing");
-                let resp = await this.run_fullDownloadAndProcessing(data.uuid, data.visibleName.replace(/[/\\?%*:|"<>]/g, '-'));
+                let resp = await this.run_fullDownloadAndProcessing(data.uuid, modifiedVisibleName);
                 
+                // Was the request successful? 
                 if(resp === false){
                     recDiv.style['background-color'] = "red";
                     console.log("convert: there was an error.");
                     rej("convert: there was an error.");
                 }
+                // Successful?
                 else{
+                    // TODO: Check for returned errors.
+                    //
+
+                    // Add to the local history.
                     this.history.push(resp);
+
+                    // "convertAll" output.(divCount will be set if using "convertAll".)
                     if(divCount != null){
                         console.log(`${divCount.i+1}/${divCount.len} FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, resp);
                     }
+                    // Normal output.
                     else{
                         console.log(`FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, resp);
                     }
 
+                    // Remove the div from the list since the file has been successfully processed.
                     recDiv.remove();
 
                     res();
@@ -628,74 +640,6 @@ var app = {
 
             // Create the needed_changes table.
             this.DOM['display_needed_changes'].addEventListener("click", ()=>this.display_needed_changes(null), false);
-
-            this.DOM['display_needed_changes'].addEventListener("click", async () => {
-                console.log("Skipping");
-                return;
-
-                let dataOptions = {
-                    type:"json", method:"POST",
-                    body: {},
-                };
-                let data = await net.send(`getNeededChanges`, dataOptions, false);
-                // console.log("getNeededChanges:", data);
-
-                let frag = document.createDocumentFragment();
-                let totalTimeEstimate = 0;
-                for(let i=0; i<data.length; i+=1){
-                    let timeEstimate = data[i].pageCount * 1.8;
-                    totalTimeEstimate += timeEstimate;
-                    let pathOnly = app.getParentPath(data[i].uuid, "DocumentType");
-                    // console.log(pathOnly + data[i].visibleName);
-
-                    // Create the containers and the sub containers.
-                    let recDiv = document.createElement("div");
-                    recDiv.classList.add("neededUpdateDiv");
-                    recDiv.setAttribute("uuid", data[i].uuid);
-                    recDiv.setAttribute("title", `NAME: ${data[i].visibleName}\nUUID: ${data[i].uuid}`);
-                    recDiv.setAttribute("fileType", data[i].fileType);
-                    let recDiv_l1 = document.createElement("div");
-                    let recDiv_l2 = document.createElement("div");
-                    let recDiv_l3 = document.createElement("div");
-                    let recDiv_l4 = document.createElement("div");
-
-                    recDiv_l1.innerText = `[${data[i].fileType.toUpperCase()}]`;
-                    recDiv_l2.innerText = `NAME: ${data[i].visibleName}`;
-                    recDiv_l3.innerText = `PATH: ${pathOnly}`;
-                    recDiv_l4.innerText = `PAGES: ${data[i].pageCount} - Estimated Time: ${(timeEstimate).toFixed(2)} seconds`;
-                    recDiv_l4.style = `border-bottom:5px solid black;`;
-
-                    let convertButton = document.createElement("button");
-                    convertButton.innerText = "Convert!";
-                    convertButton.onclick = ()=>{
-                        this.convert(recDiv, data[i]);
-                    };
-                    recDiv_l3.append(convertButton);
-
-                    recDiv.append(recDiv_l1, recDiv_l2, recDiv_l3, recDiv_l4);
-                    frag.append(recDiv);
-
-                    // let collections = app.rm_fs.CollectionType
-                    // .filter(d=>{ if(!d.deleted) { return d.parent == ""; } })
-                    // .map(d=>{ return {visibleName:d.visibleName, deleted: d.deleted} } );
-        
-                    // let folders     = app.rm_fs.DocumentType  
-                    //     .filter(d=>{ if(!d.deleted) { return d.parent == ""; } })
-                    //     .map(d=>{ return {visibleName:d.visibleName, deleted: d.deleted} } );
-            
-                    // console.log( "Collections in <root>:", collections );
-                    // console.log( "Documents   in <root>:", folders );
-                }
-
-                this.DOM['needed_changes'].innerHTML = "";
-                this.DOM['needed_changes'].append(frag);
-
-                console.log(`totalTimeEstimate: There are ${data.length} records to process.`);
-                console.log(`totalTimeEstimate: ${(totalTimeEstimate).toFixed(2)} seconds`);
-                console.log(`totalTimeEstimate: ${(totalTimeEstimate/60).toFixed(2)} minutes`);
-                console.log(`totalTimeEstimate: ${((totalTimeEstimate/60)/60).toFixed(2)} hours`);
-
-            }, false);
         },
     },
 
@@ -990,7 +934,8 @@ var app = {
 
             // Display the first page.
             let dispPages_frag = document.createDocumentFragment();
-            if     (this.pages.output[0].svg || this.pages.output[0].thumb)  { dispPages_frag.append( this.updatePage(uuid, 0)   ); }
+            // if     (this.pages.output[0].svg || this.pages.output[0].thumb)  { dispPages_frag.append( await this.updatePage(uuid, 0)   ); }
+            if     (this.pages.output[0].svg || this.pages.output[0].thumb)  { await this.updatePage(uuid, 0); }
             // if     (this.pages.output[0].svg)  { dispPages_frag.append( this.updatePage(uuid, 0  , "svg")   ); }
             // else if(this.pages.output[0].thumb){ dispPages_frag.append( this.updatePage(uuid, 0, "thumb") ); }
             else{

@@ -225,7 +225,7 @@ div#d3_filelist {
     height: 90vh;
 }
 .openedDoc_page {
-    border: 1px solid black;
+    /* border: 1px solid black; */
     background-repeat: no-repeat;
     background-size: contain;
     /* width: 730px; */
@@ -241,4 +241,5 @@ div#openedDoc_dispPages {
     width: 630px;
     /* height: 830px; */
     height: 90vh;
+    border: 1px solid black;
 }

@@ -7,13 +7,6 @@
 # From the root of the project repository:
 # for i in deviceData/pdf/*; do deviceData/scripts/createThumbs.sh png 180 210 "$(basename $i)"; done
 
-# DEBUG
-# FORMAT=png
-# EXT=png
-# PX_W=180
-# PX_H=210
-# UUID=a3975d9d-ab06-4943-bdeb-83bba72105f4
-
 # NORMAL OPERATION
 FORMAT=$1
 EXT=$1
@@ -24,17 +17,6 @@ UUID=$4
 PT_W=$(echo $PX_W*0.75 | bc)
 PT_H=$(echo $PX_H*0.75 | bc)
 IDIR=deviceData/pdf/$UUID
-
-# DEBUG
-# echo "FORMAT: $FORMAT"
-# echo "EXT   : $EXT"
-# echo "PX_W  : $PX_W"
-# echo "PX_H  : $PX_H"
-# echo "UUID  : $UUID"
-# echo "PT_W  : $PT_W"
-# echo "PT_H  : $PT_H"
-# echo "IDIR  : $IDIR"
-# echo
 
 echo "Arguments to createThumbs.sh: $FORMAT $EXT $PX_W $PX_H $UUID";
 
@@ -47,7 +29,6 @@ mkdir -p svgThumbs
 
 # Convert the svg files in the svg folder to smaller dimension png files in the svgThumbs folder.
 # EXAMPLE COMMAND: rsvg-convert -w 135.00 -h 157.50 --format png -a svg/da22af33-0bc8-43b1-83cc-3d4becfebfc9.svg -o svgThumbs/da22af33-0bc8-43b1-83cc-3d4becfebfc9.png
-
 for i in svg/*.svg; \
 do \
     rsvg-convert \
