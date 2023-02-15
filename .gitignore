@@ -8,3 +8,4 @@ localhost.pem
 deviceData/config/lastSync.txt
 deviceData/config/needsUpdate.json
 deviceData/config/rm_fs.json
+deviceData/custTemplates/*

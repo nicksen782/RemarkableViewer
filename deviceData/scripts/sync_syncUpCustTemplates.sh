@@ -20,6 +20,7 @@ $SSHALIAS:/usr/share/remarkable/templates/
 
 # VIA SCP: Send the custom templates up to the device templates dir. (This can overwrite files.)
 # for i in deviceData/custTemplates/*; do \
+# [ -f "$i" ] || continue;
 # scp "$i" "$SSHALIAS:/usr/share/remarkable/templates/"; \
 # done
 

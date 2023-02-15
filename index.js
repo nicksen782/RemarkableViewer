@@ -114,8 +114,187 @@ var rm_fs = {
 };
 
 var sync = {
+    detectChanges: async function(){},
+    rsync: async function(){},
+    run: async function(){
+    },
 };
-var process = {
+
+var processing = {
+    downloadPdfFromDevice: async function(uuid, filename){
+        // WHAT DOES THIS DO?
+        // Removes existing pdf file(s). (If document is renamed this will prevent there being more than 1 pdf in the folder.)
+        // Downloads the pdf from the device.
+
+        let cmd0 = `bash ./deviceData/scripts/process_downloadPdfFromDevice.sh "${uuid}" "${filename}.pdf"`;
+        let results0;
+        try{
+            results0 = await obj.runCommand_exec_progress(cmd0, 0, false)
+            .catch( function(e) { throw { results: results0, e: e}; } );
+        } 
+        catch(e){ throw e; }
+
+        // Return some data.
+        return results0;
+    },
+    pdfToSvgPages: async function(uuid, filename){
+        // WHAT DOES THIS DO?
+        // Make sure that the .pdf file exists.
+        // Remove the .svg files from the svg folder.
+        // Convert the .pdf to .svg pages.
+        // Get a new list of svg files in the svg folder. 
+        // Sort each page in the svgs list based on filepath alphabetically. (They are still named like : output-page0001.svg)
+        // Get the list of page ids for this document. (This will be used as the sort order and the filenames for each page.)
+        // Rename the .svg pages to their matching page id. (include the .svg extension.)
+        
+        let cmd0 = `bash ./deviceData/scripts/process_pdfToSvgPages.sh "${uuid}" "${filename}.pdf"`;
+        let results0;
+        try{
+            results0 = await obj.runCommand_exec_progress(cmd0, 0, false)
+            .catch( function(e) { throw { results: results0, e: e}; } );
+        } 
+        catch(e){ throw e; }
+
+        // Return some data.
+        return results0;
+    },
+    optimizeSvgPages: async function(uuid){
+        // WHAT DOES THIS DO?
+        // Optimize the .svgs in the svg folder.
+        
+        let cmd0 = `bash ./deviceData/scripts/process_optimizeSvgPages.sh "${uuid}"`;
+        let results0;
+        try{
+            results0 = await obj.runCommand_exec_progress(cmd0, 0, false)
+            .catch( function(e) { throw { results: results0, e: e}; } );
+        } 
+        catch(e){ throw e; }
+
+        // Return some data.
+        return results0;
+    },
+    svgPagesToPngThumbs: async function(uuid, format, w, h){
+        // WHAT DOES THIS DO?
+        // Remove the .png files from the svgThumbs folder.
+        // Create thumbnails based on the .svg files.
+
+        let cmd0 = `bash ./deviceData/scripts/process_svgPagesToPngThumbs.sh "${uuid}" ${format} ${w} ${h}`;
+        let results0;
+        try{
+            results0 = await obj.runCommand_exec_progress(cmd0, 0, false)
+            .catch( function(e) { throw { results: results0, e: e}; } );
+        } 
+        catch(e){ throw e; }
+
+        // Return some data.
+        return results0;
+    },
+
+    run: async function(uuid, filename){
+        // Indicate what file is being processed.
+        console.log(`  PROCESSING: ${uuid}, ${filename}`);
+
+        // Get the needsUpdate.json file.
+        let needsUpdate_file = fs.readFileSync(`deviceData/config/needsUpdate.json`, {encoding:'utf8', flag:'r+'});
+        needsUpdate_file = JSON.parse(needsUpdate_file);
+
+        // Check that the specified file is within the needsUpdate.json file.
+        let index = needsUpdate_file.findIndex(d=>d.uuid == uuid);
+        if(index == -1){
+            console.log(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within needsUpdate.json`);
+            return {
+                "name"    : filename,
+                "uuid"    : uuid,
+                "fileType": "",
+                "pages"   : 0,
+                "t_pdf"   : 0,
+                "t_toSvg" : 0,
+                "t_svgo"  : 0,
+            };
+        }
+
+        // Find the file's record in rm_fs.
+        let recData = obj.rm_fs.DocumentType.find(d=>uuid==d.uuid); 
+        if(!recData){ 
+            console.log(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within rm_fs.json`);
+            return {
+                "name" : filename,
+                "uuid" : uuid,
+                "fileType": "",
+                "pages"   : 0,
+                "t_pdf"   : 0,
+                "t_toSvg" : 0,
+                "t_svgo"  : 0,
+            };
+        }
+
+        // ****************************
+        // Run the processing commands.
+        // ****************************
+
+        // These will hold the results from the commands.
+        // These will hold the time measurements.
+        let errorDetected = false; 
+        let results = [
+            { func: this.downloadPdfFromDevice, ts:null, args: [uuid, filename],        results:null, error:null, skipped:false },
+            { func: this.pdfToSvgPages        , ts:null, args: [uuid, filename],        results:null, error:null, skipped:false },
+            { func: this.optimizeSvgPages     , ts:null, args: [uuid],                  results:null, error:null, skipped:false },
+            { func: this.svgPagesToPngThumbs  , ts:null, args: ["png", 180, 210, uuid], results:null, error:null, skipped:false },
+        ];
+        
+        for(let i=0; i<results.length; i+=1){
+            let r = results[i];
+            if(errorDetected){ 
+                console.log(`  SKIPPED: ${r.func.name.padEnd(23, " ")}: [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+                r.func = r.func.name; 
+                r.skipped = true; 
+                continue; 
+            }
+
+            r.ts = performance.now();
+            try{ 
+                r.results = await r.func(...r.args).catch( function(e) { throw e; } );
+                r.ts = (performance.now() - r.ts)/1000;
+                console.log(`  DONE   : ${r.func.name.padEnd(23, " ")}: ${(r.ts).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+                r.func = r.func.name;
+            }
+            catch(e){ 
+                r.results = e.results;
+                r.error = e.e;
+                r.ts = (performance.now() - r.ts)/1000;
+                errorDetected = true;
+                console.log(`  ERROR  : ${r.func.name.padEnd(23, " ")}: ${(r.ts).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+                r.func = r.func.name;
+            }
+        }
+
+        if(!errorDetected){
+            // Can now remove this entry from needsUpdate.json
+            needsUpdate_file = needsUpdate_file.filter(d=>d.uuid != uuid);
+
+            // Write the needsUpdate.json file. 
+            fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
+            console.log("  UPDATE needsUpdate.json: DONE");
+        }
+
+        // Return some data.
+        let timings = results.map(d=>{
+            delete d.args;
+            return d;
+        });
+        return {
+            "name"        : filename,
+            "uuid"        : uuid,
+            "fileType"    : recData.fileType,
+            "pages"       : recData.pageCount,
+            "results": timings,
+            // "t_TOTAL"     : ts0 + ts1 + ts2 + ts3,
+            // "t_pdf"       : ts0,
+            // "t_toSvg"     : ts1,
+            // "t_svgo"      : ts2,
+            // "t_svgThumbs" : ts3,
+        };
+    },
 };
 
 var obj = {
@@ -240,11 +419,12 @@ var obj = {
                 res.json( resp ) ;
             });
     
-            app.post('/run_fullDownloadAndProcessing', express.json(), async (req, res) => {
+            app.post('/processing.run', express.json(), async (req, res) => {
                 let ts_s = performance.now();
-                console.log("STARTED: run_fullDownloadAndProcessing");
-                let resp = await obj.run_fullDownloadAndProcessing(req.body.uuid, req.body.filename);
-                console.log(`FINISH : run_fullDownloadAndProcessing: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                console.log("STARTED: processing.run");
+                let resp = await processing.run(req.body.uuid, req.body.filename);
+                // let resp = await processing.run("3674bf4c-9176-4813-9b42-6d72afcc76d2", "The Future of Our Team.pdf");
+                console.log(`FINISH : processing.run: ${(performance.now() - ts_s).toFixed(3)} ms`);
                 console.log("");
                 res.json( resp ) ;
             });
@@ -368,7 +548,7 @@ var obj = {
 
     // HELPER: Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
     rsyncUpdate: async function(){
-        let cmd1 = `bash ./deviceData/scripts/syncDownMetafiles.sh`;
+        let cmd1 = `bash ./deviceData/scripts/sync_syncDownMetafiles.sh`;
         
         let results1;
         results1 = await this.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; }); 
@@ -532,7 +712,7 @@ var obj = {
     // HELPER: Detect changes since timestamp and add/update needsUpdate.json.
     detectAndRecordChanges: async function(){
         // Get the list of folders (with no extension) in the xochitl folder. 
-        let cmd2 = `bash ./deviceData/scripts/getDocUUID_updatetimes.sh`;
+        let cmd2 = `bash ./deviceData/scripts/sync_getDocUUID_updatetimes.sh`;
         let results2;
         results2 = await this.runCommand_exec_progress(cmd2, 0, false).catch(function(e) { throw e; }); 
         results2 = results2.stdOutHist.trim().split("\n");
@@ -680,183 +860,6 @@ var obj = {
             count_all    : needsUpdate_file.length,
             needsUpdateFileUpdated : write_needsUpdate_file,
             error : false,
-        };
-    },
-
-    // Download pdf, convert to svg files, optimize svg files, clear the record from needsUpdate.json.
-    run_fullDownloadAndProcessing: async function(uuid, filename){
-        // Indicate the document that will be processed.
-        console.log(`  PROCESSING: ${uuid}, ${filename}`);
-
-        // Get the current needsUpdate.json file. 
-        let needsUpdate_file = fs.readFileSync(`deviceData/config/needsUpdate.json`, {encoding:'utf8', flag:'r+'});
-        needsUpdate_file = JSON.parse(needsUpdate_file);
-
-        // Make sure that this uuid is there.
-        let index = needsUpdate_file.findIndex(d=>d.uuid == uuid);
-
-        // Make sure this entry is there before doing anything else. 
-        if(index == -1){
-            console.log(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within needsUpdate.json`);
-            return {
-                "name"    : filename,
-                "uuid"    : uuid,
-                "fileType": "",
-                "pages"   : 0,
-                "t_pdf"   : 0,
-                "t_toSvg" : 0,
-                "t_svgo"  : 0,
-            };
-        }
-
-        // These will hold the results from the commands.
-        let results0, results1, results2, results3;
-
-        // These will hold the time measurements.
-        let ts0, ts1, ts2, ts3;
-        
-        // If the dir(s) does not exist then create it.
-        let basePath = `deviceData/pdf/${uuid}`;
-        if( !fs.existsSync(`${basePath}`) )          { fs.mkdirSync(`${basePath}`); }
-        if( !fs.existsSync(`${basePath}/svg`) )      { fs.mkdirSync(`${basePath}/svg`); }
-        if( !fs.existsSync(`${basePath}/svgThumbs`) ){ fs.mkdirSync(`${basePath}/svgThumbs`); }
-
-        // Find the record in the rm_fs. Fail if not found.
-        let recData = this.rm_fs.DocumentType.find(d=>uuid==d.uuid); 
-        if(!recData){ 
-            console.log(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within rm_fs.json`);
-            return {
-                "name" : filename,
-                "uuid" : uuid,
-                "fileType": "",
-                "pages"   : 0,
-                "t_pdf"   : 0,
-                "t_toSvg" : 0,
-                "t_svgo"  : 0,
-            };
-        }
-
-        // Commands.
-        // let cmd0 = `curl -s --compressed --insecure -o "${basePath}/${filename}.pdf" http://10.11.99.1/download/${uuid}/pdf`;
-        let cmd0 = `bash ./deviceData/scripts/downloadPdfFromDevice.sh "${uuid}" "${filename}.pdf"`;
-        let cmd1 = `pdf2svg "${basePath}/${filename}.pdf" "${basePath}/svg/output-page%04d.svg" all`;
-        let cmd2 = `node_modules/svgo/bin/svgo --config "deviceData/svgo.config.js" --recursive -f ${basePath}/svg/`;
-        let cmd3 = `bash ./deviceData/scripts/createThumbs.sh png 180 210 ${uuid}`;
-
-        // Remove existing pdf file(s). (If document is renamed this will prevent there being more than 1 pdf in the folder.)
-        let files_pdf   = await rm_fs.getItemsInDir(`${basePath}`  , "files", ".pdf").catch(function(e) { throw e; });
-        files_pdf.forEach((d)=>{ fs.unlinkSync( d.filepath ); });
-
-        // Download the pdf from the device.
-        ts0 = performance.now();
-        try{
-            // console.log(` DOWNLOAD PDF    : NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results0 = await this.runCommand_exec_progress(cmd0, 0, false)
-            .catch(function(e) { console.log("ERROR: pdf 1", results0); throw e; }); 
-        } 
-        catch(e){ console.log("ERROR: pdf 2", e); throw e; }
-        ts0 = (performance.now() - ts0)/1000;
-        console.log(`  DONE: DOWNLOAD PDF           : ${(ts0).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
-
-        // Make sure that the .pdf file exists.
-        if( !fs.existsSync(`${basePath}/${filename}.pdf`) ){ 
-            console.log("This file does not exist:", `${uuid}, ${filename}`, "Skipping... will remain in needsUpdate.json");
-            return {
-                "name" : filename,
-                "uuid" : uuid,
-                "fileType": recData.fileType,
-                "pages"   : recData.pageCount,
-                "t_pdf"   : 0,
-                "t_toSvg" : 0,
-                "t_svgo"  : 0,
-            };
-        }
-
-        // Remove the .svg files from the svg folder.
-        let files_svgs0   = await rm_fs.getItemsInDir(`${basePath}/svg`  , "files", ".svg").catch(function(e) { throw e; });
-        files_svgs0.forEach((d)=>{ fs.unlinkSync( d.filepath ); });
-
-        // Convert the .pdf to .svg pages.
-        ts1 = performance.now();
-        try{
-            // console.log(` PDF TO SVG PAGES: NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results1 = await this.runCommand_exec_progress(cmd1, 0, false)
-            .catch(function(e) { console.log("ERROR: toSvg 1", results1); throw e; }); 
-        } 
-        catch(e){ console.log("ERROR: toSvg 2", e); throw e; }
-        ts1 = (performance.now() - ts1)/1000;
-        console.log(`  DONE: PDF TO SVG PAGES       : ${(ts1).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
-        
-        // Get a new list of svg files in the svg folder. 
-        let files_svgs   = await rm_fs.getItemsInDir(`${basePath}/svg`  , "files", ".svg").catch(function(e) { throw e; });
-        
-        // Sort each page in the svgs list based on filepath alphabetically. (They are still named like : output-page0001.svg)
-        files_svgs.sort(function(a, b){
-            // Convert to lowercase (Might not be needed.)
-            let keya = a.filepath.toLowerCase();
-            let keyb = b.filepath.toLowerCase();
-            
-            // Sort ascending.
-            if (keya < keyb) { return -1; }
-            if (keya > keyb) { return  1; }
-            return 0; 
-        });
-
-        // Get the list of page ids for this document. (This will be used as the sort order and the filenames for each page.)
-        let metaPages = this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages;
-        
-        // Rename the .svg pages to their matching page id. (include the .svg extension.)
-        metaPages.forEach((d,i)=>{ 
-            let split = files_svgs[i].filepath.split("/");
-            let oldFilename = split.pop(); // Removes the last value in split (the filename.)
-            let thisPath = split.join("/");
-            let newFullPathAndFilename = `${thisPath}/${metaPages[i]}.svg`;
-            fs.renameSync(files_svgs[i].filepath, newFullPathAndFilename);
-        });
-
-        // Remove the .png files from the svgThumbs folder.
-        let files_svgsThumbs   = await rm_fs.getItemsInDir(`${basePath}/svgThumbs`  , "files", ".png").catch(function(e) { throw e; });
-        files_svgsThumbs.forEach((d)=>{ fs.unlinkSync( d.filepath ); });
-
-        // Optimize the .svgs in the svg folder.
-        ts2 = performance.now();
-        try{ 
-            // console.log(` SVG OPTIMIZE    : NAME: "${filename}", PAGES: ${recData.pageCount}, UUID: ${uuid}`);
-            results2 = await this.runCommand_exec_progress(cmd2, 0, false)
-            .catch(function(e) { console.log("ERROR: svgo 1", results2); throw e; }); 
-        } 
-        catch(e){ console.log("ERROR: svgo 2", e); throw e; }
-        ts2 = (performance.now() - ts2)/1000;
-        console.log(`  DONE: SVG OPTIMIZE           : ${(ts2).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
-
-        // Create thumbnails based on the .svg files.
-        ts3 = performance.now();
-        try{ 
-            results3 = await this.runCommand_exec_progress(cmd3, 0, false)
-            .catch(function(e) { console.log("ERROR: svgThumbs 1", results3); throw e; }); 
-        } 
-        catch(e){ console.log("ERROR: svgThumbs 2", e); throw e; }
-        ts3 = (performance.now() - ts3)/1000;
-        console.log(`  DONE: THUMBS                 : ${(ts3).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
-
-        // Can now remove this entry from needsUpdate_file.
-        needsUpdate_file = needsUpdate_file.filter(d=>d.uuid != uuid);
-
-        // Write the needsUpdate.json file. 
-        fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
-        console.log("  UPDATE needsUpdate.json: DONE");
-
-        // Return some data.
-        return {
-            "name"        : filename,
-            "uuid"        : uuid,
-            "fileType"    : recData.fileType,
-            "pages"       : recData.pageCount,
-            "t_TOTAL"     : ts0 + ts1 + ts2 + ts3,
-            "t_pdf"       : ts0,
-            "t_toSvg"     : ts1,
-            "t_svgo"      : ts2,
-            "t_svgThumbs" : ts3,
         };
     },
 

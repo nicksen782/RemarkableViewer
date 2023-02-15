@@ -439,8 +439,7 @@ var app = {
             'display_needed_changes' : 'display_needed_changes',
             'needed_changes'         : 'needed_changes',
         },
-
-        run_fullDownloadAndProcessing: async function(uuid, visibleName){
+        runProcessing: async function(uuid, visibleName){
             let dataOptions = { 
                 type:"json", method:"POST", 
                 body: {
@@ -448,7 +447,7 @@ var app = {
                     filename: visibleName,
                 }, 
             };
-            let data = await net.send(`run_fullDownloadAndProcessing`, dataOptions, false);
+            let data = await net.send(`processing.run`, dataOptions, false);
             return data;
         },
         rsyncUpdate_and_detectAndRecordChanges: async function(){
@@ -578,7 +577,7 @@ var app = {
                 let ts = performance.now();
                 recDiv.style['background-color'] = "yellow";
                 recDiv.classList.add("processing");
-                let resp = await this.run_fullDownloadAndProcessing(data.uuid, modifiedVisibleName);
+                let resp = await this.runProcessing(data.uuid, modifiedVisibleName);
                 
                 // Was the request successful? 
                 if(resp === false){
