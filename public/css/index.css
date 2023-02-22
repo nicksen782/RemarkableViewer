@@ -25,7 +25,9 @@
     background-color: #b0c4de;
 }
 
-#navViews{}
+#navViews{
+    font-family: monospace;
+}
 .navView{
     display:none;
 }
@@ -36,8 +38,11 @@
 /* FILE NAVIGATION */
 div#d3_filelist {
     width: 660px;
+    height: 880px;
+    overflow-y: auto;
     border: 1px solid black;
     background-color: #efefef;
+    font-family: Times New Roman;
 }
 
 /* DocumentType_file */
@@ -137,10 +142,12 @@ div#d3_filelist {
 	cursor: pointer;
 	vertical-align: top;
 	display: inline-block;
+	position: relative;
 }
 .CollectionType{
-    margin-right: 16px;
-    width: 165px;
+    /* margin-right: 12px; */
+    /* width: 165px; */
+    width: 200px;
     text-overflow: ellipsis;
 }
 .CollectionType.empty:before {
@@ -202,11 +209,12 @@ div#d3_filelist {
 .openedDoc_thumb{
     background-repeat: no-repeat;
     background-size: contain;
-    width: 120px;
-    height: 150px;
+    width: 90px;
+    height: 120px;
     border: 2px solid black;
     margin: 5px;
     background-color: whitesmoke;
+    display: inline-block;
 }
 .openedDoc_thumb:hover{
 	border: 2px solid crimson;
@@ -218,11 +226,12 @@ div#d3_filelist {
 
 #openedDoc_thumbs {
     border: 1px solid black;
-    width: 150px;
+    width: 220px;
     background-color: lightgray;
     float: left;
     overflow-y: scroll;
     height: 90vh;
+    font-family: Times New Roman;
 }
 .openedDoc_page {
     /* border: 1px solid black; */

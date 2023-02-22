@@ -352,6 +352,10 @@ var app = {
     // NAVBAR NAVIGATION
     nav: {
         // Holds the DOM for the nav buttons and nav views.
+        "MENU":{
+            'menu'   : 'navbar_menu_button',
+            'sidebar': 'LO1_sidebar',
+        },
         DOM: {
             'debug1': {
                 'tab':'navbar_debug1_button',
@@ -402,6 +406,25 @@ var app = {
                     this.showOne(key);
                 }, false);
             }
+
+            // Handle the menu key.
+            this['MENU'].menu    = document.getElementById(this['MENU'].menu   );
+            this['MENU'].menuIcon = this['MENU'].menu.querySelector(".LO1_sidebar_icon span");
+            this['MENU'].sidebar = document.getElementById(this['MENU'].sidebar);
+            this['MENU'].menu.addEventListener("click", ()=>{
+                let currentStatus = this['MENU'].sidebar.classList.contains("active") ? true : false;
+                if(currentStatus == true){
+                    this['MENU'].sidebar.classList.remove("active");
+                    this['MENU'].menuIcon.classList.remove("mdi-menu-open");
+                    this['MENU'].menuIcon.classList.add("mdi-menu");
+                }
+                else{
+                    this['MENU'].sidebar.classList.add("active");
+                    this['MENU'].menuIcon.classList.remove("mdi-menu");
+                    this['MENU'].menuIcon.classList.add("mdi-menu-open");
+                }
+                // 
+            }, false);
         },
 
     },
@@ -917,6 +940,9 @@ var app = {
         showDocument: async function(uuid){
             this.pages = await app.getAvailablePages(uuid);
             console.log(`showDocument: uuid: ${uuid}, pages:`, this.pages);
+            
+            let metadata = app.rm_fs.DocumentType.find(d=>d.uuid == uuid);
+            console.log("metadata:", metadata);
 
             //
             let thumbs_frag = document.createDocumentFragment();
