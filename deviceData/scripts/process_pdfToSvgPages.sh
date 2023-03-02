@@ -44,7 +44,8 @@ else
     # Make sure that the PAGES_ARRAY and the SVGPAGES have the same length.
     [ "${#PAGES_ARRAY[@]}" -ne "${#SVGPAGES[@]}" ] && echo "Arrays have different length" && exit 1;
 
-    # Go through each page in the PAGES_ARRAY.
+    # Go through each page in the PAGES_ARRAY. Rename the .svg files to match the page id of each page.
+    # These filename are expected to be in alphabetical order.
     for i in $(seq 0 $(( ${#PAGES_ARRAY[@]} - 1 )) ); do
         ORIGINALFILENAME=$(basename ${SVGPAGES[i]})
         mv "deviceData/pdf/$UUID/svg/$ORIGINALFILENAME" "deviceData/pdf/$UUID/svg/${PAGES_ARRAY[i]}.svg"

@@ -3,6 +3,8 @@ const path            = require('path');
 const { spawn }       = require('child_process');
 const { performance } = require('perf_hooks');
 
+var mime = require('mime-types');
+
 var server     ;// = require('https').createServer();
 const express    = require('express');
 const app        = express();
@@ -191,6 +193,8 @@ var processing = {
     },
 
     run: async function(uuid, filename){
+        filename = filename.replace(/[/\\?%*:|"<>]/g, '-');
+
         // Indicate what file is being processed.
         console.log(`  PROCESSING: ${uuid}, ${filename}`);
 
@@ -295,6 +299,10 @@ var processing = {
             // "t_svgThumbs" : ts3,
         };
     },
+};
+var sseStream = {
+    // References to the req and res of the client connection. 
+    clients:{}
 };
 
 var obj = {
@@ -437,26 +445,129 @@ var obj = {
                 console.log("");
                 res.json( resp ) ;
             });
+
+            // http://127.0.0.1:2000/getThumb/fa940301-c21e-448b-bf30-044915f8f649/ee90ce9a-1b0e-424e-b686-29c371bac611
+            app.get('/getThumb/:uuid/:pageid', express.json(), async (req, res) => {
+                let test = async function(uuid, pageid, type){
+                    if(type == "page"){
+
+                    }
+                    else if(type == "thumb"){
+                        let basePath_thumbs    = `deviceData/queryData/meta/thumbnails/${uuid}.thumbnails`;
+                        let basePath_svgThumbs = `deviceData/pdf/${uuid}/svgThumbs`;
+
+                        let stats_jpgThumb;
+                        let stats_pngThumb;
+                        try{ stats_jpgThumb = await fs.promises.lstat(`${basePath_thumbs}/${pageid}.jpg`)   .catch(function(e) { throw e; }); } catch(e){ }
+                        try{ stats_pngThumb = await fs.promises.lstat(`${basePath_svgThumbs}/${pageid}.png`).catch(function(e) { throw e; }); } catch(e){ }
+                    }
+                };
+
+                let tmp = {};
+                let uuid = req.params.uuid;
+                let pageid = req.params.pageid;
+
+                let basePath_thumbs    = `deviceData/queryData/meta/thumbnails/${uuid}.thumbnails`;
+                let basePath_svgThumbs = `deviceData/pdf/${uuid}/svgThumbs`;
+                let metadata = obj.rm_fs.DocumentType.find(d=>d.uuid == uuid);
+                tmp.visibleName = metadata.visibleName;
+
+                let stats_jpgThumb;
+                let stats_pngThumb;
+                try{ stats_jpgThumb = await fs.promises.lstat(`${basePath_thumbs}/${pageid}.jpg`)   .catch(function(e) { throw e; }); } catch(e){ }
+                try{ stats_pngThumb = await fs.promises.lstat(`${basePath_svgThumbs}/${pageid}.png`).catch(function(e) { throw e; }); } catch(e){ }
+
+                let outputStats;
+                let outputFile = "";
+
+                // If we have both files then we can compare which is newer. 
+                if(stats_jpgThumb && stats_pngThumb){
+                    if(stats_jpgThumb.mtimeMs > stats_pngThumb.mtimeMs){
+                        tmp.newer = "jpg";
+                        outputFile = `${basePath_thumbs}/${pageid}.jpg`
+                        outputStats = stats_jpgThumb;
+                    }
+                    else if(stats_jpgThumb.mtimeMs < stats_pngThumb.mtimeMs){
+                        tmp.newer = "png";
+                        outputFile = `${basePath_svgThumbs}/${pageid}.png`
+                        outputStats = stats_pngThumb;
+                    }
+                }
+                // We don't have both files. Get the values for the file that we do have. 
+                else{
+                    if(stats_pngThumb){
+                        tmp.newer = "png2";
+                        outputFile = `${basePath_svgThumbs}/${pageid}.png`
+                        outputStats = stats_pngThumb;
+                    }
+                    else if(stats_jpgThumb){
+                        tmp.newer = "jpg2";
+                        outputFile = `${basePath_thumbs}/${pageid}.jpg`
+                        outputStats = stats_jpgThumb;
+                    }
+                }
+                
+                // Did we get the data for a file? If so, stream it out.
+                if(outputFile && outputStats){
+                    console.log("RETURNING:", tmp);
+                    const file = fs.createReadStream(outputFile);
+                    const headers = {
+                        'Content-Length': outputStats.size,
+                        'Content-Type': mime.lookup(outputFile),
+                    };
+                    res.writeHead(200, headers);
+                    file.pipe(res);
+                    console.log("--");
+                }
+                // We did not get a file. Send blank output. 
+                else{
+                    console.log("MISSING DATA:", tmp);
+                    res.end("");
+                    console.log("--");
+                }
+            });
+
+            app.get('/sseTest', express.json(), async (req, res) => {
+                req.on('close',function(){    
+                    // code to handle connection abort
+                    console.log("This connection has closed");
+                });
+                // let ts_s = performance.now();
+                // // console.log("STARTED: getAvailablePages");
+                // let resp = await obj.getAvailablePages(req.body.uuid);
+                // // console.log(`FINISH : getAvailablePages: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                // console.log("");
+                // res.json( resp ) ;
+            });
         },
         activateServer: async function(){
             let conf = {
-                host: "127.0.0.1", 
+                host: "0.0.0.0", 
                 port: 2000,
-                useHttps: true,
+                useHttps: false,
             };
     
+            // Use HTTPS?
             if(conf.useHttps){
+                // TODO: Adjust for using a non-self-signed cert.
+                // Get the keys. 
                 const key  = fs.readFileSync("localhost-key.pem", "utf-8");
                 const cert = fs.readFileSync("localhost.pem", "utf-8");
-                
+    
                 if(key && cert){
+                    // TODO: Adjust for using a non-self-signed cert.
+                    // The cert is configured for "localhost". 0.0.0.0 or 127.0.0.1 will not work.
+                    if(_APP.config.node.debug != true){ 
+                        conf.host = "localhost";
+                    }
                     server = require('https').createServer(  { key, cert }, app );
                 }
             }
+
+            // Use HTTP.
             else{
-                // server = require('http').createServer()();
-                // server.on('request', app);
-                console.log("Non-https server is not currently supported.");
+                server = require('http').createServer();
+                server.on('request', app);
             }
 
             server.listen(conf, async function(){
@@ -474,7 +585,7 @@ var obj = {
         },
     },
     
-    // Returns the rm_fs.json file.
+    // Returfilename = filename.replace(/[/\\?%*:|"<>]/g, '-');ns the rm_fs.json file.
     get_rm_fsFile: async function(){
         // Get the rm_fs.json file.
         let rm_fs = fs.readFileSync(`deviceData/config/rm_fs.json`, {encoding:'utf8', flag:'r'});
@@ -883,7 +994,7 @@ var obj = {
         let basePath           = `deviceData/pdf/${uuid}`;
         let basePath_svgs      = `deviceData/pdf/${uuid}/svg`;
         let basePath_thumbs    = `deviceData/queryData/meta/thumbnails/${uuid}.thumbnails`;
-        let basePath_svgThumbs = `deviceData/pdf/${uuid}/svgThumbs`;;
+        let basePath_svgThumbs = `deviceData/pdf/${uuid}/svgThumbs`;
         
         // If the dir(s) does not exist then create it.
         if( !fs.existsSync(`${basePath}`) )          { fs.mkdirSync(`${basePath}`); }
@@ -903,7 +1014,11 @@ var obj = {
         files_svgsThumbs.forEach((d)=>{ d.filepath = path.basename(d.filepath); });
         
         // This will determine the output order of the pages. 
-        let metaPages = this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages;
+        let metadata = this.rm_fs.DocumentType.find(d=>d.uuid == uuid);
+        let metaPages = metadata.pages;
+
+        let modifiedVisibleName = metadata.visibleName.replace(/[/\\?%*:|"<>]/g, '-');
+        let pdfFile            = `${modifiedVisibleName}.pdf`;
 
         let output = [];
         missing = [];
@@ -980,11 +1095,19 @@ var obj = {
                 missing.push(metaPages[i]);
             }
 
+            // Get extensions.
+            // let ext_thumb    = "";
+            // let ext_svg      = "";
+            // let ext_svgThumb = "";
+            // if(thumb)   { let s = thumb.filepath   .split("."); ext_thumb    = s[s.length-1]; } 
+            // if(svg)     { let s = svg.filepath     .split("."); ext_svg      = s[s.length-1]; } 
+            // if(svgThumb){ let s = svgThumb.filepath.split("."); ext_svgThumb = s[s.length-1]; } 
+
             // Add to the output.
             output.push({
-                thumb     : thumb ? thumb.filepath : "",
-                svg       : svg   ? svg.filepath : "",
-                svgThumb  : svgThumb ? svgThumb.filepath : "",
+                // thumb     : ext_thumb   , // thumb    ? thumb.filepath    : "",
+                // svg       : ext_svg     , // svg      ? svg.filepath      : "",
+                // svgThumb  : ext_svgThumb, // svgThumb ? svgThumb.filepath : "",
                 pageId    : metaPages[i],
                 newer     : newer,
                 newerThumb: newerThumb,
@@ -995,7 +1118,8 @@ var obj = {
         // Return the output and the pages that have missing thumbs.
         return { 
             output:output,
-            missing:missing,
+            pdfFile:pdfFile,
+            // missing:missing,
         };
     },
 

@@ -1,0 +1,59 @@
+#viewContainer2 {
+    display: flex;
+    width: 100%;
+}
+
+#viewContainer2_thumbs {
+    width: 95px;
+    background-color: antiquewhite;
+    padding: 2px;
+}
+
+#viewContainer2_thumbs img {
+    border: 1px solid black;
+    width: 100%;
+    max-width: 90px;
+    max-height: 120px;
+}
+
+/* border-color: black !important; */
+/* border-style: solid !important; */
+/* border-width: 0px 22px 0px 0px !important; */
+/* border-image: url(../../images/spiral_l.png) 5 22 10 0 repeat repeat !important; */
+/* opacity: 0.30; */
+/* transform: translate(0px, 0px); */
+
+#viewContainer2 .page_l1view {
+    border: 1px solid black;
+    width:100%;
+}
+#viewContainer2 .page_p1view {
+    border: 1px solid black;
+    width:100%;
+}
+#viewContainer2 .page_p2view {
+    border: 1px solid black;
+    width:100%;
+}
+
+#viewContainer2_leftPage {
+    background-color: aqua;
+    border-style: solid !important;
+    border-width: 0px 22px 0px 0px !important;
+    border-image: url(../../images/spiral_l.png) 5 22 10 0 repeat repeat !important; 
+}
+
+#viewContainer2_divider {
+    background-color: blue;
+    width: 0px;
+    /* background-image: url(../../images/spiral_lr.png); */
+    background-repeat: repeat-y;
+    background-size: contain;
+}
+
+#viewContainer2_rightPage {
+    background-color: aquamarine;
+    border-style: solid !important;
+    border-width: 0px 0px 0px 22px !important;
+    border-image: url(../../images/spiral_r.png) 5 0 10 22 repeat repeat !important;
+}
