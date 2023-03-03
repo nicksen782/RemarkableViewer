@@ -780,12 +780,12 @@ var app = {
                 outer.append(frag);
                 return outer;
             };
-            let createCollectionTypeContainer = (rec, isEmpty=false)=>{
+            let createCollectionTypeContainer = (rec, parentHasEntries=false)=>{
                 let collection = document.createElement("span"); 
                 collection.classList.add("navFileIcon", "CollectionType");
                 
-                if(isEmpty){ collection.classList.add("empty"); }
-                else       { collection.classList.add("full"); }
+                if(parentHasEntries){ collection.classList.add("full"); }
+                else                { collection.classList.add("empty"); }
 
                 collection.innerText = rec.visibleName;
 
@@ -843,7 +843,8 @@ var app = {
 
             frag.append( document.createElement("br") );
             for(i=0; i<entries.CollectionType.length; i+=1){
-                frag.append(createCollectionTypeContainer( entries.CollectionType[i] ));
+                let parentHasEntries = app.getEntriesInCollectionType(entries.CollectionType[i].uuid).DocumentType.length;
+                frag.append(createCollectionTypeContainer( entries.CollectionType[i], parentHasEntries ));
             }
             frag.append( document.createElement("br") );
             for(i=0; i<entries.DocumentType.length; i+=1){
