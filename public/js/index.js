@@ -344,11 +344,31 @@ var app = {
     getEntriesInCollectionType: function(parent){
         let collections = app.rm_fs.CollectionType
         .filter(d=>{ if(!d.deleted) { return d.parent == parent; } })
-        .map(d=>{ return {...d, basepath: app.getParentPath(d.uuid, "CollectionType", true) } } );
-
+        .map(d=>{ return {...d, basepath: app.getParentPath(d.uuid, "CollectionType", true) } } )
+        .sort(function(a, b){
+            // Convert to lowercase (Might not be needed.)
+            let keya = a.visibleName.toLowerCase();
+            let keyb = b.visibleName.toLowerCase();
+            
+            // Sort ascending.
+            if (keya < keyb) { return -1; }
+            if (keya > keyb) { return  1; }
+            return 0; 
+        });
+        
         let documents = app.rm_fs.DocumentType
         .filter(d=>{ if(!d.deleted) { return d.parent == parent; } })
-        .map(d=>{ return {...d, basepath: app.getParentPath(d.uuid, "DocumentType", true) } } );
+        .map(d=>{ return {...d, basepath: app.getParentPath(d.uuid, "DocumentType", true) } } )
+        .sort(function(a, b){
+            // Convert to lowercase (Might not be needed.)
+            let keya = a.visibleName.toLowerCase();
+            let keyb = b.visibleName.toLowerCase();
+            
+            // Sort ascending.
+            if (keya < keyb) { return -1; }
+            if (keya > keyb) { return  1; }
+            return 0; 
+        });
 
         return {
             parentPathBreadcrumbs : app.getParentPathBreadcrumbs(parent),
