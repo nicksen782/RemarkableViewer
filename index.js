@@ -1,37 +1,44 @@
 const fs              = require('fs');
 const path            = require('path');
-const { spawn }       = require('child_process');
+const child_process   = require('child_process');
+var treeKill = require('tree-kill');
 const { performance } = require('perf_hooks');
-
 var mime = require('mime-types');
-
 var server     ;// = require('https').createServer();
 const express    = require('express');
 const app        = express();
 
-/*
-    CollectionType         has .metadata, .content.
-    DocumentType: notebook has .metadata, .content, local, .pagedata,              folders
-    DocumentType: pdf      has .metadata, .content, local, .pagedata, .pdf,        folders
-    DocumentType: epub     has .metadata, .content, local, .pagedata, .pdf, .epub, folders
+let restream = {
+    cp_child: null,
+    script: "deviceData/scripts/reStream.sh",
+    
+    startRestream: async function(){
+        console.log("Starting: restream");
+        await this.endRestream();
+        this.cp_child = child_process.spawn(
+            "bash", [this.script]
+        );
 
-    The folders for a DocumentType are named <UUID.<EXTENSION>
-      Where <EXTENSION> can be "", thumbnails, textconversion, highlights, 
+        this.cp_child.stdout.on('data' , (e,f)=>{ 
+            // console.log("data stdout:", e.toString()); 
+        });
 
-    https://remarkablewiki.com/tech/webinterface
-
-    // PDF 2 SVG CONVERSION
-    pdf2svg 'New Sync Method.pdf' output-page%04d.svg all
-
-    // SVGO conversion
-    svgo/bin/svgo -i Moutput-page0001.svg -o Moutput-page0001.svg
-    svgo/bin/svgo --config="deviceData/svgo.config.json" -i Moutput-page0001.svg -o Moutput-page0001.svg
-
-    // META folders.
-    // ./deviceData/queryData/meta/metadata
-    // ./deviceData/queryData/meta/content
-    // ./deviceData/queryData/meta/thumbnails
-*/
+        // This listener must be added. If it is not then within 1 minute the output will freeze.
+        this.cp_child.stderr.on('data' , (e,f)=>{ 
+            // console.log("data stderr:", e.toString()); 
+        });
+        this.cp_child       .on('error', (e,f)=>{ console.log("error:", e.toString()); });
+        this.cp_child       .on('close', (e,f)=>{ this.endRestream(); });
+        this.cp_child       .on('exit' , (e,f)=>{ this.endRestream(); });
+    },
+    endRestream: async function(){
+        if(this.cp_child && this.cp_child.pid){ 
+            console.log("Closing: restream");
+            treeKill(this.cp_child.pid);
+            this.cp_child = null;
+        }
+    },
+};
 
 var rm_fs = {
     // Returns a filelist from the specified target path of type and file extension.
@@ -112,7 +119,6 @@ var rm_fs = {
         let rm_fs = fs.readFileSync(`deviceData/config/rm_fs.json`, {encoding:'utf8', flag:'r'});
         obj.rm_fs = JSON.parse(rm_fs);
     },
-
 };
 
 var sync = {
@@ -316,7 +322,7 @@ var obj = {
         // outputCallback will be passed the data to be handled.
 
         return new Promise(function(cmd_res, cmd_rej){
-            const proc = spawn(cmd, { shell: true });
+            const proc = child_process.spawn(cmd, { shell: true });
     
             let stdOutHist = "";
             let stdErrHist = "";
@@ -401,6 +407,15 @@ var obj = {
             app.use('/deviceThumbs', express.static(path.join(process.cwd(), './deviceData/queryData/meta/thumbnails')));
         },
         addRoutes: async function(){
+            app.post('/startRestream', express.json(), async (req, res) => {
+                restream.startRestream();
+                res.json( "startRestream" ) ;
+            });
+            app.post('/endRestream', express.json(), async (req, res) => {
+                restream.endRestream();
+                res.json( "endRestream" ) ;
+            });
+
             app.post('/get_rm_fsFile', express.json(), async (req, res) => {
                 let ts_s = performance.now();
                 // console.log("STARTED: get_rm_fsFile");

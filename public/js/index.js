@@ -16,7 +16,34 @@ function test(){
 }
 
 var debug = {
+     // Holds the DOM for elements within this view.
+     DOM: {
+        // Action buttons.
+        'debug_startRestream' : 'debug_startRestream',
+        'debug_endRestream' : 'debug_endRestream',
+    },
+    startRestream: async function(){
+        let dataOptions = { type:"json", method:"POST", body: { } };
+        let data = await net.send(`startRestream`, dataOptions, false);
+    },
+    endRestream: async function(){
+        let dataOptions = { type:"json", method:"POST", body: { } };
+        let data = await net.send(`endRestream`, dataOptions, false);
+    },
     init: async function(){
+        // Create the DOM cache.
+        for(let key in this.DOM){
+            // Cache the DOM.
+            this.DOM[key] = document.getElementById(this.DOM[key]);
+        }
+
+        // ADD EVENT LISTENERS.
+
+        // Rsync, update needsUpdate.json
+        this.DOM['debug_startRestream'].addEventListener("click", ()=>{ this.startRestream(); }, false);
+
+        // Create the needed_changes table.
+        this.DOM['debug_endRestream'].addEventListener("click", ()=>this.endRestream(null), false);
     },
 };
 var net = {
@@ -531,7 +558,10 @@ var app = {
                 }
 
                 // Filter out any blank lines. 
-                errorLines = errorLines.filter(d=>d.trim());
+                errorLines = errorLines.filter(d=>{
+                    try{ return d.trim(); }
+                    catch(e){ console.log(e); return false; }
+                });
 
                 // Display the errors.
                 console.log("errorLines:", errorLines);

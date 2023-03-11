@@ -14,6 +14,7 @@
     "http": "^0.0.1-security",
     "https": "^1.0.0",
     "mime-types": "^2.1.35",
-    "svgo": "^3.0.2"
+    "svgo": "^3.0.2",
+    "tree-kill": "^1.2.2"
   }
 }
