@@ -519,6 +519,8 @@ var app = {
             'rsyncUpdate_and_detectAndRecordChanges' : 'rsyncUpdate_and_detectAndRecordChanges',
             'display_needed_changes' : 'display_needed_changes',
             'needed_changes'         : 'needed_changes',
+            'sync_output'            : 'sync_output',
+            'convert_output'         : 'convert_output',
         },
         runProcessing: async function(uuid, visibleName){
             let dataOptions = { 
@@ -532,59 +534,147 @@ var app = {
             return data;
         },
         rsyncUpdate_and_detectAndRecordChanges: async function(){
-            // Create the options and body data.
-            let dataOptions = {
-                type:"json", method:"POST",
-                body: { },
+            // console.log("NEW: rsyncUpdate_and_detectAndRecordChanges");
+
+            // Create an EventSource object to listen to SSE messages
+            // console.log("Opening EventSource.")
+            this.DOM['sync_output'].innerHTML = "";
+            const eventSource = new EventSource('rsyncUpdate_and_detectAndRecordChanges');
+
+            let isThisJson = function(text){
+                try{ return JSON.parse(text); }
+                catch(e){ return false; }
             };
-    
-            let data = await net.send(`rsyncUpdate_and_detectAndRecordChanges`, dataOptions, 300000);
 
-            // Detect errors.
-            if(data.rsync.error || data.updates.error){
-                let errorLines = [];
+            // Listen to SSE messages
+            eventSource.onopen    = (event) => { 
+                // console.log(`*OPEN`, event); 
+            };
+            eventSource.onclose   = (event) => { 
+                // console.log(`*CLOSE`, event); 
+                eventSource.close(); 
+            };
+            eventSource.onerror   = (event) => { console.log(`*ERROR`, event); eventSource.close(); };
+            eventSource.onmessage = (event) => {
+                // The data is expected to be JSON. It will have a key of "mode" and a key of "data".
+                let json = isThisJson(event.data);
+                if(!json){ console.log("NOT JSON", event.data); return;  }
 
-                // Get the stdOut and stdErr lines. 
-                if(data.rsync.error.stdOutHist || data.rsync.error.stdErrHist){
-                    if(data.rsync.error.stdOutHist){
-                        errorLines.push(...data.rsync.error.stdOutHist.split("\n"));
+                // Is the stream on-going?
+                if(json.status == "active"){
+                    // console.log(`Received SSE message:`, json.status, json.data);
+                    let newText = "";
+                    if(Array.isArray(json.data)){
+                        // console.log("json.data IS an array. Iterate through each entry.", json.data);
+                        json.data.forEach(d=>{ 
+                            if(typeof d == "string"){
+                                // Is the string JSON?
+                                let tmp = isThisJson(d);
+
+                                // Yes?
+                                if(tmp){ 
+                                    // console.log("JSON: ", tmp); 
+                                    let keys = Object.keys(tmp);
+                                    keys.forEach(k=>{
+                                        let lines = tmp[k].split("\n");
+                                        newText += `${k}: ` + "\n"; 
+                                        lines.forEach(l=>{
+                                            if(l){ newText += `  ` + l.trim() + "\n";  }
+                                        });
+                                    });
+                                }
+                                // No, it is text.
+                                else   { 
+                                    if(d){ 
+                                        // console.log("TEXT: ", d); 
+                                        newText += d + "\n"; 
+                                    }
+                                }
+                            }
+                            // Unknown type.
+                            else{
+                                console.log("Invalid type:", typeof d, d);
+                            }
+                        });
                     }
-                    if(data.rsync.error.stdErrHist){
-                        errorLines.push(...data.rsync.error.stdErrHist.split("\n"));
+                    else{
+                        console.log("--------------- json.data is not an array.", json);
+                    }
+
+                    // Add the text to the display.
+                    this.DOM['sync_output'].innerHTML += newText ;
+                    // console.log("newText:", newText);
+                }
+                // Is the stream finished?
+                else if(json.status == "finished"){
+                    // console.log("Data stream is finished. Closing EventSource.");
+                    eventSource.close();
+
+                    data = json.data;
+
+                    // Detect errors.
+                    if(data.rsync.error || data.updates.error){
+                        let errorLines = [];
+
+                        // Get the stdOut and stdErr lines. 
+                        if(data.rsync.error){
+                            let tmp = isThisJson(data.rsync.error);
+                            if(tmp.stdOutHist || tmp.stdErrHist){
+                                if(tmp.cmd){ errorLines.push("CMD: " + tmp.cmd); }
+                                if(tmp.stdOutHist){ errorLines.push(...tmp.stdOutHist.split("\n")); }
+                                if(tmp.stdErrHist){ errorLines.push(...tmp.stdErrHist.split("\n")); }
+                            }
+                            else{
+                                errorLines.push(data.rsync.error);
+                            }
+                        }
+
+                        // Get the stdOut and stdErr lines. 
+                        if(data.updates.error){
+                            let tmp = isThisJson(data.updates.error);
+                            if(tmp.stdOutHist || tmp.stdErrHist){
+                                if(tmp.cmd){ errorLines.push("CMD: " + tmp.cmd); }
+                                if(tmp.stdOutHist){ errorLines.push(...tmp.stdOutHist.split("\n")); }
+                                if(tmp.stdErrHist){ errorLines.push(...tmp.stdErrHist.split("\n")); }
+                            }
+                            else{
+                                errorLines.push(data.updates.error);
+                            }
+                        }
+
+                        // Filter out any blank lines. 
+                        errorLines = errorLines.filter(d=>{
+                            try{ return d.trim(); }
+                            catch(e){ console.log("ERROR returning trim.", e); return false; }
+                        });
+
+                        // Display the errors.
+                        console.log("ERROR: rsyncUpdate_and_detectAndRecordChanges: ", errorLines);
+                    }
+                    else{
+                        // Update rm_fs and reload the current file nav view.
+                        if(data.rsync.rm_fs){
+                            // Update the local rm_fs with the copy sent by the server.
+                            // console.log("updating rm_fs");
+                            app.rm_fs = data.rsync.rm_fs;
+                            
+                            // Update the active file nav.
+                            // console.log("updating current file view");
+                            let activeCollection = document.querySelector(".crumb.activeCollection");
+                            if(activeCollection){ activeCollection.click(); }
+                        }
+
+                        // If there are updates then display them.
+                        if(data.updates.updates){
+                            // console.log("Displaying needed updates", data.updates.updatesAll.length);
+                            this.display_needed_changes( data.updates.updatesAll );
+                        }
                     }
                 }
                 else{
-                    errorLines.push(data.rsync.error);
+                    console.log("Invalid status:", json.status, json);
                 }
-
-                // Filter out any blank lines. 
-                errorLines = errorLines.filter(d=>{
-                    try{ return d.trim(); }
-                    catch(e){ console.log(e); return false; }
-                });
-
-                // Display the errors.
-                console.log("errorLines:", errorLines);
-            }
-            else{
-                // Update rm_fs and reload the current file nav view.
-                if(data.rsync.rm_fs){
-                    // console.log("updating rm_fs");
-                    // Update the local rm_fs with the copy sent by the server.
-                    app.rm_fs = data.rsync.rm_fs;
-                    
-                    // Update the active file nav.
-                    // console.log("updating current file view");
-                    let activeCollection = document.querySelector(".crumb.activeCollection");
-                    if(activeCollection){ activeCollection.click(); }
-                }
-
-                // If there are updates then display them.
-                if(data.updates.updates){
-                    // console.log("Displaying needed updates", data.updates.updatesAll.length);
-                    this.display_needed_changes( data.updates.updatesAll );
-                }
-            }
+            };
         },
         display_needed_changes: async function(data=null){
             // console.log("Running real function. data:", data ? "provided" : "request");
@@ -663,44 +753,116 @@ var app = {
                 // Do not allow more processing until this has finished processing.
                 if(recDiv.classList.contains("processing")){ console.log("Already processing this one", data.visibleName); res(); return; }
 
-                // Use a modified visible name for the output file. Strips out invalid filename characters.
-                // let modifiedVisibleName = data.visibleName.replace(/[/\\?%*:|"<>]/g, '-');
-
                 // Request the processing.
                 let ts = performance.now();
                 recDiv.style['background-color'] = "yellow";
                 recDiv.classList.add("processing");
-                // let resp = await this.runProcessing(data.uuid, modifiedVisibleName);
-                let resp = await this.runProcessing(data.uuid, data.visibleName);
-                
-                // Was the request successful? 
-                if(resp === false){
+            
+                // Create an EventSource object to listen to SSE messages
+                // console.log("Opening EventSource.")
+                this.DOM['convert_output'].innerHTML = "";
+                let url = `processing.run/?uuid=${data.uuid}&filename=${encodeURIComponent(data.visibleName)}`;
+                const eventSource = new EventSource(url);
+
+                let isThisJson = function(text){
+                    try{ return JSON.parse(text); }
+                    catch(e){ return false; }
+                }
+
+                // Listen to SSE messages
+                eventSource.onopen    = (event) => { 
+                    // console.log(`*OPEN`, event); 
+                };
+                eventSource.onclose   = (event) => { 
+                    // console.log(`*CLOSE`, event); 
+                    eventSource.close(); 
+                };
+                eventSource.onerror   = (event) => { 
                     recDiv.style['background-color'] = "red";
                     console.log("convert: there was an error.");
                     rej("convert: there was an error.");
-                }
-                // Successful?
-                else{
-                    // TODO: Check for returned errors.
-                    //
+                    console.log(`*ERROR`, event); 
+                    eventSource.close(); 
+                };
+                eventSource.onmessage = (event) => { 
+                    // The data is expected to be JSON. It will have a key of "mode" and a key of "data".
+                    let json = isThisJson(event.data);
+                    if(!json){ console.log("NOT JSON", event.data); return; }
 
-                    // Add to the local history.
-                    this.history.push(resp);
+                    // Is the stream on-going?
+                    if(json.status == "active"){
+                        // Update the display with the new lines of text.
+                        // console.log(`Received SSE message:`, json.status, json.data);
+                        let newText = "";
 
-                    // "convertAll" output.(divCount will be set if using "convertAll".)
-                    if(divCount != null){
-                        console.log(`${divCount.i+1}/${divCount.len} FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, resp);
+                        // Is json.data an array?
+                        if(Array.isArray(json.data)){
+                            json.data.forEach(d=>{ 
+                                // Is the string JSON?
+                                let tmp = isThisJson(d);
+
+                                // Yes?
+                                if(tmp){
+                                    let keys = Object.keys(tmp);
+                                    keys.forEach(k=>{
+                                        let lines = tmp[k].split("\n");
+                                        newText += `${k}: ` + "\n"; 
+                                        lines.forEach(l=>{
+                                            if(l){ newText += `  ` + l.trim() + "\n";  }
+                                        });
+                                    });
+                                }
+                                // No, it is text.
+                                else{
+                                    newText += d + "\n"; 
+                                }
+
+                            });
+                        }
+                        // It isn't?
+                        else{
+                        }
+
+                        // Add the text to the display.
+                        this.DOM['convert_output'].innerHTML += newText ;
                     }
-                    // Normal output.
+                    // Is the stream finished?
+                    else if(json.status == "finished"){
+                        // console.log("Data stream is finished. Closing EventSource.");
+                        eventSource.close();
+                        // data = json.data;
+                        // console.log("***", json);
+                        // console.log("***", json.data);
+                        // console.log("***", data);
+
+                        // Finish.
+
+                        // TODO: Check for returned errors.
+                        //
+
+                        // Add to the local history.
+                        this.history.push(data);
+
+                        // "convertAll" output.(divCount will be set if using "convertAll".)
+                        if(divCount != null){
+                            console.log(`${divCount.i+1}/${divCount.len} FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, data);
+                        }
+                        // Normal output.
+                        else{
+                            console.log(`FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, data);
+                        }
+
+                        // Remove the div from the list since the file has been successfully processed.
+                        recDiv.remove();
+
+                        res();
+                    }
+                    // Unknown type.
                     else{
-                        console.log(`FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, resp);
+                        console.log("Invalid status:", json.status, json);
                     }
+                };
 
-                    // Remove the div from the list since the file has been successfully processed.
-                    recDiv.remove();
-
-                    res();
-                }
             });
         },
         convertAll: async function(fileType=null){

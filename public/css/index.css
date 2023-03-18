@@ -268,3 +268,38 @@ div#openedDoc_dispPages {
     height: calc(98vh - var(--header-height) - var(--footer-height));
     max-height: calc(98vh - var(--header-height) - var(--footer-height));
 }
+
+div#sync_output {
+    white-space: pre-wrap;
+    background-color: rgba(255,255,255,0.75);
+    border: 1px solid black;
+    min-height: 1em;
+    margin: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    max-width: 700px;
+}
+
+.neededUpdateDiv {
+    white-space: pre;
+    background-color: rgba(255,255,255,0.75);
+    border: 1px solid black;
+}
+
+div#convert_output {
+    white-space: pre-wrap;
+    background-color: rgba(255,255,255,0.75);
+    border: 1px solid black;
+    min-height: 1em;
+    margin: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    max-width: 700px;
+}
+
+div#navbar_debug2_view_inner {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: row;
+    justify-content: center;
+}

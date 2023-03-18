@@ -79,20 +79,35 @@
                     <button id="debug_startRestream">debug_startRestream</button>
                     <button id="debug_endRestream">debug_endRestream</button>
                 </div>
+
                 <div class="navView" id="navbar_debug2_view">
-                    <div>
-                        Run rsyncUpdate AND detectAndRecordChanges<br>
-                        <button id="rsyncUpdate_and_detectAndRecordChanges">rsyncUpdate_and_detectAndRecordChanges</button>
+                    <div id="navbar_debug2_view_inner">
+                        <!-- LEFT DIV -->
+                        <div style="flex-grow: 1;">
+                            <div>
+                                Run rsyncUpdate AND detectAndRecordChanges<br>
+                                <button id="rsyncUpdate_and_detectAndRecordChanges">rsyncUpdate_and_detectAndRecordChanges</button>
+                            </div>
+
+                            <br>
+                            
+                            <div>
+                                Display neededChanges<br>
+                                <button id="display_needed_changes">display_needed_changes</button>
+                                <div id="needed_changes"></div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT DIV -->
+                        <div style="flex-grow: 1;">
+                            <div id="SYNC">SYNC</div>
+                            <div id="sync_output"></div>
+                            <div id="">CONVERT</div>
+                            <div id="convert_output"></div>
+                        </div>
                     </div>
-                    <br>
-        
-                    <div>
-                        Display neededChanges<br>
-                        <button id="display_needed_changes">display_needed_changes</button>
-                        <div id="needed_changes"></div>
-                    </div>
-                    <br>
                 </div>
+
                 <div class="navView" id="navbar_fileNav_view">
                     <div id="d3_filelist"></div>
                     <br>

@@ -8,6 +8,7 @@ var server     ;// = require('https').createServer();
 const express    = require('express');
 const app        = express();
 
+// This is used for the screen streaming program: ReStream.
 let restream = {
     cp_child: null,
     script: "deviceData/scripts/reStream.sh",
@@ -121,6 +122,7 @@ var rm_fs = {
     },
 };
 
+
 var sync = {
     detectChanges: async function(){},
     rsync: async function(){},
@@ -198,11 +200,17 @@ var processing = {
         return results0;
     },
 
-    run: async function(uuid, filename){
+    // One file at a time.
+    run: async function(uuid, filename, sse_handler = null){
+        // Remove illegal characters in the filename.
         filename = filename.replace(/[/\\?%*:|"<>]/g, '-');
 
+        let sendMessage = sse_handler ? sse_handler : console.log;
+
         // Indicate what file is being processed.
-        console.log(`  PROCESSING: ${uuid}, ${filename}`);
+        // console.log(`  PROCESSING: ${uuid}, ${filename}`);
+        sendMessage(`  PROCESSING: ${filename}`);
+        sendMessage(`    UUID: ${uuid}`);
 
         // Get the needsUpdate.json file.
         let needsUpdate_file = fs.readFileSync(`deviceData/config/needsUpdate.json`, {encoding:'utf8', flag:'r+'});
@@ -211,7 +219,8 @@ var processing = {
         // Check that the specified file is within the needsUpdate.json file.
         let index = needsUpdate_file.findIndex(d=>d.uuid == uuid);
         if(index == -1){
-            console.log(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within needsUpdate.json`);
+            // console.log(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within needsUpdate.json`);
+            sendMessage(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within needsUpdate.json`);
             return {
                 "name"    : filename,
                 "uuid"    : uuid,
@@ -226,7 +235,8 @@ var processing = {
         // Find the file's record in rm_fs.
         let recData = obj.rm_fs.DocumentType.find(d=>uuid==d.uuid); 
         if(!recData){ 
-            console.log(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within rm_fs.json`);
+            // console.log(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within rm_fs.json`);
+            sendMessage(`ABORT: run_fullDownloadAndProcessing: uuid: ${uuid} is NOT within rm_fs.json`);
             return {
                 "name" : filename,
                 "uuid" : uuid,
@@ -255,7 +265,7 @@ var processing = {
         for(let i=0; i<results.length; i+=1){
             let r = results[i];
             if(errorDetected){ 
-                console.log(`  SKIPPED: ${r.func.name.padEnd(23, " ")}: [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+                sendMessage(`  SKIPPED: ${r.func.name.padEnd(21, " ")}: [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] `);
                 r.func = r.func.name; 
                 r.skipped = true; 
                 continue; 
@@ -265,7 +275,7 @@ var processing = {
             try{ 
                 r.results = await r.func(...r.args).catch( function(e) { throw e; } );
                 r.ts = (performance.now() - r.ts)/1000;
-                console.log(`  DONE   : ${r.func.name.padEnd(23, " ")}: ${(r.ts).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+                sendMessage(`  DONE   : ${r.func.name.padEnd(21, " ")}: ${(r.ts).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] `);
                 r.func = r.func.name;
             }
             catch(e){ 
@@ -273,7 +283,7 @@ var processing = {
                 r.error = e.e;
                 r.ts = (performance.now() - r.ts)/1000;
                 errorDetected = true;
-                console.log(`  ERROR  : ${r.func.name.padEnd(23, " ")}: ${(r.ts).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] "${filename}"`);
+                sendMessage(`  ERROR  : ${r.func.name.padEnd(21, " ")}: ${(r.ts).toFixed(3)}s, [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}] `);
                 r.func = r.func.name;
             }
         }
@@ -284,7 +294,7 @@ var processing = {
 
             // Write the needsUpdate.json file. 
             fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
-            console.log("  UPDATE needsUpdate.json: DONE");
+            sendMessage("  DONE   : needsUpdate.json");
         }
 
         // Return some data.
@@ -292,6 +302,7 @@ var processing = {
             delete d.args;
             return d;
         });
+
         return {
             "name"        : filename,
             "uuid"        : uuid,
@@ -433,25 +444,64 @@ var obj = {
                 res.json( resp ) ;
                 });
     
-            app.post('/rsyncUpdate_and_detectAndRecordChanges', express.json(), async (req, res) => {
-                let ts_s = performance.now();
+            app.get('/rsyncUpdate_and_detectAndRecordChanges', express.json(), async (req, res) => {
+                // Send headers to indicate that this is an event-stream.
+                res.setHeader('Content-Type', 'text/event-stream');
+                res.setHeader('Cache-Control', 'no-cache');
+                res.setHeader('Connection', 'keep-alive');
+                res.flushHeaders();
+
+                // Set these shared variables.
+                let sse_mode = "sync";
+                let sse_status = "active";
+
+                // This function will be used instead of console.log.
+                let sse_handler = function(...args){
+                    let dataObj = { "mode":sse_mode, "data":args, "status":sse_status };
+                    res.write(`data: ${JSON.stringify(dataObj)}\n\n`);
+                };
+
+                // Run the process and time it.
                 console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
-                let resp = await obj.rsyncUpdate_and_detectAndRecordChanges();
-                console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
-                console.log("");
-                res.json( resp ) ;
-            });
-    
-            app.post('/processing.run', express.json(), async (req, res) => {
                 let ts_s = performance.now();
-                console.log("STARTED: processing.run");
-                let resp = await processing.run(req.body.uuid, req.body.filename);
-                // let resp = await processing.run("3674bf4c-9176-4813-9b42-6d72afcc76d2", "The Future of Our Team.pdf");
-                console.log(`FINISH : processing.run: ${(performance.now() - ts_s).toFixed(3)} ms`);
-                console.log("");
-                res.json( resp ) ;
+                let resp = await obj.rsyncUpdate_and_detectAndRecordChanges(sse_handler);
+                console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+
+                // End and send the resp.
+                sse_status = "finished";
+                dataObj = { "mode":sse_mode, "data":resp, "status":sse_status };
+                res.end(`data: ${JSON.stringify(dataObj)}\n\n`);
             });
     
+            app.get('/processing.run', express.json(), async (req, res) => {
+                // Send headers to indicate that this is an event-stream.
+                res.setHeader('Content-Type', 'text/event-stream');
+                res.setHeader('Cache-Control', 'no-cache');
+                res.setHeader('Connection', 'keep-alive');
+                res.flushHeaders();
+
+                // Set these shared variables.
+                let sse_mode = "convert";
+                let sse_status = "active";
+
+                // This function will be used instead of console.log.
+                let sse_handler = function(...args){
+                    let dataObj = { "mode":sse_mode, "data":args, "status":sse_status };
+                    res.write(`data: ${JSON.stringify(dataObj)}\n\n`);
+                };
+
+                // Run the process and time it.
+                console.log("STARTED: processing.run");
+                let ts_s = performance.now();
+                let resp = await processing.run(req.query.uuid, req.query.filename, sse_handler);
+                console.log(`FINISH : processing.run: ${(performance.now() - ts_s).toFixed(3)} ms`);
+
+                // End and send the resp.
+                sse_status = "finished";
+                dataObj = { "mode":sse_mode, "data":resp, "status":sse_status };
+                res.end(`data: ${JSON.stringify(dataObj)}\n\n`);
+            });
+
             app.post('/getAvailablePages', express.json(), async (req, res) => {
                 let ts_s = performance.now();
                 // console.log("STARTED: getAvailablePages");
@@ -524,7 +574,7 @@ var obj = {
                 
                 // Did we get the data for a file? If so, stream it out.
                 if(outputFile && outputStats){
-                    console.log("RETURNING:", tmp);
+                    // console.log("RETURNING:", tmp);
                     const file = fs.createReadStream(outputFile);
                     const headers = {
                         'Content-Length': outputStats.size,
@@ -532,13 +582,13 @@ var obj = {
                     };
                     res.writeHead(200, headers);
                     file.pipe(res);
-                    console.log("--");
+                    // console.log("--");
                 }
                 // We did not get a file. Send blank output. 
                 else{
                     console.log("MISSING DATA:", tmp);
                     res.end("");
-                    console.log("--");
+                    // console.log("--");
                 }
             });
 
@@ -622,26 +672,27 @@ var obj = {
     },
 
     // Runs rsyncUpdate and detectAndRecordChanges in sequence.
-    rsyncUpdate_and_detectAndRecordChanges: async function(){
-        let res1, res2;
+    rsyncUpdate_and_detectAndRecordChanges: async function( sse_handler = null){
+        let res1, res2, line;
+        let sendMessage = sse_handler ? sse_handler : console.log;
         
         // Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
         try{ res1 = await this.rsyncUpdate(); }
         catch(e){ 
-            console.log("ERROR running rsyncUpdate", e); 
-            res1 = { error: e };
+            sendMessage("ERROR running rsyncUpdate", JSON.stringify(e)); 
+            res1 = { error: JSON.stringify(e) };
             res2 = { error: "Skipped: detectAndRecordChanges" };
         }
 
         //
         if(!res1.error){
-            console.log(`  RSYNC:`);
-            console.log(`    UUIDs updated: ${res1.uuids_updated}. There are a total of ${res1.uuids_total}.`);
+            sendMessage(`  RSYNC:`);
+            sendMessage(`    UUIDs updated: ${res1.uuids_updated}. There are a total of ${res1.uuids_total}.`);
             if(res1.uuids_updated2.length){
-                console.log(`      ${res1.uuids_updated2.join("\n      ")}`);
+                sendMessage(`      ${res1.uuids_updated2.join("\n      ")}`);
             }
-            console.log(`    Totals by fileType: "DocumentType": ${res1.uuids_DocumentType}, "CollectionType": ${res1.uuids_CollectionType}`);
-            console.log(`    Total V6: ${res1.v6_docs} docs, and ${res1.v5_docs} V5 docs.`);
+            sendMessage(`    Totals by fileType: "DocumentType": ${res1.uuids_DocumentType}, "CollectionType": ${res1.uuids_CollectionType}`);
+            sendMessage(`    Total V6: ${res1.v6_docs} docs, and ${res1.v5_docs} V5 docs.`);
 
             // Detect changes since timestamp and add/update needsUpdate.json.
             try{ res2 = await this.detectAndRecordChanges(); }
@@ -652,15 +703,15 @@ var obj = {
 
             // 
             if(!res2.error){
-                console.log(`  UPDATE of needsUpdate.json:`);
-                console.log(`    Updates: new: ${res2.count_new}, updated: ${res2.count_updated}, total: ${res2.count_all}`);
-                console.log(`    needsUpdate.json updated: ${res2.needsUpdateFileUpdated ? "YES" : "NO"}`);
+                sendMessage(`  UPDATE of needsUpdate.json:`);
+                sendMessage(`    Updates: new: ${res2.count_new}, updated: ${res2.count_updated}, total: ${res2.count_all}`);
+                sendMessage(`    needsUpdate.json updated: ${res2.needsUpdateFileUpdated ? "YES" : "NO"}`);
                 if(res2.needsUpdateFileUpdated){
-                    console.log(`    Files updated:`)
-                    console.log(`      ` + res2.updates.map(d=>{ return `[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}" (${d.uuid})` ; }).join("\n      ") )
+                    sendMessage(`    Files updated:`)
+                    sendMessage(`      ` + res2.updates.map(d=>{ return `[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}" (${d.uuid})` ; }).join("\n      ") )
                 }
                 else{
-                    console.log(`    No updates were needed.`)
+                    sendMessage(`    No updates were needed.`)
                 }
             }
         }
@@ -1136,52 +1187,6 @@ var obj = {
             pdfFile:pdfFile,
             // missing:missing,
         };
-    },
-
-    addRoutes: async function(){
-        app.post('/get_rm_fsFile', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            // console.log("STARTED: get_rm_fsFile");
-            let resp = await this.get_rm_fsFile();
-            // console.log(`FINISH : get_rm_fsFile: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            // console.log("");
-            res.json( resp ) ;
-            });
-        app.post('/getNeededChanges', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            // console.log("STARTED: getNeededChanges");
-            let resp = await this.getNeededChanges();
-            // console.log(`FINISH : getNeededChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            // console.log("");
-            res.json( resp ) ;
-            });
-
-        app.post('/rsyncUpdate_and_detectAndRecordChanges', express.json(), async (req, res) => {
-        let ts_s = performance.now();
-        console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
-        let resp = await this.rsyncUpdate_and_detectAndRecordChanges();
-        console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
-        console.log("");
-        res.json( resp ) ;
-        });
-
-        app.post('/run_fullDownloadAndProcessing', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            console.log("STARTED: run_fullDownloadAndProcessing");
-            let resp = await this.run_fullDownloadAndProcessing(req.body.uuid, req.body.filename);
-            console.log(`FINISH : run_fullDownloadAndProcessing: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            console.log("");
-            res.json( resp ) ;
-        });
-
-        app.post('/getAvailablePages', express.json(), async (req, res) => {
-            let ts_s = performance.now();
-            // console.log("STARTED: getAvailablePages");
-            let resp = await this.getAvailablePages(req.body.uuid);
-            // console.log(`FINISH : getAvailablePages: ${(performance.now() - ts_s).toFixed(3)} ms`);
-            console.log("");
-            res.json( resp ) ;
-        });
     },
 };
 
