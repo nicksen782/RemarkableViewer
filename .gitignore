@@ -10,3 +10,5 @@ deviceData/config/needsUpdate.json
 deviceData/config/rm_fs.json
 deviceData/custTemplates/*
 public/tests/*
+index.js
+backend/config.json
