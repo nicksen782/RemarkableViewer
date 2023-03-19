@@ -1,0 +1,21 @@
+{
+    "toggles": {
+        "show_APP_consolelog": true
+    },
+    "node": {
+        "debug":true,
+        "http": {
+            "host": "0.0.0.0",
+            "port": 2000,
+            "useHttps": false
+        },
+        "httpsCert": {
+            "key" : "localhost-key.pem",
+            "cert": "localhost.pem"
+        },
+        "routes":{
+            "rel":"./backend/routes.js",
+            "req":"./routes"
+        }
+    }
+}
