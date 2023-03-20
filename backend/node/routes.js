@@ -29,7 +29,6 @@ let _MOD = {
                 "desc": "",
                 "args": [],
                 "func": async (req,res)=>{
-                    
                     // Send headers to indicate that this is an event-stream.
                     res.setHeader('Content-Type', 'text/event-stream');
                     res.setHeader('Cache-Control', 'no-cache');
@@ -47,10 +46,10 @@ let _MOD = {
                     };
                     
                     // Run the process and time it.
-                    console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
-                    let ts_s = performance.now();
+                    // console.log("STARTED: rsyncUpdate_and_detectAndRecordChanges");
+                    // let ts_s = performance.now();
                     let resp = await _APP.m_sync.rsyncUpdate_and_detectAndRecordChanges(sse_handler);
-                    console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                    // console.log(`FINISH : rsyncUpdate_and_detectAndRecordChanges: ${(performance.now() - ts_s).toFixed(3)} ms`);
                     
                     // End and send the resp.
                     sse_status = "finished";
@@ -82,10 +81,10 @@ let _MOD = {
                     };
 
                     // Run the process and time it.
-                    console.log("STARTED: processing.run");
-                    let ts_s = performance.now();
+                    // console.log("STARTED: processing.run");
+                    // let ts_s = performance.now();
                     let resp = await _APP.m_convert.run(req.query.uuid, sse_handler);
-                    console.log(`FINISH : processing.run: ${(performance.now() - ts_s).toFixed(3)} ms`);
+                    // console.log(`FINISH : processing.run: ${(performance.now() - ts_s).toFixed(3)} ms`);
 
                     // End and send the resp.
                     sse_status = "finished";

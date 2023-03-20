@@ -105,8 +105,8 @@ let _MOD = {
 
     // Convert one file.
     run: async function(uuid, sse_handler = null){
+        let ts = performance.now();
         let filename;
-        
         let sendMessage = sse_handler ? sse_handler : console.log;
 
         // Get the needsUpdate.json file.
@@ -149,9 +149,9 @@ let _MOD = {
         filename = _APP.m_shared.replaceIllegalFilenameChars(recData.visibleName);
 
         // Indicate what file is being processed.
-        sendMessage(`  PROCESSING: ${recData.visibleName} (${filename})`);
-        sendMessage(`    UUID   : ${uuid}`);
-        sendMessage(`    META   : [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}]`);
+        sendMessage(`PROCESSING: [${recData.fileType}] "${recData.visibleName}"`);
+        sendMessage(`  UUID   : ${uuid}`);
+        sendMessage(`  META   : [${recData.type}] [${recData.fileType}] [pages: ${recData.pageCount}]`);
 
         // ****************************
         // Run the processing commands.
@@ -161,16 +161,16 @@ let _MOD = {
         // These will hold the time measurements.
         let errorDetected = false; 
         let results = [
-            { func: this.downloadPdfFromDevice, ts:null, args: [uuid, filename],        results:null, error:null, skipped:false },
-            { func: this.pdfToSvgPages        , ts:null, args: [uuid, filename],        results:null, error:null, skipped:false },
-            { func: this.optimizeSvgPages     , ts:null, args: [uuid],                  results:null, error:null, skipped:false },
-            { func: this.svgPagesToPngThumbs  , ts:null, args: ["png", 180, 210, uuid], results:null, error:null, skipped:false },
+            { func: this.downloadPdfFromDevice, ts:null, args: [uuid, filename],        results:null, error:null, skipped:false, desc: "Downloading the PDF from the device..." },
+            { func: this.pdfToSvgPages        , ts:null, args: [uuid, filename],        results:null, error:null, skipped:false, desc: "Converting the PDF to SVG pages..." },
+            { func: this.optimizeSvgPages     , ts:null, args: [uuid],                  results:null, error:null, skipped:false, desc: "Optimizing file sizes of the SVG pages..." },
+            { func: this.svgPagesToPngThumbs  , ts:null, args: ["png", 180, 210, uuid], results:null, error:null, skipped:false, desc: "Creating PNG thumbs from the SVG pages..." },
         ];
         
         for(let i=0; i<results.length; i+=1){
             let r = results[i];
             if(errorDetected){ 
-                sendMessage(`    SKIPPED: ${r.func.name.padEnd(21, " ")}`);
+                sendMessage(`  SKIPPED: ${r.func.name.padEnd(21, " ")}`);
                 r.func = r.func.name; 
                 r.skipped = true; 
                 continue; 
@@ -178,10 +178,11 @@ let _MOD = {
 
             r.ts = performance.now();
             try{ 
-                sendMessage(`    START  : ${r.func.name.padEnd(21, " ")}`);
+                // sendMessage(`  FUNC   : ${r.func.name.padEnd(21, " ")}: ${r.desc}`);
+                sendMessage(`  ${r.desc}`);
                 r.results = await r.func(...r.args).catch( function(e) { throw e; } );
                 r.ts = (performance.now() - r.ts)/1000;
-                sendMessage(`      DONE : ${(r.ts).toFixed(3)}s`);
+                sendMessage(`    DONE: Time: ${(r.ts).toFixed(2)} seconds`);
                 r.func = r.func.name;
             }
             catch(e){ 
@@ -189,7 +190,7 @@ let _MOD = {
                 r.error = e.e;
                 r.ts = (performance.now() - r.ts)/1000;
                 errorDetected = true;
-                sendMessage(`      ERROR: ${(r.ts).toFixed(3)}s`);
+                sendMessage(`    ERROR: ${JSON.stringify(e)}`);
                 r.func = r.func.name;
             }
         }
@@ -200,7 +201,7 @@ let _MOD = {
 
             // Write the needsUpdate.json file. 
             fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
-            sendMessage("    DONE   : needsUpdate.json");
+            sendMessage("    Updated needsUpdate.json");
         }
 
         // Return some data.
@@ -208,6 +209,8 @@ let _MOD = {
             delete d.args;
             return d;
         });
+
+        sendMessage(`FINISHED: Time: ${ ((performance.now() - ts)/1000).toFixed(2) } seconds`);
 
         return {
             "name"        : filename,

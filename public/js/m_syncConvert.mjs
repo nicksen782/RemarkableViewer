@@ -148,6 +148,10 @@ var syncConvert = {
 
                 // Add the text to the display.
                 this.DOM['sync_output'].innerHTML += newText ;
+
+                // Scroll the text to the bottom.
+                this.DOM['sync_output'].scrollTop = this.DOM['sync_output'].scrollHeight;
+
                 // console.log("newText:", newText);
             }
             // Is the stream finished?
@@ -303,7 +307,11 @@ var syncConvert = {
         
             // Create an EventSource object to listen to SSE messages
             // console.log("Opening EventSource.")
-            this.DOM['convert_output'].innerHTML = "";
+
+            if(divCount == null){
+                this.DOM['convert_output'].innerHTML = "";
+            }
+
             let url = `processing.run/?uuid=${data.uuid}&filename=${encodeURIComponent(data.visibleName)}`;
             const eventSource = new EventSource(url);
 
@@ -368,6 +376,9 @@ var syncConvert = {
 
                     // Add the text to the display.
                     this.DOM['convert_output'].innerHTML += newText ;
+                    
+                    // Scroll the text to the bottom.
+                    this.DOM['convert_output'].scrollTop = this.DOM['convert_output'].scrollHeight;
                 }
                 // Is the stream finished?
                 else if(json.status == "finished"){
@@ -389,6 +400,13 @@ var syncConvert = {
                     // "convertAll" output.(divCount will be set if using "convertAll".)
                     if(divCount != null){
                         console.log(`${divCount.i+1}/${divCount.len} FINISHED Convert for: NAME: "${data.visibleName}", PAGES: ${data.pageCount}, TIME: ${Math.round(performance.now() - ts)}`, data);
+
+                        // Add the text to the display.
+                        this.DOM['convert_output'].innerHTML += "\n" ;
+                        
+                        // Scroll the text to the bottom.
+                        this.DOM['convert_output'].scrollTop = this.DOM['convert_output'].scrollHeight;
+
                     }
                     // Normal output.
                     else{
@@ -411,6 +429,9 @@ var syncConvert = {
     convertAll: async function(fileType=null){
         let divs = this.DOM['needed_changes'].querySelectorAll(".neededUpdateDiv");
         console.log(`There are ${divs.length} records to process.`);
+
+        this.DOM['convert_output'].innerHTML = "";
+
         for(let i=0; i<divs.length; i+=1){
             if(!divs[i]){ console.log("missing?"); continue; }
 

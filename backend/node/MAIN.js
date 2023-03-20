@@ -27,7 +27,7 @@ let _APP = {
         { "name":"m_webServer"   , "reqFile":"./m_webServer" },
         { "name":"m_screenStream", "reqFile":"./m_screenStream" },
         { "name":"m_shared"      , "reqFile":"./m_shared" },
-        { "name":"m_ui_nav"     , "reqFile":"./m_ui_nav" },
+        { "name":"m_ui_nav"      , "reqFile":"./m_ui_nav" },
         { "name":"m_sync"        , "reqFile":"./m_sync" },
         { "name":"m_convert"     , "reqFile":"./m_convert" },
     ],

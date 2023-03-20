@@ -1,5 +1,6 @@
 const fs              = require('fs');
 const path            = require('path');
+const { performance } = require('perf_hooks');
 
 let _APP = null;
 let modName = null;
@@ -31,12 +32,16 @@ let _MOD = {
 
 
     // Runs rsyncUpdate and detectAndRecordChanges in sequence.
-    rsyncUpdate_and_detectAndRecordChanges: async function( sse_handler = null){
+    rsyncUpdate_and_detectAndRecordChanges: async function( sse_handler = null ){
         let res1, res2, line;
+        let ts = performance.now();
         let sendMessage = sse_handler ? sse_handler : console.log;
         
         // Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
-        try{ res1 = await this.rsyncUpdate(); }
+        try{ 
+            sendMessage(`RSYNC:`);
+            res1 = await this.rsyncUpdate(sse_handler); 
+        }
         catch(e){ 
             sendMessage("ERROR running rsyncUpdate", JSON.stringify(e)); 
             res1 = { error: JSON.stringify(e) };
@@ -45,16 +50,18 @@ let _MOD = {
 
         //
         if(!res1.error){
-            sendMessage(`  RSYNC:`);
-            sendMessage(`    UUIDs updated: ${res1.uuids_updated}. There are a total of ${res1.uuids_total}.`);
+            sendMessage(`  UUIDs updated: ${res1.uuids_updated}. There are a total of ${res1.uuids_total}.`);
             if(res1.uuids_updated2.length){
                 sendMessage(`      ${res1.uuids_updated2.join("\n      ")}`);
             }
-            sendMessage(`    Totals by fileType: "DocumentType": ${res1.uuids_DocumentType}, "CollectionType": ${res1.uuids_CollectionType}`);
-            sendMessage(`    Total V6: ${res1.v6_docs} docs, and ${res1.v5_docs} V5 docs.`);
+            sendMessage(`  Totals by fileType: "DocumentType": ${res1.uuids_DocumentType}, "CollectionType": ${res1.uuids_CollectionType}`);
+            sendMessage(`  Total V6: ${res1.v6_docs} docs, and ${res1.v5_docs} V5 docs.`);
 
             // Detect changes since timestamp and add/update needsUpdate.json.
-            try{ res2 = await this.detectAndRecordChanges(); }
+            try{ 
+                sendMessage(`UPDATE of needsUpdate.json:`);
+                res2 = await this.detectAndRecordChanges(sse_handler); 
+            }
             catch(e){ 
                 console.log("ERROR running detectAndRecordChanges", e); 
                 res2 = { error: e }; 
@@ -62,19 +69,21 @@ let _MOD = {
 
             // 
             if(!res2.error){
-                sendMessage(`  UPDATE of needsUpdate.json:`);
-                sendMessage(`    Updates: new: ${res2.count_new}, updated: ${res2.count_updated}, total: ${res2.count_all}`);
-                sendMessage(`    needsUpdate.json updated: ${res2.needsUpdateFileUpdated ? "YES" : "NO"}`);
+                // sendMessage(`UPDATE of needsUpdate.json:`);
+                sendMessage(`  Updates: new: ${res2.count_new}, updated: ${res2.count_updated}, total: ${res2.count_all}`);
+                sendMessage(`  needsUpdate.json updated: ${res2.needsUpdateFileUpdated ? "YES" : "NO"}`);
                 if(res2.needsUpdateFileUpdated){
-                    sendMessage(`    Files updated:`)
-                    sendMessage(`      ` + res2.updates.map(d=>{ return `[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}"` ; }).join("\n      ") )
+                    sendMessage(`  Files updated:`)
+                    sendMessage(`    ` + res2.updates.map(d=>{ return `[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}"` ; }).join("\n      ") )
                 }
                 else{
-                    sendMessage(`    No updates were needed.`)
+                    sendMessage(`  No updates were needed.`)
                 }
             }
         }
 
+        sendMessage(`FINISHED: Time: ${ ((performance.now() - ts)/1000).toFixed(2) } seconds`);
+        
         // Return the outputs.
         return {
             "rsync"  : res1,
@@ -83,7 +92,10 @@ let _MOD = {
     },
 
     // HELPER: Sync down all .metadata files, .content files, and .thumbnails dirs. Also recreates rm_fs.json.
-    rsyncUpdate: async function(){
+    rsyncUpdate: async function( sse_handler = null ){
+        let sendMessage = sse_handler ? sse_handler : console.log;
+
+        sendMessage("  Syncing meta files from the device...");
         let cmd1 = `bash ./deviceData/scripts/sync_syncDownMetafiles.sh`;
         
         let results1;
@@ -92,10 +104,12 @@ let _MOD = {
         // Create lists of filenames. 
         let files_metadata = await _APP.m_shared.getItemsInDir("deviceData/queryData/meta/metadata", "files", ".metadata").catch(function(e) { throw e; });
         let files_content  = await _APP.m_shared.getItemsInDir("deviceData/queryData/meta/content" , "files", ".content") .catch(function(e) { throw e; });
+        
         let finished = {};
 
         // Get the contents of the .metadata files. (add to "finished")
         let proms1 = [];
+        sendMessage("  Parsing .metadata files...");
         for(let i=0; i<files_metadata.length; i+=1){
             // ASYNC
             proms1.push( 
@@ -114,6 +128,7 @@ let _MOD = {
 
         // Get pages, formatVersion, orientation, pageCount, fileType from the .context files.  (update "finished")
         let proms2 = [];
+        sendMessage("  Parsing .content files...");
         for(let i=0; i<files_content.length; i+=1){
             proms2.push( 
                 new Promise( (res,rej) => {
@@ -217,9 +232,11 @@ let _MOD = {
         }
 
         // Update rm_fs in memory.
+        sendMessage("  Updating rm_fs in memory...");
         this.rm_fs = data;
-
+        
         // Replace the rm_fs.json file.
+        sendMessage("  Updating rm_fs.json on disk...");
         fs.writeFileSync(`deviceData/config/rm_fs.json`, JSON.stringify(this.rm_fs,null,1));
 
         // Determine the number of updated uuids.
@@ -246,12 +263,17 @@ let _MOD = {
     },
 
     // HELPER: Detect changes since timestamp and add/update needsUpdate.json.
-    detectAndRecordChanges: async function(){
+    detectAndRecordChanges: async function( sse_handler = null ){
+        let sendMessage = sse_handler ? sse_handler : console.log;
+
         // Get the list of folders (with no extension) in the xochitl folder. 
+        sendMessage("  Getting file update dates from the device...");
         let cmd2 = `bash ./deviceData/scripts/sync_getDocUUID_updatetimes.sh`;
         let results2;
         results2 = await _APP.m_shared.runCommand_exec_progress(cmd2, 0, false).catch(function(e) { throw e; }); 
         results2 = results2.stdOutHist.trim().split("\n");
+
+        sendMessage("  Parsing result... Creating the update list...");
         let json2 = [];
         for(let i=0; i<results2.length; i+=1){
             // Separate the data in this line.
@@ -277,6 +299,7 @@ let _MOD = {
         lastSync = parseInt( lastSync.trim(), 10);
 
         // Generate an array of objects containing data on which documents are newer than lastSync.
+        sendMessage("  Comparing each timestamp against the lastSync timestamp...");
         let needsUpdate = [];
         for(let i=0; i<uuids.length; i+=1){
             // Find this record in the updates array. Fail if not found. 
@@ -322,6 +345,7 @@ let _MOD = {
 
             // If found then update the record.
             if(found){
+                sendMessage(`    Update record updated for: ${rec.visibleName}`);
                 // console.log("Updating existing record for:", `(${rec.fileType}) (${rec.visibleName}) (${rec.pageCount} pages) (${rec.uuid})`);
                 
                 // TODO: Must confirm that moving a notebook to another directory also updates the notebook directory too.
@@ -348,6 +372,7 @@ let _MOD = {
 
             // This is a new record. Add it to the file. 
             // console.log("Adding new record for:", `(${rec.fileType}) (${rec.visibleName}) (${rec.pageCount} pages) (${rec.uuid})`);
+            sendMessage(`    Update record created for: ${rec.visibleName}`);
             needsUpdate_file.push({
                 uuid       : rec.uuid,
                 visibleName: rec.visibleName,
@@ -370,10 +395,12 @@ let _MOD = {
             needsUpdate_file.sort((a, b) => b._time - a._time);
             
             // Write the file. 
+            sendMessage(`  Updated needsUpdate.json`);
             fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
         }
         else{
             // console.log("No update was needed for needsUpdate.json");
+            sendMessage(`  No update was needed for needsUpdate.json`);
         }
 
         // Store the previous lastSync value in a new variable.
@@ -384,6 +411,7 @@ let _MOD = {
 
         // Update the lastSync.txt file if a file was found to be newer than prevLastSync. 
         if(prevLastSync != lastSync){
+            sendMessage(`  Updating the timestamp inlastSync.txt.`);
             fs.writeFileSync(`deviceData/config/lastSync.txt`, lastSync.toString());
         }
 
