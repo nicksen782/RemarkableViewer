@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="css/index.css">
     <link rel="stylesheet" href="css/view2.css">
     <link rel="stylesheet" href="css/view3.css">
-    <script src="js/index.js"></script>
+    <script type="module" src="js/index.js"></script>
 </head>
 
 <body>
@@ -42,11 +42,11 @@
                 </ul>
             </div>
             <ul>
-                <li id="navbar_debug1_button" title="DEBUG">
+                <li id="navbar_debug_button" title="DEBUG">
                     <span class="LO1_sidebar_icon"><span class="mdi mdi-test-tube"></span></span>
                     <span class="LO1_sidebar_text">DEBUG</span>
                 </li>
-                <li id="navbar_debug2_button" title="SYNC">
+                <li id="navbar_syncConvert_button" title="SYNC">
                     <span class="LO1_sidebar_icon"><span class="mdi mdi-sync"></span></span>
                     <span class="LO1_sidebar_text">SYNC</span>
                 </li>
@@ -54,11 +54,11 @@
                     <span class="LO1_sidebar_icon"> <span class="mdi mdi-magnify"></span> </span>
                     <span class="LO1_sidebar_text">FILE NAV</span>
                 </li>
-                <li id="navbar_debug4_button" title="FILE VIEW">
+                <li id="navbar_fileView1_button" title="FILE VIEW">
                     <span class="LO1_sidebar_icon"> <span class="mdi mdi-file-eye-outline"></span> </span>
                     <span class="LO1_sidebar_text">FILE VIEW</span>
                 </li>
-                <li id="navbar_debug5_button" title="FILE VIEW2">
+                <li id="navbar_fileView2_button" title="FILE VIEW2">
                     <span class="LO1_sidebar_icon"> <span class="mdi mdi-file-eye-outline"></span> </span>
                     <span class="LO1_sidebar_text">FILE VIEW2</span>
                 </li>
@@ -74,13 +74,13 @@
             <!-- </div> -->
         
             <div id="navViews">
-                <div class="navView" id="navbar_debug1_view">
+                <div class="navView" id="navbar_debug_view">
                     DEBUG1
                     <button id="debug_startRestream">debug_startRestream</button>
                     <button id="debug_endRestream">debug_endRestream</button>
                 </div>
 
-                <div class="navView" id="navbar_debug2_view">
+                <div class="navView" id="navbar_syncConvert_view">
                     <div id="navbar_debug2_view_inner">
                         <!-- LEFT DIV -->
                         <div style="flex-grow: 1;">
@@ -109,16 +109,29 @@
                 </div>
 
                 <div class="navView" id="navbar_fileNav_view">
-                    <div id="d3_filelist"></div>
-                    <br>
+                    <div id="navbar_fileNav_view_inner">
+                        <div id="d3_filelist"></div>
+                        <div id="d3_sidedata" class="expanded">
+                            <!-- EXPANSION ICON -->
+                            <div class="expandDiv">
+                                E
+                                <span id="navbar_fileNav_view_inner_expandIcon" class="mdi mdi-arrow-expand-right"></span>
+                                <!-- <span class="mdi mdi-arrow-expand-left"></span> -->
+                            </div>
+                            <!-- DATA DIV -->
+                            <div class="dataDiv">
+                                D
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="navView" id="navbar_debug4_view">
-                    <!-- <br> -->
-                    <div id="openedDoc_dispPages"></div>
-                    <div id="openedDoc_thumbs"></div>
-                    <br>
+                <div class="navView" id="navbar_fileView1_view">
+                    <div id="fileView1_container">
+                        <div id="openedDoc_dispPages"></div>
+                        <div id="openedDoc_thumbs"></div>
+                    </div>
                 </div>
-                <div class="navView" id="navbar_debug5_view">
+                <div class="navView" id="navbar_fileView2_view">
                     <!-- VIEW 3 -->
                     <!-- Thumbs: set width, contains thumb images -->
                     <!-- left page: auto width/height-->

@@ -39,6 +39,7 @@
     /* height: 100%; */
     /* background-color: skyblue; */
     width: 100%;
+    height: 100%;
 }
 .navView.active{
     display: inline-block;
@@ -232,13 +233,16 @@ div#d3_filelist {
 }
 .openedDoc_thumb.active{
 	border: 2px solid red;
-	background-color: antiquewhite;
+	background-color: ghostwhite;
 }
 
 #openedDoc_thumbs {
-    border: 1px solid black;
-    width: 220px;
-    background-color: lightgray;
+    /* border: 1px solid black; */
+    border-left: 5px solid black;
+    width: 120px;
+    min-height: 590px;
+    /* background-color: lightgray; */
+    background-color: whitesmoke;
     float: left;
     overflow-y: scroll;
     /* height: 90vh; */
@@ -247,26 +251,43 @@ div#d3_filelist {
     max-height: calc(98vh - var(--header-height) - var(--footer-height));
 }
 .openedDoc_page {
-    /* border: 1px solid black; */
-    background-repeat: no-repeat;
-    background-size: contain;
+    border: 1px solid black;
+    background-color: whitesmoke;
+    /* background-repeat: no-repeat; */
+    /* background-size: contain; */
     /* width: 730px; */
     /* height: 830px; */
-    /* height: 85vh; */
-    height: 100%;
-    width: 100%;
+    /* height: 944px; */
+    /* height: 100%; */
+    /* width: 100%; */
+    /* vertical-align: top; */
+    /* flex: auto; */
+    /* flex-grow: 1; */
+    /* flex-shrink: 1; */
+    /* flex-basis: auto; */
 }
 
 /* Document view: pages */
 div#openedDoc_dispPages {
-    float: left;
-    width: 630px;
-    /* height: 830px; */
+    /* float: left; */
+    min-width: 590px;
+    min-height: 590px;
+    /* height: 1190px; */
     /* height: 90vh; */
     /* height: 100%; */
-    border: 1px solid black;
-    height: calc(98vh - var(--header-height) - var(--footer-height));
-    max-height: calc(98vh - var(--header-height) - var(--footer-height));
+    /* border: 1px solid black; */
+    /* height: calc(98vh - var(--header-height) - var(--footer-height)); */
+    /* max-height: calc(98vh - var(--header-height) - var(--footer-height)); */
+    /* overflow: scroll; */
+    /* background-color: whitesmoke; */
+    /* min-width: 80%; */
+    /* width: min-content; */
+    display: flex;
+    justify-content: flex-start;
+    /* flex-grow: 1; */
+    /* flex-shrink: 1; */
+    /* flex-basis: auto; */
+    background-color: whitesmoke;
 }
 
 div#sync_output {
@@ -302,4 +323,49 @@ div#navbar_debug2_view_inner {
     align-items: flex-start;
     flex-direction: row;
     justify-content: center;
+}
+
+div#navbar_fileNav_view_inner {
+    display: flex;
+}
+
+div#d3_sidedata {
+    background-color: red;
+    width:1em;
+    overflow:hidden;
+    display: flex;
+}
+div#d3_sidedata:hover,
+div#d3_sidedata.expanded{
+    width:500px;
+    padding: 1px;
+}
+div#d3_sidedata .expandDiv {
+    background-color: cadetblue;
+    width: 1em;
+    /* overflow:hidden; */
+    /* display: flex; */
+    text-align: center;
+}
+div#d3_sidedata .dataDiv{
+    width:0px;
+}
+div#d3_sidedata.expanded .dataDiv{
+    background-color: dodgerblue;
+    width: 100%;
+    /* overflow:hidden; */
+    /* display: flex; */
+}
+
+div#fileView1_container {
+    /* border: 1px solid black; */
+    /* display: inline-block; */
+    /* display: inline; */
+    padding: 4px;
+    border-radius: 4px;
+    background-color: purple;
+    display: inline-flex;
+    flex-direction: row;
+    transform-origin: top left;
+    transform: scale(1);
 }
