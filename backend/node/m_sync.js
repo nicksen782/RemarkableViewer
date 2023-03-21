@@ -48,19 +48,43 @@ let _MOD = {
             res2 = { error: "Skipped: detectAndRecordChanges" };
         }
 
-        //
+        // If the call to rsyncUpdate was successful...
         if(!res1.error){
-            sendMessage(`  UUIDs updated: ${res1.uuids_updated}. There are a total of ${res1.uuids_total}.`);
             if(res1.uuids_updated2.length){
-                sendMessage(`      ${res1.uuids_updated2.join("\n      ")}`);
+                sendMessage(`  These files were updated and need conversion:`);
+
+                // Output the names for the updated items.
+                for(let i=0; i<res1.uuids_updated2.length; i+=1){
+                    // Get the object for this uuid. (It may be a DocumentType or CollectionType.)
+                    
+                    // Is the UUID for a DocumentType?
+                    let recDoc      = _APP.m_shared.rm_fs.DocumentType  .find(d=>d.uuid == res1.uuids_updated2[i]);
+                    if(recDoc)     { sendMessage(`    D: "${recDoc.visibleName}"` ); }
+                    
+                    // No? Is the UUID for a CollectionType?
+                    else{
+                        let recColl = _APP.m_shared.rm_fs.CollectionType.find(d=>d.uuid == res1.uuids_updated2[i]);
+                        if(recColl){ sendMessage(`    C: "${recColl.visibleName}"`); }
+                    }
+                }
             }
-            sendMessage(`  Totals by fileType: "DocumentType": ${res1.uuids_DocumentType}, "CollectionType": ${res1.uuids_CollectionType}`);
-            sendMessage(`  Total V6: ${res1.v6_docs} docs, and ${res1.v5_docs} V5 docs.`);
 
             // Detect changes since timestamp and add/update needsUpdate.json.
             try{ 
                 sendMessage(`UPDATE of needsUpdate.json:`);
                 res2 = await this.detectAndRecordChanges(sse_handler); 
+
+                sendMessage(`  `);
+                sendMessage(`  Totals by fileType:`);
+                sendMessage(`    "DocumentType"  : ${res1.uuids_DocumentType}`);
+                sendMessage(`    "CollectionType": ${res1.uuids_CollectionType}`);
+                sendMessage(`  Totals by DocumentType version:`);
+                sendMessage(`    V6: ${res1.v6_docs}`);
+                sendMessage(`    V5: ${res1.v5_docs}`);
+                sendMessage(`  UUIDs:`);
+                sendMessage(`    Updates needed: ${res1.uuids_updated}.`);
+                sendMessage(`    Active total  : ${res1.uuids_total}.`);
+                sendMessage(`  `);
             }
             catch(e){ 
                 console.log("ERROR running detectAndRecordChanges", e); 
@@ -73,8 +97,13 @@ let _MOD = {
                 sendMessage(`  Updates: new: ${res2.count_new}, updated: ${res2.count_updated}, total: ${res2.count_all}`);
                 sendMessage(`  needsUpdate.json updated: ${res2.needsUpdateFileUpdated ? "YES" : "NO"}`);
                 if(res2.needsUpdateFileUpdated){
-                    sendMessage(`  Files updated:`)
-                    sendMessage(`    ` + res2.updates.map(d=>{ return `[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}"` ; }).join("\n      ") )
+                    sendMessage(`  Files updated:`);
+                    res2.updates.forEach(
+                        d => { 
+                            // sendMessage(`[${d.type}] [${d.fileType}] [pages: ${d.pageCount}] "${d.visibleName}"`); 
+                            sendMessage(`    ${d.type == "DocumentType" ? "D" : "C"}: "${d.visibleName}"`); 
+                        }
+                    )
                 }
                 else{
                     sendMessage(`  No updates were needed.`)
@@ -82,6 +111,7 @@ let _MOD = {
             }
         }
 
+        // Send the finished message with the total time.
         sendMessage(`FINISHED: Time: ${ ((performance.now() - ts)/1000).toFixed(2) } seconds`);
         
         // Return the outputs.
@@ -233,11 +263,11 @@ let _MOD = {
 
         // Update rm_fs in memory.
         sendMessage("  Updating rm_fs in memory...");
-        this.rm_fs = data;
+        _APP.m_shared.rm_fs = data;
         
         // Replace the rm_fs.json file.
         sendMessage("  Updating rm_fs.json on disk...");
-        fs.writeFileSync(`deviceData/config/rm_fs.json`, JSON.stringify(this.rm_fs,null,1));
+        fs.writeFileSync(`deviceData/config/rm_fs.json`, JSON.stringify(_APP.m_shared.rm_fs,null,1));
 
         // Determine the number of updated uuids.
         let results1b = results1.stdOutHist.trim().split("\n").map(d=>d.split(" ")[1]).filter(d=>d);
@@ -245,19 +275,19 @@ let _MOD = {
         for(let i=0; i<results1b.length; i+=1){ syncedUuids.add( results1b[i].trim().split(".")[0] ); }
 
         // Get counts of the V5 and the V6 docs.
-        let v5_docs = this.rm_fs.DocumentType.filter(d=>d.formatVersion == 1);
-        let v6_docs = this.rm_fs.DocumentType.filter(d=>d.formatVersion == 2);
+        let v5_docs = _APP.m_shared.rm_fs.DocumentType.filter(d=>d.formatVersion == 1);
+        let v6_docs = _APP.m_shared.rm_fs.DocumentType.filter(d=>d.formatVersion == 2);
 
         // Return the updated rm_fs data and some other data.
         return {
             "uuids_updated2"      : [...syncedUuids],
             "uuids_updated"       : syncedUuids.size,
             "uuids_total"         : uuids.length,
-            "uuids_DocumentType"  : this.rm_fs.DocumentType.length,
-            "uuids_CollectionType": this.rm_fs.CollectionType.length,
+            "uuids_DocumentType"  : _APP.m_shared.rm_fs.DocumentType.length,
+            "uuids_CollectionType": _APP.m_shared.rm_fs.CollectionType.length,
             "v5_docs"             : v5_docs.length,
             "v6_docs"             : v6_docs.length,
-            "rm_fs"               : this.rm_fs ,
+            "rm_fs"               : _APP.m_shared.rm_fs ,
             "error"               : false ,
         };
     },
@@ -307,7 +337,7 @@ let _MOD = {
             if(!updates){ console.log("ERROR: COULD NOT FIND UPDATE DATA", uuids[i]); throw "MISSING UPDATE DATA"; }
 
             // Find the record in the rm_fs. Fail if not found.
-            let recData = this.rm_fs.DocumentType.find(d=>uuids[i]==d.uuid); 
+            let recData = _APP.m_shared.rm_fs.DocumentType.find(d=>uuids[i]==d.uuid); 
             if(!recData){ console.log("ERROR: COULD NOT FIND RECDATA", uuids[i]); throw "MISSING REC DATA"; }
 
             // Determine if this record needs an update.

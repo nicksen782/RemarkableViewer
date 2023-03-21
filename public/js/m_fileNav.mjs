@@ -320,6 +320,7 @@ var fileNav = {
 
         // Get a handle to the CollectionType that the uuid is referring to.
         let file = app.rm_fs["CollectionType"].find(d=>d.uuid == uuid);
+        if(!file){ throw `Missing CollectionType: uuid: ${uuid}`; return; }
 
         // Check if the parent is "".
         if(uuid == ""){
@@ -338,6 +339,7 @@ var fileNav = {
     
             // Get the first uuid to check against.
             let obj = app.rm_fs["CollectionType"].find(d=>d.uuid == file.uuid);
+            if(!obj){ throw `Missing CollectionType parent: uuid: ${uuid}`; return; }
 
             // Keep searching until reaching the root or trash or going passed maxSearchDepth.
             while(

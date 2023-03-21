@@ -308,6 +308,14 @@ div#sync_output {
     white-space: pre;
     background-color: rgba(255,255,255,0.75);
     border: 1px solid black;
+    max-width: 750px;
+    padding: 5px;
+    font-size: 14px;
+    /*     font-family: monospace, ui-monospace; */
+    font-family: ui-monospace, monospace;
+    /*     font-family: monospace; */
+    /*     font-family: ui-monospace; */
+    /* 	font-family: "ui-monospace", "monospace"; */
 }
 
 div#convert_output {
@@ -325,7 +333,7 @@ div#convert_output {
 }
 
 div#navbar_debug2_view_inner {
-    display: flex;
+    display: inline-flex;
     align-items: flex-start;
     flex-direction: row;
     justify-content: center;
