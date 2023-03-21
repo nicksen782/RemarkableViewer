@@ -256,19 +256,34 @@ var syncConvert = {
             let recDiv_l2 = document.createElement("div");
             let recDiv_l3 = document.createElement("div");
             let recDiv_l4 = document.createElement("div");
+            let recDiv_l5 = document.createElement("div");
 
             recDiv_l1.innerText = `[${data[i].fileType.toUpperCase()}]`;
             recDiv_l2.innerText = `NAME: ${data[i].visibleName}`;
-            recDiv_l3.innerText = `PATH: ${pathOnly}`;
+            recDiv_l3.innerText = `PATH: `;
+
+            let pathSpan = document.createElement("span");
+            pathSpan.innerText = `${pathOnly}`;
+            pathSpan.style = `font-size:10px; cursor:pointer;`;
+            pathSpan.onclick = ()=>{ 
+                // Get the CollectionType uuid of the parent value for this DocumentType.
+                app.m_fileNav.showCollection(data[i].parent); 
+
+                // Change to the FileNav1 view.
+                app.m_nav.showOne("fileNav");
+            }
+            recDiv_l3.append(pathSpan);
+
             recDiv_l4.innerText = `PAGES: ${data[i].pageCount} - Estimated Time: ${(timeEstimate).toFixed(2)} seconds`;
-            recDiv_l4.style = `border-bottom:5px solid black;`;
+            recDiv_l5.style = `border-bottom:5px solid black;`;
+
 
             let convertButton = document.createElement("button");
             convertButton.innerText = "Convert!";
             convertButton.onclick = ()=>{ this.convert(recDiv, data[i]); };
-            recDiv_l3.append(convertButton);
+            recDiv_l1.append(convertButton);
             
-            recDiv.append(recDiv_l1, recDiv_l2, recDiv_l3, recDiv_l4);
+            recDiv.append(recDiv_l1, recDiv_l2, recDiv_l3, recDiv_l4, recDiv_l5);
             frag.append(recDiv);
         }
 

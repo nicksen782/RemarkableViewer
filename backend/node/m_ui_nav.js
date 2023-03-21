@@ -169,7 +169,7 @@ let _MOD = {
                 pageId    : metaPages[i],
                 newer     : newer,
                 newerThumb: newerThumb,
-                // meta: this.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages
+                // meta: _APP.m_shared.rm_fs.DocumentType.find(d=>d.uuid == uuid).pages
             });
         }
 
