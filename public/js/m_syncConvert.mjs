@@ -162,11 +162,11 @@ var syncConvert = {
                 let data = json.data;
 
                 // Detect errors.
-                if(data.rsync.error || data.updates.error){
+                if( (data.rsync && data.rsync.error) || (data.updates && data.updates.error)){
                     let errorLines = [];
 
                     // Get the stdOut and stdErr lines. 
-                    if(data.rsync.error){
+                    if(data.rsync && data.rsync.error){
                         let tmp = isThisJson(data.rsync.error);
                         if(tmp.stdOutHist || tmp.stdErrHist){
                             if(tmp.cmd){ errorLines.push("CMD: " + tmp.cmd); }
@@ -179,7 +179,7 @@ var syncConvert = {
                     }
 
                     // Get the stdOut and stdErr lines. 
-                    if(data.updates.error){
+                    if(data.updates && data.updates.error){
                         let tmp = isThisJson(data.updates.error);
                         if(tmp.stdOutHist || tmp.stdErrHist){
                             if(tmp.cmd){ errorLines.push("CMD: " + tmp.cmd); }

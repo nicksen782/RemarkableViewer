@@ -11,6 +11,18 @@ if [[ $STATUS != ok ]] ; then
     exit 1
 fi
 
+# Check it the USB web interface is enabled on the device.
+SCRIPT_PATH=$(dirname "$(realpath "$0")")
+OUTPUT=$($SCRIPT_PATH/device_isUsbWebInterfaceActive.sh skipSshCheck)
+EXIT_STATUS1=$?
+if [ $EXIT_STATUS1 -eq 1 ]; then
+    echo "ERROR: $OUTPUT";
+    exit 1;
+elif [ $EXIT_STATUS1 -eq 0 ] && [ "$OUTPUT" == "disabled" ]; then
+    echo "The USB web interface is disabled";
+    exit 1;
+fi
+
 # Command arguments.
 UUID=$1
 FILENAME=$2
@@ -24,9 +36,10 @@ mkdir -p deviceData/pdf/$UUID/svgThumbs
 for i in deviceData/pdf/$UUID/*.pdf; do [ -f "$i" ] || continue; rm "$i"; done
 
 # Download the pdf from the device.
+# --compressed \
 curl \
+-S \
 -s \
---compressed \
 --insecure \
 -o "deviceData/pdf/$UUID/$FILENAME" \
 "http://10.11.99.1/download/$UUID/pdf"

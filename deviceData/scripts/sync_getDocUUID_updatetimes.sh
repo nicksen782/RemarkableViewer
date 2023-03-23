@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# EXAMPLE OUTPUT:
+# 1623731066 ./328f95ab-25de-4ea9-a4d9-d0a4355c4442
+# 1630865385 ./04dd4fbe-c530-4b65-8bbe-3d802acaebee
+# 1671314857 ./45ca7bf9-71b4-44ef-ae60-9278aade0a73
+# 1678504284 ./8e8bf5eb-f236-4818-acef-5e406ac7a26d
+
 # if:  https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_07_01.html
 # basename: https://man7.org/linux/man-pages/man1/basename.1.html
 # find: https://man7.org/linux/man-pages/man1/find.1.html

@@ -96,7 +96,9 @@ let _MOD = {
             });
     
             proc.on('exit', (code) => {
-                if(code == expectedExitCode){ 
+                if(code == expectedExitCode){
+                    if(typeof stdOutHist == "string"){ stdOutHist = stdOutHist.trim(); } 
+                    if(typeof stdErrHist == "string"){ stdErrHist = stdErrHist.trim(); } 
                     cmd_res({
                         "stdOutHist": stdOutHist,
                         "stdErrHist": stdErrHist,
@@ -105,6 +107,8 @@ let _MOD = {
                 else{
                     // console.log(`  child process exited with code ${code}`);
                     // console.log(`  cmd: ${cmd}`);
+                    if(typeof stdOutHist == "string"){ stdOutHist = stdOutHist.trim(); } 
+                    if(typeof stdErrHist == "string"){ stdErrHist = stdErrHist.trim(); } 
                     cmd_rej({
                         "cmd": cmd,
                         "stdOutHist": stdOutHist,

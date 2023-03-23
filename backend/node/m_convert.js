@@ -190,7 +190,16 @@ let _MOD = {
                 r.error = e.e;
                 r.ts = (performance.now() - r.ts)/1000;
                 errorDetected = true;
-                sendMessage(`    ERROR: ${JSON.stringify(e)}`);
+                
+                sendMessage(`    ERROR:`);
+                if(e.e.stdOutHist || e.e.stdErrHist){
+                    if(e.e.stdOutHist){ sendMessage(`      ${e.e.stdOutHist}`); }
+                    if(e.e.stdErrHist){ sendMessage(`      ${e.e.stdErrHist}`); }
+                }
+                else{
+                    sendMessage(`      No error details to output.`);
+                }
+
                 r.func = r.func.name;
             }
         }
@@ -201,7 +210,7 @@ let _MOD = {
 
             // Write the needsUpdate.json file. 
             fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify(needsUpdate_file,null,1));
-            sendMessage("    Updated needsUpdate.json");
+            sendMessage("  Updated needsUpdate.json");
         }
 
         // Return some data.

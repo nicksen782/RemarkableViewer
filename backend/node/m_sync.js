@@ -30,6 +30,83 @@ let _MOD = {
         });
     },
 
+    // Removes document directories locally.
+    removeLocalDeletedDocuments: async function (local, remote, sse_handler = null){
+        let sendMessage = sse_handler ? sse_handler : console.log;
+
+        // EXPLANATION:
+        // It is expected that uuids in rm_fs can only be updated via regeneration during "rsyncUpdate" and never manually/locally.
+        // Any differences in the list should be uuids that are no longer on the device.
+        // These uuids should be used to delete the data locally.
+        // EXAMPLE USAGE:
+        // this.removeLocalDeletedDocuments(_APP.m_shared.rm_fs, data, sendMessage);
+
+        // Create new sets of uuids for both local and remote uuids.
+        const localSet  = new Set( local .DocumentType.map( d=>d.uuid ) );
+        const remoteSet = new Set( remote.DocumentType.map( d=>d.uuid ) );
+        
+        // What DocumentTypes are in local but no longer on remote?
+        const missing = [...localSet].filter(item => !remoteSet.has(item));
+
+        // Were there any missing files on the device that need to be removed locally?
+        if(missing.length){
+            sendMessage(`  Need to remove ${missing.length} deleted Documents...`);
+
+            // Loop through all the missing uuids...
+            for(let i=0; i<missing.length; i+=1){
+                // Make sure that the local record was found before continuing.
+                let uuid = missing[i];
+                let localRec = local .DocumentType.find( d=>d.uuid == uuid ) ;
+                if(localRec){
+                    sendMessage(`    Removing: "${localRec.visibleName}"`);
+                    sendMessage(`            : uuid: ${uuid}`);
+                    
+                    // Remove the local document directory.
+                    let resp;
+                    try{ resp = await this.process_removeLocalDocumentDir(uuid); }
+                    catch(e){ throw e; return false; }
+
+                    // Handle the response.
+                    if(!resp.stdOutHist && !resp.stdErrHist){
+                        sendMessage(`          : DONE`);
+                    }
+                    else{
+                        if(resp.stdOutHist){ sendMessage(`          : DONE : ${resp.stdOutHist}`); }
+                        if(resp.stdErrHist){ sendMessage(`          : ERROR: ${resp.stdErrHist}`); }
+                    }
+                }
+                // The local record was not found.
+                // The removed file on the device will NOT be detectable if rm_fs is updated.
+                else{
+                    // Throw an error to prevent the update to rm_fs and abort the sync process.
+                    throw `Error in removeLocalDeletedDocuments: Could not find record for uuid: ${uuid}`; 
+                    return false;
+                }
+            }
+        }
+        else{
+            sendMessage("  No deleted Documents were detected.", missing.length);
+        }
+
+        // Return true to indicate that there were no errors. 
+        return true;
+    },
+    // Removes one document directory locally.
+    process_removeLocalDocumentDir: async function(uuid){
+        // WHAT DOES THIS DO?
+        // Removes the local document directory indicated by the uuid provided.
+        
+        let cmd1 = `bash ./deviceData/scripts/process_removeLocalDocumentDir.sh "${uuid}"`;
+        let results1;
+        try{
+            results1 = await _APP.m_shared.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; })
+            .catch( function(e) { throw { results: results1, e: e}; } );
+        }
+        catch(e){ throw e; }
+
+        // Return some data.
+        return results1;
+    },
 
     // Runs rsyncUpdate and detectAndRecordChanges in sequence.
     rsyncUpdate_and_detectAndRecordChanges: async function( sse_handler = null ){
@@ -43,7 +120,12 @@ let _MOD = {
             res1 = await this.rsyncUpdate(sse_handler); 
         }
         catch(e){ 
-            sendMessage("ERROR running rsyncUpdate", JSON.stringify(e)); 
+            // Make sure that "e" will be displayed correctly. 
+            let newE;
+            if(typeof e == "string"){ newE = e; }
+            else{ newE = JSON.stringify(e); }
+
+            sendMessage("ERROR running rsyncUpdate", newE); 
             res1 = { error: JSON.stringify(e) };
             res2 = { error: "Skipped: detectAndRecordChanges" };
         }
@@ -87,7 +169,12 @@ let _MOD = {
                 sendMessage(`  `);
             }
             catch(e){ 
-                console.log("ERROR running detectAndRecordChanges", e); 
+                // Make sure that "e" will be displayed correctly. 
+                let newE;
+                if(typeof e == "string"){ newE = e; }
+                else{ newE = JSON.stringify(e); }
+
+                sendMessage("ERROR running detectAndRecordChanges", newE); 
                 res2 = { error: e }; 
             }
 
@@ -257,10 +344,31 @@ let _MOD = {
         let uuids = Object.keys(finished);
         for(let i=0; i<uuids.length; i+=1){
             let rec = finished[uuids[i]];
-            if(rec.type == "CollectionType"){ data.CollectionType.push(rec); }
-            else if( rec.type == "DocumentType"){ data.DocumentType.push(rec); }
+
+            // Change the .parent value to "deleted" if .deleted is true.
+            // Otherwise the parent is "" and will show up in "My files"
+            if(rec.deleted && rec.parent == ""){
+                // console.log(`DELETED: parent: ${rec.parent}, name: ${rec.visibleName}`);
+                rec.parent = "deleted";
+            }
+
+            // Add the record to the correct key.
+            if     (rec.type == "CollectionType"){ data.CollectionType.push(rec); }
+            else if(rec.type == "DocumentType")  { data.DocumentType  .push(rec); }
         }
 
+        // The local rm_fs has not been overwritten yet. 
+        // Compare the current DocumentType uuids with the new list of uuids from the device. 
+        // This checks if a uuid is no longer on the device but is still local and needs to be deleted locally.
+        try{
+            await this.removeLocalDeletedDocuments(_APP.m_shared.rm_fs, data, sendMessage)
+            .catch( function(e) { throw  e } );
+        }
+        catch(e){
+            sendMessage(`  ABORT: Error in removeLocalDeletedDocuments. rm_fs will not be updated.`);
+            throw e;
+        }
+        
         // Update rm_fs in memory.
         sendMessage("  Updating rm_fs in memory...");
         _APP.m_shared.rm_fs = data;
@@ -343,6 +451,11 @@ let _MOD = {
             // Determine if this record needs an update.
             let _needsUpdate = lastSync < updates.time ? true : false;
             if(_needsUpdate){
+                // Do not include changed files that are in the "trash" or are "deleted".
+                if(recData.parent == "trash" || recData.parent == "deleted"){
+                    continue;
+                }
+
                 // Create the new record for needsUpdate and add to needsUpdate.
                 let newRec = {
                     uuid        : uuids[i],

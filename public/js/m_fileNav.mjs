@@ -30,6 +30,9 @@ var fileNav = {
     DOM: {
         // Action buttons.
         'filelistDiv' : 'd3_filelist',
+        'showTrash'  :'dataDivShowTrash',
+        'showDeleted':'dataDivShowDeleted',
+        // 
     },
 
     init: async function(){
@@ -46,6 +49,9 @@ var fileNav = {
         this.showCollection("9bc9f1d7-eec4-46ee-9cda-0ac50ffdb7a2");
 
         // ADD EVENT LISTENERS.
+
+        this.DOM['showTrash']  .addEventListener("click", ()=>{ app.m_fileNav.showCollection("trash", true); }, false);
+        this.DOM['showDeleted'].addEventListener("click", ()=>{ app.m_fileNav.showCollection("deleted", true); }, false);
 
         // let folders     = app.rm_fs.DocumentType  
         //     .filter(d=>{ if(!d.deleted) { return d.parent == ""; } })
@@ -64,9 +70,9 @@ var fileNav = {
         app.m_nav.showOne("fileView1");
         // app.m_nav.showOne("fileView2");
     },
-    showCollection: function(parent){
+    showCollection: function(parent, debugOutput=false){
         let entries = this.getEntriesInCollectionType(parent); 
-
+        if(debugOutput){ console.log(entries); }
         // {
         //     parentPathBreadcrumbs : this.getParentPathBreadcrumbs(parent),
         //     CollectionType        : collections,
@@ -131,7 +137,9 @@ var fileNav = {
                 }
 
                 // Add click listener so that the user can click to navigate to the collection.
-                crumb.onclick = ()=>{ this.showCollection(parentPathBreadcrumbs.uuids[i]); }
+                crumb.onclick = ()=>{ 
+                    this.showCollection(parentPathBreadcrumbs.uuids[i]);
+                 }
 
                 frag.append(crumb);
             }
@@ -196,16 +204,28 @@ var fileNav = {
             // Return.
             return div_outer;
         };
+
+        // Start the document fragment. 
         let frag = document.createDocumentFragment();
 
+        // Generate the breadcrumbs. 
         frag.append( createPathBreadcrumbsContainer( entries.parentPathBreadcrumbs ) );
-
         frag.append( document.createElement("br") );
+
+        // Generate the CollectionType icons. 
         for(let i=0; i<entries.CollectionType.length; i+=1){
-            let parentHasEntries = this.getEntriesInCollectionType(entries.CollectionType[i].uuid).DocumentType.length;
+            // Determine if this CollectionType contains any docs or folders.
+            let parentEntries = this.getEntriesInCollectionType(entries.CollectionType[i].uuid);
+            let numDocs  = parentEntries.DocumentType.length;
+            let numColls = parentEntries.CollectionType.length;
+            let parentHasEntries = numDocs || numColls;
+
+            // Add the entry.
             frag.append(createCollectionTypeContainer( entries.CollectionType[i], parentHasEntries ));
         }
         frag.append( document.createElement("br") );
+
+        // Generate the DocumentType icons. 
         for(let i=0; i<entries.DocumentType.length; i+=1){
             frag.append(createDocumentTypeContainer( entries.DocumentType[i] ));
         }
@@ -228,18 +248,21 @@ var fileNav = {
         // fullPath will be added to this array. 
         let fullPath = [];
 
-        // Flags for root and trash
+        // Flags for root, trash, and "deleted".
         let isAtRoot = false;
         let isAtTrash = false;
+        let isAtDeleted = false;
 
         // Set the initial currId to the file's parent uuid.
         let currId = file.parent;
 
         // Allow the search for only up to 20 levels. 
-        for(let i=0; i<20; i+=1){
-            // End on "" or "trash".
-            if(currId == ""      || file.parent == "")     { isAtRoot=true; break; }
-            if(currId == "trash" || file.parent == "trash"){ isAtTrash=true; break; }
+        const maxSearchDepth = 20;
+        for(let i=0; i<maxSearchDepth; i+=1){
+            // End on "" or "trash" or "deleted".
+            if(currId == ""        || file.parent == "")       { isAtRoot=true; break; }
+            if(currId == "trash"   || file.parent == "trash")  { isAtTrash=true; break; }
+            if(currId == "deleted" || file.parent == "deleted"){ isAtDeleted=true; break; }
 
             // Get the parent's visible name. 
             let obj = app.rm_fs["CollectionType"].find(d=>d.uuid == currId);
@@ -247,9 +270,10 @@ var fileNav = {
             // Add the visibleName to the fullPath.
             fullPath.unshift(obj.visibleName);
 
-            // End on "" or "trash".
-            if(obj.parent == ""      || file.parent == "")     { isAtRoot=true; break; }
-            if(obj.parent == "trash" || file.parent == "trash"){ isAtTrash=true; break; }
+            // End on "" or "trash" or "deleted".
+            if(obj.parent == ""        || file.parent == "")       { isAtRoot=true; break; }
+            if(obj.parent == "trash"   || file.parent == "trash")  { isAtTrash=true; break; }
+            if(obj.parent == "deleted" || file.parent == "deleted"){ isAtDeleted=true; break; }
 
             // Get the next uuid in the chain.
             let nextObj = app.rm_fs["CollectionType"].find(d=>d.uuid == obj.parent)
@@ -259,15 +283,17 @@ var fileNav = {
 
             // If no file was found then handle the breaking of the loop.
             else{ 
-                if(file.parent == "trash"){ currId = "trash"; }
+                if     (file.parent == "trash")  { currId = "trash"; }
+                else if(file.parent == "deleted"){ currId = "deleted"; }
                 else{ currId = ""; }
                 break; 
             }
         }
 
         // Add to the fullPath based on flags set.
-        if(isAtRoot)      { fullPath.unshift("/My files"); }
-        else if(isAtTrash){ fullPath.unshift("/trash"); }
+        if(isAtRoot)        { fullPath.unshift("/My files"); }
+        else if(isAtTrash)  { fullPath.unshift("/trash"); }
+        else if(isAtDeleted){ fullPath.unshift("/deleted"); }
 
         // Join the fullPath with "/" as separators, ending with a "/".
         fullPath = fullPath.join("/") + "/";
@@ -283,24 +309,18 @@ var fileNav = {
 
     // debug3 - file nav
     getParentPathBreadcrumbs: function(uuid){
+        // Summary: Look for parents, add them to the list until parent is "", "trash", "deleted".
         // Example usage: this.getParentPathBreadcrumbs("7e16a6a5-a592-44d0-9b2e-f1c110650a6f");
-
         /* 
             Intended to provide a list of UUIDs and visibleName for each CollectionType 
             down from the path of the specified CollectionType uuid.
             Results will be:
                 an object containing two objects containing arrays and one string for the full visible path.
          */
-
         /* 
         Example output:
         {
-            visibleNames: [
-                'My files', 
-                '_My Projects', 
-                'Remarkable Page Turner',
-                'Old notes - v3'
-            ],
+            visibleNames: [ 'My files', '_My Projects', 'Remarkable Page Turner', 'Old notes - v3' ],
             uuids: [
                 "",
                 "72a27ab3-aebf-490c-bda7-a8c057e927df",
@@ -318,56 +338,63 @@ var fileNav = {
             fullVisiblePath: "",
         };
 
+        // Flags and constraints. 
+        let initiallyAtEnd = false;
+        let currSearchDepth = 0;
+        const maxSearchDepth = 20;
+
+        // Utility functions. 
+        const addCrumb   = (name, uuid)=>{ results.visibleNames.unshift(name); results.uuids.unshift(uuid); };
+        const addMyFiles = ()=>{ results.visibleNames.unshift("My files"); results.uuids.unshift(""); };
+        const addTrash   = ()=>{ results.visibleNames.unshift("Trash");    results.uuids.unshift("trash"); };
+        const addDeleted = ()=>{ results.visibleNames.unshift("Deleted");  results.uuids.unshift("deleted"); };
+
         // Get a handle to the CollectionType that the uuid is referring to.
-        let file = app.rm_fs["CollectionType"].find(d=>d.uuid == uuid);
-        if(!file){ throw `Missing CollectionType: uuid: ${uuid}`; return; }
+        const file = app.rm_fs["CollectionType"].find(d=>d.uuid == uuid);
+        let currentCollectionType = {};
 
-        // Check if the parent is "".
-        if(uuid == ""){
-            results.visibleNames.unshift("My files");
-            results.uuids.unshift("");
+        // Make sure that CollectionType is found (or "", "trash", "deleted".)
+        if(!file){ 
+            // Not found. At the end. Handle.
+            if(uuid == "" || uuid == "trash" || uuid == "deleted"){
+                initiallyAtEnd = true; 
+                currentCollectionType.parent = uuid;
+            }
+
+            // Not found. Not at the end. Error.
+            else{
+                throw `Missing CollectionType: uuid: ${uuid}`; 
+                return; 
+            }
         }
-        // Check if the parent is "trash".
-        else if(uuid == "trash"){
-            results.visibleNames.unshift("trash");
-            results.uuids.unshift("trash");
-        }
-        // Look for parents, add them to the list until parent is "".
+
+        // We have the file. Get the first uuid to check against.
         else{
-            let currSearchDepth = 0;
-            let maxSearchDepth = 20;
-    
-            // Get the first uuid to check against.
-            let obj = app.rm_fs["CollectionType"].find(d=>d.uuid == file.uuid);
-            if(!obj){ throw `Missing CollectionType parent: uuid: ${uuid}`; return; }
+            currentCollectionType = app.rm_fs["CollectionType"].find(d=>d.uuid == file.uuid);
+        }
+        
+        // Keep searching until reaching the end or going passed maxSearchDepth.
+        while( currSearchDepth < maxSearchDepth ){
+            // Increment the searchDepth counter. 
+            currSearchDepth += 1;
 
-            // Keep searching until reaching the root or trash or going passed maxSearchDepth.
-            while(
-                currSearchDepth < maxSearchDepth
-            ){
-                // Record this.
-                results.visibleNames.unshift(obj.visibleName);
-                results.uuids.unshift(obj.uuid);
+            // Add the crumb if we are not at the end.
+            if(!initiallyAtEnd){
+                addCrumb(currentCollectionType.visibleName, currentCollectionType.uuid);
+            }
 
-                // End at root?
-                if(obj.parent == ""){
-                    // console.log("End at ''");
-                    results.visibleNames.unshift("My files");
-                    results.uuids.unshift("");
-                    break;
-                }
-                // End at trash?
-                else if(obj.parent == "trash"){
-                    // console.log("End at 'trash'");
-                    results.visibleNames.unshift("trash");
-                    results.uuids.unshift("trash");
-                    break;
-                }
-                // Continue: get the next parent.
-                else{
-                    obj = app.rm_fs["CollectionType"].find(d=>d.uuid == obj.parent);
-                    currSearchDepth += 1;
-                }
+            // Have we reached the end (root?)
+            if(currentCollectionType.parent == ""){ addMyFiles(); break; }
+            
+            // Have we reached the end (trash?)
+            else if(currentCollectionType.parent == "trash"){ addTrash(); addMyFiles(); break; }
+            
+            // Have we reached the end (deleted?)
+            else if(currentCollectionType.parent == "deleted"){ addDeleted(); addMyFiles(); break; }
+
+            // Not at the end. Get the next parent and continue.
+            else{
+                currentCollectionType = app.rm_fs["CollectionType"].find(d=>d.uuid == currentCollectionType.parent);
             }
         }
 
@@ -380,38 +407,35 @@ var fileNav = {
 
     // debug3 - file nav
     getEntriesInCollectionType: function(parent){
-        let collections = app.rm_fs.CollectionType
-        .filter(d=>{ if(!d.deleted) { return d.parent == parent; } })
-        .map(d=>{ return {...d, basepath: this.getParentPath(d.uuid, "CollectionType", true) } } )
-        .sort(function(a, b){
-            // Convert to lowercase (Might not be needed.)
-            let keya = a.visibleName.toLowerCase();
-            let keyb = b.visibleName.toLowerCase();
-            
-            // Sort ascending.
-            if (keya < keyb) { return -1; }
-            if (keya > keyb) { return  1; }
-            return 0; 
-        });
-        
-        let documents = app.rm_fs.DocumentType
-        .filter(d=>{ if(!d.deleted) { return d.parent == parent; } })
-        .map(d=>{ return {...d, basepath: this.getParentPath(d.uuid, "DocumentType", true) } } )
-        .sort(function(a, b){
-            // Convert to lowercase (Might not be needed.)
-            let keya = a.visibleName.toLowerCase();
-            let keyb = b.visibleName.toLowerCase();
-            
-            // Sort ascending.
-            if (keya < keyb) { return -1; }
-            if (keya > keyb) { return  1; }
-            return 0; 
-        });
+        const getEntryData = (type) => {
+            return app.rm_fs[type].filter(d=>{ 
+                if     (parent == "trash")  { return d.parent == parent; }
+                else if(parent == "deleted"){ return d.parent == parent; }
+                else if(!d.deleted)         { return d.parent == parent; } 
+                return false;
+            })
+            .map(d=>{ 
+                return {
+                    ...d, 
+                    basepath: this.getParentPath(d.uuid, type, true) 
+                } 
+            } )
+            .sort(function(a, b){
+                // Convert to lowercase (Might not be needed.)
+                let keya = a.visibleName.toLowerCase();
+                let keyb = b.visibleName.toLowerCase();
+                
+                // Sort ascending.
+                if (keya < keyb) { return -1; }
+                if (keya > keyb) { return  1; }
+                return 0; 
+            });
+        };
 
         return {
             parentPathBreadcrumbs : this.getParentPathBreadcrumbs(parent),
-            CollectionType        : collections,
-            DocumentType          : documents,
+            CollectionType        : getEntryData("CollectionType"),
+            DocumentType          : getEntryData("DocumentType"),
         };
     },
 };

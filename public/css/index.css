@@ -351,7 +351,7 @@ div#d3_sidedata {
 }
 div#d3_sidedata:hover,
 div#d3_sidedata.expanded{
-    width:500px;
+    width: 300px;
     padding: 1px;
 }
 div#d3_sidedata .expandDiv {
