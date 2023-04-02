@@ -29,12 +29,18 @@ var fileNav = {
     // Holds the DOM for elements within this view.
     DOM: {
         // Action buttons.
-        'filelistDiv' : 'd3_filelist',
-        'showTrash'  :'dataDivShowTrash',
-        'showDeleted':'dataDivShowDeleted',
-        // 
+        'filelistDiv'         : 'd3_filelist',
+        'filelist_crumbs'     : 'd3_crumbs',
+        'filelist_collections': 'd3_collections',
+        'filelist_documents'  : 'd3_documents',
+        'sidedata'            : 'd3_sidedata',
+        'expandDiv'           : 'expandDiv',
+        'showTrash'           : 'dataDivShowTrash',
+        'showDeleted'         : 'dataDivShowDeleted',
+        'expandIcon'          : 'navbar_fileNav_view_inner_expandIcon',
     },
 
+    currentParent: "",
     init: async function(){
         // display_needed_changes
         // needed_changes
@@ -48,8 +54,30 @@ var fileNav = {
         // this.showCollection("");
         this.showCollection("9bc9f1d7-eec4-46ee-9cda-0ac50ffdb7a2");
 
-        // ADD EVENT LISTENERS.
+        // DEFAULT STATES
+        this.DOM['sidedata'] .classList.add("expanded");
+        this.DOM['expandIcon'].classList.remove("mdi-arrow-expand-right");
+        this.DOM['expandIcon'].classList.add   ("mdi-arrow-expand-left");
+        // this.DOM['expandIcon'].classList.remove("mdi-arrow-expand-left");
+        // this.DOM['expandIcon'].classList.add   ("mdi-arrow-expand-right");
 
+        // ADD EVENT LISTENERS.
+        this.DOM['expandDiv']  .addEventListener("click", ()=>{ 
+            let isActive = this.DOM['sidedata'].classList.contains("expanded") ? true : false;
+            if(isActive == true){
+                this.DOM['sidedata'] .classList.remove("expanded");
+                this.DOM['expandIcon'].classList.remove("mdi-arrow-expand-left");
+                this.DOM['expandIcon'].classList.add   ("mdi-arrow-expand-right");
+            }
+            else{
+                this.DOM['sidedata'] .classList.add   ("expanded");
+                this.DOM['expandIcon'].classList.remove("mdi-arrow-expand-right");
+                this.DOM['expandIcon'].classList.add   ("mdi-arrow-expand-left");
+            }
+
+            // <span class="mdi mdi-arrow-expand-right"></span>
+            // <span class="mdi mdi-arrow-expand-left"></span>
+        }, false);
         this.DOM['showTrash']  .addEventListener("click", ()=>{ app.m_fileNav.showCollection("trash", true); }, false);
         this.DOM['showDeleted'].addEventListener("click", ()=>{ app.m_fileNav.showCollection("deleted", true); }, false);
 
@@ -71,6 +99,8 @@ var fileNav = {
         // app.m_nav.showOne("fileView2");
     },
     showCollection: function(parent, debugOutput=false){
+        this.currentParent = parent;
+        
         let entries = this.getEntriesInCollectionType(parent); 
         if(debugOutput){ console.log(entries); }
         // {
@@ -181,7 +211,13 @@ var fileNav = {
             div_info.append(div_sync);
 
             // Set/configure.
-            div_outer.onclick = ()=>{ this.showDocument(rec.uuid); }
+            div_outer.onclick = (e)=>{ this.showDocument(rec.uuid); }
+            div_outer.oncontextmenu = (e)=>{ 
+                // Open the new tab (should be reusable.)
+                window.open(`docDebug/${rec.uuid}`, "RMV2_CHILD").focus();
+                // Prevent the context menu from appearing.
+                return false; 
+            }
             div_title.innerText = rec.visibleName;
             div_title.title = rec.visibleName;
             div_pages.innerText = `Pages: ${rec.pageCount}`;
@@ -205,34 +241,52 @@ var fileNav = {
             return div_outer;
         };
 
-        // Start the document fragment. 
-        let frag = document.createDocumentFragment();
+        // Start the document fragments. 
+        let frag_crumbs      = document.createDocumentFragment();
+        let frag_collections = document.createDocumentFragment();
+        let frag_documents   = document.createDocumentFragment();
 
         // Generate the breadcrumbs. 
-        frag.append( createPathBreadcrumbsContainer( entries.parentPathBreadcrumbs ) );
-        frag.append( document.createElement("br") );
+        frag_crumbs.append( createPathBreadcrumbsContainer( entries.parentPathBreadcrumbs ) );
 
         // Generate the CollectionType icons. 
-        for(let i=0; i<entries.CollectionType.length; i+=1){
-            // Determine if this CollectionType contains any docs or folders.
-            let parentEntries = this.getEntriesInCollectionType(entries.CollectionType[i].uuid);
-            let numDocs  = parentEntries.DocumentType.length;
-            let numColls = parentEntries.CollectionType.length;
-            let parentHasEntries = numDocs || numColls;
-
-            // Add the entry.
-            frag.append(createCollectionTypeContainer( entries.CollectionType[i], parentHasEntries ));
+        if(entries.CollectionType.length){
+            this.DOM['filelist_collections'].style.display = "block";
+            for(let i=0; i<entries.CollectionType.length; i+=1){
+                // Determine if this CollectionType contains any docs or folders.
+                let parentEntries = this.getEntriesInCollectionType(entries.CollectionType[i].uuid);
+                let numDocs  = parentEntries.DocumentType.length;
+                let numColls = parentEntries.CollectionType.length;
+                let parentHasEntries = numDocs || numColls;
+    
+                // Add the entry.
+                frag_collections.append(createCollectionTypeContainer( entries.CollectionType[i], parentHasEntries ));
+            }
         }
-        frag.append( document.createElement("br") );
+        else{
+            this.DOM['filelist_collections'].style.display = "none";
+        }
 
         // Generate the DocumentType icons. 
-        for(let i=0; i<entries.DocumentType.length; i+=1){
-            frag.append(createDocumentTypeContainer( entries.DocumentType[i] ));
+        if(entries.DocumentType.length){
+            this.DOM['filelist_documents'].style.display = "block";
+            for(let i=0; i<entries.DocumentType.length; i+=1){
+                frag_documents.append(createDocumentTypeContainer( entries.DocumentType[i] ));
+            }
         }
-        frag.append( document.createElement("br") );
+        else{
+            this.DOM['filelist_documents'].style.display = "none";
+        }
 
-        this.DOM['filelistDiv'].innerHTML = "";
-        this.DOM['filelistDiv'].append(frag);
+        // Clear the data.
+        this.DOM['filelist_crumbs']     .innerHTML = "";
+        this.DOM['filelist_collections'].innerHTML = "";
+        this.DOM['filelist_documents']  .innerHTML = "";
+
+        // Display the new data.
+        this.DOM['filelist_crumbs']     .append(frag_crumbs);
+        this.DOM['filelist_collections'].append(frag_collections);
+        this.DOM['filelist_documents']  .append(frag_documents);
     },
 
     // Returns the full path for the given uuid and type.

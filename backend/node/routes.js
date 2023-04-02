@@ -115,6 +115,15 @@ let _MOD = {
         ],
         m_ui_nav: [
             {
+                "path": "/docDebug/:uuid", "method": "get",
+                "desc": "",
+                "args": [],
+                "func": async (req,res)=>{
+                    let results = await _APP.m_ui_nav.docDebug(req.params.uuid);
+                    res.send( results );
+                }
+            },
+            {
                 "path": "/get_rm_fsFile", "method": "post",
                 "desc": "",
                 "args": [],

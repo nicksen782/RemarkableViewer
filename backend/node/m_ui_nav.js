@@ -181,6 +181,53 @@ let _MOD = {
         };
     },
 
+    // docDebug
+    docDebug: async function(uuid){
+        let template = fs.readFileSync(`public/docDebug.html`, {encoding:'utf8', flag:'r'});
+
+        // Find the record by UUID. If not found then just return nothing. 
+        let rmfsRec = _APP.m_shared.rm_fs.DocumentType.find(d=>d.uuid == uuid);
+        if(!rmfsRec){ return ""; }
+
+        // Generate some data.
+        let files = {
+            "metadata": { 
+                // local: path.resolve(`./deviceData/queryData/meta/metadata/${uuid}.metadata`), 
+                local: `./deviceData/queryData/meta/metadata/${uuid}.metadata`, 
+                data : function(){
+                    this.data = JSON.parse( fs.readFileSync(this.local, {encoding:'utf8', flag:'r'}) )
+                }  
+            },
+            "content": { 
+                // local: path.resolve(`./deviceData/queryData/meta/content/${uuid}.content`), 
+                local: `./deviceData/queryData/meta/content/${uuid}.content`, 
+                data : function(){
+                    this.data = JSON.parse( fs.readFileSync(this.local, {encoding:'utf8', flag:'r'}) )
+                }
+            },
+            "docData":{
+                "dir"           : `/deviceSvg/${uuid}`,
+                "availablePages": await _APP.m_ui_nav.getAvailablePages(uuid),
+                "svg"           : `/deviceSvg/${uuid}/svg`,
+                "deviceThumbs"  : `/deviceThumbs/${uuid}.thumbnails`,
+                "svgThumbs"     : `/deviceSvg/${uuid}/svgThumbs`,
+                "pdf"           : `/deviceSvg/${uuid}/${_APP.m_shared.replaceIllegalFilenameChars(rmfsRec.visibleName)}.pdf`
+            },
+            "rmfsRec": rmfsRec,
+        };
+        files.metadata.data();
+        files.content.data();
+
+        // Add the data using string replace.
+        template = template.replace(`"metadata": {},`  , `"metadata": ${JSON.stringify(files.metadata)} ,`);
+        template = template.replace(`"content": {},`   , `"content" : ${JSON.stringify(files.content)} ,`);
+        template = template.replace(`"docData": {},`    , `"docData"  : ${JSON.stringify(files.docData)} ,`);
+        template = template.replace(`"rmfsRec": {},`   , `"rmfsRec" : ${JSON.stringify(files.rmfsRec)} ,`);
+
+        // Return the completed file.
+        return template;
+    },
+
     // Returns the needsUpdate.json file.
     getNeededChanges: async function(){
         let data = fs.readFileSync(`deviceData/config/needsUpdate.json`, {encoding:'utf8', flag:'r'});

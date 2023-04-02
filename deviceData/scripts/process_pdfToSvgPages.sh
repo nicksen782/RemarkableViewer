@@ -16,7 +16,8 @@ mkdir -p deviceData/pdf/$UUID/svgThumbs
 for i in deviceData/pdf/$UUID/svg/*.svg; do [ -f "$i" ] || continue; rm "$i"; done
 
 # Split the .pdf into .svg pages.
-pdf2svg "deviceData/pdf/$UUID/$FILENAME" "deviceData/pdf/$UUID/svg/output-page%04d.svg" all;
+# pdf2svg "deviceData/pdf/$UUID/$FILENAME" "deviceData/pdf/$UUID/svg/output-page%04d.svg" all;
+pdf2svg "deviceData/pdf/$UUID/$FILENAME" "deviceData/pdf/$UUID/svg/pg%04d_.svg" all;
 
 ###
 # Rename the .svg files in the ./svg folder to match the pageId names.

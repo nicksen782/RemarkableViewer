@@ -110,19 +110,24 @@
 
                 <div class="navView" id="navbar_fileNav_view">
                     <div id="navbar_fileNav_view_inner">
-                        <div id="d3_filelist"></div>
-                        <div id="d3_sidedata" class="expanded">
+                        <!-- NAVIGATION -->
+                        <div id="d3_filelist">
+                            <div id="d3_crumbs"></div>
+                            <div id="d3_collections"></div>
+                            <div id="d3_documents"></div>
+                        </div>
+
+                        <div id="d3_sidedata" class="">
                             <!-- EXPANSION ICON -->
-                            <div class="expandDiv">
-                                E
+                            <div id="expandDiv" class="expandDiv">
                                 <span id="navbar_fileNav_view_inner_expandIcon" class="mdi mdi-arrow-expand-right"></span>
-                                <!-- <span class="mdi mdi-arrow-expand-left"></span> -->
+                                <!-- <span id="navbar_fileNav_view_inner_expandIcon" class="mdi mdi-arrow-expand-left"></span> -->
                             </div>
                             <!-- DATA DIV -->
                             <div class="dataDiv">
-                                D
                                 <button id="dataDivShowTrash">Show "Trash"</button>
                                 <button id="dataDivShowDeleted">Show "Deleted"</button>
+                                <br>
                             </div>
                         </div>
                     </div>

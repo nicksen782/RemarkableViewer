@@ -85,7 +85,7 @@ let _MOD = {
             }
         }
         else{
-            sendMessage("  No deleted Documents were detected.", missing.length);
+            sendMessage("  No deleted Documents were detected.");
         }
 
         // Return true to indicate that there were no errors. 

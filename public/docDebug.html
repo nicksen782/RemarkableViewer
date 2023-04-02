@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Remarkable Viewer (ALT1)</title>
+    <!-- <base href="/"> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+    <!-- https://favicon.io/favicon-converter/ -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    
+    <!-- <link rel="stylesheet" href="css/LO1.css"> -->
+    <!-- <script src="js/LO1.js"></script> -->
+
+    <!-- <link rel="preload" as="style" href="vendor/materialdesignicons/6.5.95/dist/materialdesignicons.min.css" /> -->
+	<!-- <link rel="stylesheet" href="vendor/materialdesignicons/6.5.95/dist/materialdesignicons.min.css" /> -->
+    
+    <link rel="stylesheet" href="../css/docDebug/docDebug.css">
+    <script type="module" src="../js/docDebug/docDebug.js"></script>
+    <!-- <link rel="stylesheet" href="css/view2.css"> -->
+    <!-- <link rel="stylesheet" href="css/view3.css"> -->
+
+    <script>
+        var data = {
+            // Data here is added by: _APP.m_ui_nav.docDebug(req.params.uuid)
+            "metadata": {},
+            "content": {},
+            "rmfsRec": {},
+            "docData": {},
+        };
+    </script>
+</head>
+
+<body>
+    <div id="navBar">
+        <div class="navBar_tab       " id="nav_tab_thumbs">THUMBS</div>
+        <div class="navBar_tab active" id="nav_tab_pages">PAGES</div>
+        <div class="navBar_tab       " id="nav_tab_misc">MISC</div>
+    </div>
+    <div id="navViews">
+        <div class="navBar_view" id="nav_view_thumbs">
+            <div id="thumbs_div"></div>
+        </div>
+
+        <div class="navBar_view active" id="nav_view_pages">
+            <select id="page_select"></select>
+            <span id="page_data"></span>
+            <div id="page_div">
+                <img id="page_img">
+            </div>
+        </div>
+
+        <div class="navBar_view" id="nav_view_misc">
+            <span>
+                <div>rmfsRec</div>
+                <textarea id="rmfsRec_textarea"></textarea>
+                <br>
+            </span>
+            
+            <span>
+                <div>metadata</div>
+                <textarea id="metadata_textarea"></textarea>
+                <br>
+            </span>
+            
+            <span>
+                <div>content</div>
+                <textarea id="content_textarea"></textarea>
+                <br>
+            </span>
+            
+        </div>
+    </div>
+</body>
+</html>

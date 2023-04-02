@@ -89,9 +89,9 @@ var fileView1 = {
 
         // Add click event listener so that the page can be changed when it's thumbnail is clicked.
         div.onclick = ()=>{ 
-            window.requestAnimationFrame( ()=>{
+            // window.requestAnimationFrame( ()=>{
                 this.updatePage(uuid, pageNum); 
-            } );
+            // } );
         };
 
         // The index is used to filter thumbs when changing the page.
@@ -116,7 +116,6 @@ var fileView1 = {
         let page      = this.pages.output[pageNum];
         let pageId    = this.pages.output[pageNum].pageId;
         let newerType = this.pages.output[pageNum].newer;
-
 
         let imgElem = document.createElement("img");
         // imgElem.setAttribute("loading", "lazy");
@@ -187,9 +186,9 @@ var fileView1 = {
         // Clear the page placeholder and show the first page.
         this.DOM['dispPages'].innerHTML = "";
         if(this.pages.output.length){ 
-            window.requestAnimationFrame( ()=>{
+            // window.requestAnimationFrame( ()=>{
                 this.updatePage(uuid, 0); 
-            } );
+            // } );
         }
         else{ console.log("ERROR: This document does not appear to have a first page.");  }
     },

@@ -47,15 +47,21 @@
 
 /* FILE NAVIGATION */
 div#d3_filelist {
-    width: 620px;
-    /* min-height: 720px; */
+    width: 660px;
+    min-height: 700px;
+    max-height: 700px;
     /* height: calc(96vh - var(--header-height) - var(--footer-height)); */
     /* max-height: calc(96vh - var(--header-height) - var(--footer-height)); */
     overflow-y: auto;
+    /* overflow: hidden; */
     border: 1px solid black;
     background-color: #efefef;
     font-family: Times New Roman;
+    padding:4px;
 }
+div#d3_crumbs      { border-bottom: 1px dotted black;}
+div#d3_collections {/* max-height: 250px; *//* overflow-y: auto; */}
+div#d3_documents   {/* max-height: 650px; *//* min-height: 1em; */overflow: auto;}
 
 /* DocumentType_file */
 
@@ -344,31 +350,43 @@ div#navbar_fileNav_view_inner {
 }
 
 div#d3_sidedata {
-    background-color: red;
-    width:1em;
+    /* background-color: red; */
+    background-color: dodgerblue;
+    width: 1.5em;
     overflow:hidden;
     display: flex;
+    transition: width 500ms;
+    padding: 1px;
 }
-div#d3_sidedata:hover,
+/* div#d3_sidedata:hover, */
 div#d3_sidedata.expanded{
     width: 300px;
-    padding: 1px;
+    /* padding: 1px; */
+    transition: width 500ms;
 }
 div#d3_sidedata .expandDiv {
     background-color: cadetblue;
-    width: 1em;
+    /* width: 1em; */
+    /* width: 300px; */
     /* overflow:hidden; */
-    /* display: flex; */
+    display: flex;
     text-align: center;
+    align-items: center;
 }
 div#d3_sidedata .dataDiv{
-    width:0px;
+    /* width:0px; */
+    /* transition: width 1s; */
+    /* display: none; */
+    white-space: nowrap;
 }
 div#d3_sidedata.expanded .dataDiv{
-    background-color: dodgerblue;
+    /* background-color: dodgerblue; */
+    /* background-color: blue; */
     width: 100%;
-    /* overflow:hidden; */
+    overflow:hidden;
     /* display: flex; */
+    /* display: block; */
+    /* white-space: nowrap; */
 }
 
 div#fileView1_container {
@@ -382,4 +400,9 @@ div#fileView1_container {
     flex-direction: row;
     transform-origin: top left;
     transform: scale(1);
+}
+
+span#navbar_fileNav_view_inner_expandIcon {
+    font-size: 1.5em;
+    /* display: block; */
 }

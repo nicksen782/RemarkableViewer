@@ -76,9 +76,33 @@ var app = {
     addGlobalEvents: async function(){
         // Global event for keydown.
         document.body.onkeydown = (e)=>{ 
+            // For m_fileNav:
+            if(app.m_nav.DOM.fileNav.view.classList.contains("active")){
+                // Go up one folder?
+                if(["ArrowLeft", "Backspace"].indexOf(e.key) != -1){
+                    console.log("back");
+                    // app.m_fileView1.goToAdjacentPage(e.key);
+                }
+            }
+
             // For m_fileView1: 
-            if(app.m_nav.DOM.fileView1.view.classList.contains("active")){
-                app.m_fileView1.goToAdjacentPage(e.key);
+            else if(app.m_nav.DOM.fileView1.view.classList.contains("active")){
+                // Turn to the next page?
+                if(["ArrowLeft", "ArrowRight"].indexOf(e.key) != -1){
+                    app.m_fileView1.goToAdjacentPage(e.key);
+                }
+                // Return to the file nav?
+                else if(["Escape"].indexOf(e.key) != -1){
+                    app.m_nav.showOne("fileNav");
+                }
+            }
+
+            // For m_fileView2: 
+            else if(app.m_nav.DOM.fileView2.view.classList.contains("active")){
+                // Return to the file nav?
+                if(["Escape"].indexOf(e.key) != -1){
+                    app.m_nav.showOne("fileNav");
+                }
             }
         }
     

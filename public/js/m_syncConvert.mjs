@@ -136,6 +136,10 @@ var syncConvert = {
                                 }
                             }
                         }
+                        // Number.
+                        else if(typeof d == "number"){
+                            newText += d.toString() + "\n"; 
+                        }
                         // Unknown type.
                         else{
                             console.log("Invalid type:", typeof d, d);
