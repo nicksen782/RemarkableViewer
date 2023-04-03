@@ -126,6 +126,23 @@ let _MOD = {
         return results1;
     },
 
+    // Removes one document's files/directories remotely (on the device).
+    sync_getDiskUsage: async function(){
+        // WHAT DOES THIS DO?
+        // Gets the disk space usage of the device.
+        
+        let cmd1 = `bash ./deviceData/scripts/sync_getDiskUsage.sh`;
+        let results1;
+        try{
+            results1 = await _APP.m_shared.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; })
+            .catch( function(e) { throw { results: results1, e: e}; } );
+        }
+        catch(e){ throw e; }
+
+        // Return some data.
+        return results1;
+    },
+
     // Runs rsyncUpdate and detectAndRecordChanges in sequence.
     rsyncUpdate_and_detectAndRecordChanges: async function( sse_handler = null ){
         let res1, res2, line;
@@ -151,7 +168,7 @@ let _MOD = {
         // If the call to rsyncUpdate was successful...
         if(!res1.error){
             if(res1.uuids_updated2.length){
-                sendMessage(`  These files were updated and need conversion:`);
+                sendMessage(`  These files were updated and MAY need conversion:`);
 
                 // Output the names for the updated items.
                 for(let i=0; i<res1.uuids_updated2.length; i+=1){
@@ -171,20 +188,8 @@ let _MOD = {
 
             // Detect changes since timestamp and add/update needsUpdate.json.
             try{ 
-                sendMessage(`UPDATE of needsUpdate.json:`);
+                sendMessage(`\nUPDATE of needsUpdate.json:`);
                 res2 = await this.detectAndRecordChanges(sse_handler); 
-
-                sendMessage(`  `);
-                sendMessage(`  Totals by fileType:`);
-                sendMessage(`    "DocumentType"  : ${res1.uuids_DocumentType}`);
-                sendMessage(`    "CollectionType": ${res1.uuids_CollectionType}`);
-                sendMessage(`  Totals by DocumentType version:`);
-                sendMessage(`    V6: ${res1.v6_docs}`);
-                sendMessage(`    V5: ${res1.v5_docs}`);
-                sendMessage(`  UUIDs:`);
-                sendMessage(`    Updates needed: ${res1.uuids_updated}.`);
-                sendMessage(`    Active total  : ${res1.uuids_total}.`);
-                sendMessage(`  `);
             }
             catch(e){ 
                 // Make sure that "e" will be displayed correctly. 
@@ -213,6 +218,18 @@ let _MOD = {
                 else{
                     sendMessage(`  No updates were needed.`)
                 }
+
+                sendMessage(`\nINVENTORY:`);
+                sendMessage(`  UUIDs:`);
+                sendMessage(`    Updates needed: ${res1.uuids_updated}`);
+                sendMessage(`    Active total  : ${res1.uuids_total}`);
+                sendMessage(`  Totals by fileType:`);
+                sendMessage(`    "DocumentType"  : ${res1.uuids_DocumentType}`);
+                sendMessage(`    "CollectionType": ${res1.uuids_CollectionType}`);
+                sendMessage(`  Totals by DocumentType version:`);
+                sendMessage(`    V6: ${res1.v6_docs}`);
+                sendMessage(`    V5: ${res1.v5_docs}`);
+                sendMessage(`\n`);
             }
         }
 
@@ -235,6 +252,32 @@ let _MOD = {
         
         let results1;
         results1 = await _APP.m_shared.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; }); 
+
+        let results2;
+        let diskFree;
+        try{
+            results2 = await this.sync_getDiskUsage();
+            
+            // Get the diskFree. 
+            results2 = results2.stdOutHist.split("\n");
+            let diskFree_mmcblk2p4 = results2[0].replace(/\s+/g, " ").split(" ");
+            // console.log("diskFree_mmcblk2p4:", diskFree_mmcblk2p4);
+
+            diskFree = {
+                "Filesystem" : diskFree_mmcblk2p4[0],
+                "Mounted on" : diskFree_mmcblk2p4[5],
+                "totalGb"    : +((((diskFree_mmcblk2p4[1])/1024)/1024).toFixed(2)),
+                "usedGb"     : +((((diskFree_mmcblk2p4[2])/1024)/1024).toFixed(2)),
+                "availGb"    : +((((diskFree_mmcblk2p4[3])/1024)/1024).toFixed(2)),
+                "used%"      : parseFloat(diskFree_mmcblk2p4[4].replace(/%/g, "")),
+                "avail%"     : 100 - parseFloat(diskFree_mmcblk2p4[4].replace(/%/g, "")),
+            };
+            // console.log("diskFree:", diskFree);
+
+        }
+        catch(e){
+            console.trace("ERROR with diskFree:", e);
+        }
 
         // Create lists of filenames. 
         let files_metadata = await _APP.m_shared.getItemsInDir("deviceData/queryData/meta/metadata", "files", ".metadata").catch(function(e) { throw e; });
@@ -356,8 +399,9 @@ let _MOD = {
 
         // Separate the "finished" data by DocumentType and CollectionType into "data".
         let data = {
-            CollectionType:[],
-            DocumentType:[],
+            CollectionType: [],
+            DocumentType  : [],
+            diskFree      : diskFree,
         };
         let uuids = Object.keys(finished);
         for(let i=0; i<uuids.length; i+=1){

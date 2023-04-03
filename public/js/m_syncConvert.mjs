@@ -35,7 +35,7 @@ var syncConvert = {
         'sync_output'            : 'sync_output',
         'convert_output'         : 'convert_output',
     },
-    history:[],
+    // history:[],
     init: async function(){
         await this.get_rm_fsFile();
 
@@ -65,7 +65,6 @@ var syncConvert = {
 
         // Save the data locally. (To the main module.)
         app.rm_fs     = data.rm_fs;
-        app.rm_device = data.rm_device;
     },
     runProcessing: async function(uuid, visibleName){
         let dataOptions = { 
@@ -215,6 +214,10 @@ var syncConvert = {
                         // console.log("updating current file view");
                         let activeCollection = document.querySelector(".crumb.activeCollection");
                         if(activeCollection){ activeCollection.click(); }
+
+                        // Update the nav sidebar.
+                        app.m_fileNav.populateSelects();
+                        app.m_fileNav.populateDiskFree();
                     }
 
                     // If there are updates then display them.
@@ -414,7 +417,7 @@ var syncConvert = {
                     //
 
                     // Add to the local history.
-                    this.history.push(data);
+                    // this.history.push(data);
 
                     // "convertAll" output.(divCount will be set if using "convertAll".)
                     if(divCount != null){
@@ -451,6 +454,7 @@ var syncConvert = {
 
         this.DOM['convert_output'].innerHTML = "";
 
+        let ts = performance.now();
         for(let i=0; i<divs.length; i+=1){
             if(!divs[i]){ console.log("missing?"); continue; }
 
@@ -460,8 +464,9 @@ var syncConvert = {
             if(divs[i].classList.contains("processing")){ console.log("Already processing this one", data.visibleName); continue; }
             await this.convert( divs[i], data, {i:i, len:divs.length} );
         }
-        console.log("HISTORY:", this.history);
-        console.log("DONE");
+
+        // console.log("HISTORY:", this.history);
+        console.log("DONE", `${((performance.now()-ts)/1000).toFixed(2)} seconds`);
 
     },
 };

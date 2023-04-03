@@ -24,7 +24,6 @@ let _MOD = {
                 _APP.consolelog(`Load rm_fs.json`, 2);
                 let data = await this.get_rm_fsFile();
                 this.rm_fs = data.rm_fs;
-                this.rm_device = data.rm_device;
 
                 // Set the moduleLoaded flag.
                 _MOD.moduleLoaded = true;
@@ -52,14 +51,9 @@ let _MOD = {
         let rm_fs = fs.readFileSync(`deviceData/config/rm_fs.json`, {encoding:'utf8', flag:'r'});
         rm_fs = JSON.parse(rm_fs);
 
-        // TODO: Get some device data.
-        //
-        let rm_device = {};
-
         // Return the data.
         return {
             rm_fs    : rm_fs,
-            rm_device: rm_device,
         }
     },
 
@@ -183,7 +177,7 @@ let _MOD = {
     
                 })
                 .catch(function(e){ 
-                    console.log("getItemsInDir:", "Error while reading file stats.", e);
+                    // console.log("getItemsInDir:", "Error while reading file stats.", e);
                     reject(e);
                     return;
                 })

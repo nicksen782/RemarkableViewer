@@ -40,9 +40,9 @@ let _MOD = {
             // Search the .thumbnail folder.
         // Get the pages in the svg folder. 
             // The number at the end of each filename is the page number. (Note: page starts at 1, not 0.)
-            // output-page0001.svg
-            // output-page0002.svg
-            // output-page0003.svg
+            // pg0001.svg
+            // pg0002.svg
+            // pg0003.svg
         // The rm_fs pages array determines what pages are in a document and the new .svg filenames.
         // Rename the svg files to match the page ids (same as the thumbs.)
         // Both the .svg and the thumb file will be returned as well as the page id and which of the two files is newer.
@@ -56,18 +56,22 @@ let _MOD = {
         // If the dir(s) does not exist then create it.
         if( !fs.existsSync(`${basePath}`) )          { fs.mkdirSync(`${basePath}`); }
         if( !fs.existsSync(`${basePath_svgs}`) )     { fs.mkdirSync(`${basePath_svgs}`); }
+        if( !fs.existsSync(`${basePath_thumbs}`) )   { fs.mkdirSync(`${basePath_thumbs}`); }
         if( !fs.existsSync(`${basePath_svgThumbs}`) ){ fs.mkdirSync(`${basePath_svgThumbs}`); }
 
         // Get the list of .svg files from the svg folder.
-        let files_svgs   = await _APP.m_shared.getItemsInDir(`${basePath_svgs}`  , "files", ".svg").catch(function(e) { throw e; });
+        let files_svgs   = await _APP.m_shared.getItemsInDir(`${basePath_svgs}`  , "files", ".svg").catch(function(e) { console.log("getAvailablePages: getItemsInDir: files_svgs:", e); throw e; });
+        if(!files_svgs){ files_svgs = []; }
         files_svgs.forEach((d)=>{ d.filepath = path.basename(d.filepath); });
 
         // Get the thumb .jpg files.
-        let files_thumbs = await _APP.m_shared.getItemsInDir(`${basePath_thumbs}`, "files", ".jpg").catch(function(e) { throw e; });
+        let files_thumbs = await _APP.m_shared.getItemsInDir(`${basePath_thumbs}`, "files", ".jpg").catch(function(e) { console.log("getAvailablePages: getItemsInDir: files_thumbs:", e); });
+        if(!files_thumbs){ files_thumbs = []; }
         files_thumbs.forEach((d)=>{ d.filepath = path.basename(d.filepath); });
-
+        
         // Get the svgThumbs files. 
-        let files_svgsThumbs   = await _APP.m_shared.getItemsInDir(`${basePath_svgThumbs}`  , "files", ".png").catch(function(e) { throw e; });
+        let files_svgsThumbs   = await _APP.m_shared.getItemsInDir(`${basePath_svgThumbs}`  , "files", ".png").catch(function(e) { console.log("getAvailablePages: getItemsInDir: files_svgsThumbs:", e); throw e; });
+        if(!files_svgsThumbs){ files_svgsThumbs = []; }
         files_svgsThumbs.forEach((d)=>{ d.filepath = path.basename(d.filepath); });
         
         // This will determine the output order of the pages. 

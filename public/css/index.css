@@ -349,14 +349,19 @@ div#navbar_fileNav_view_inner {
     display: flex;
 }
 
+
+/* SIDEDATA */
+/* SIDEDATA */
+
 div#d3_sidedata {
     /* background-color: red; */
     background-color: dodgerblue;
-    width: 1.5em;
+    background-color: #efefef;
+    width: 1.80em;
     overflow:hidden;
     display: flex;
     transition: width 500ms;
-    padding: 1px;
+    /* padding: 1px; */
 }
 /* div#d3_sidedata:hover, */
 div#d3_sidedata.expanded{
@@ -365,19 +370,33 @@ div#d3_sidedata.expanded{
     transition: width 500ms;
 }
 div#d3_sidedata .expandDiv {
-    background-color: cadetblue;
+    background-color: #d9d9d9;
+    /* height: 1em; */
     /* width: 1em; */
     /* width: 300px; */
     /* overflow:hidden; */
     display: flex;
     text-align: center;
     align-items: center;
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+    border-right: 1px solid black;
+    padding: 2px;
 }
 div#d3_sidedata .dataDiv{
     /* width:0px; */
     /* transition: width 1s; */
     /* display: none; */
     white-space: nowrap;
+    overflow:auto;
+    /* border-top: 1px solid black; */
+    /* border-bottom: 1px solid black; */
+    /* border-right: 1px solid black; */
+    padding: 2px;
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+    border-right: 1px solid black;
+    font-family:monospace;
 }
 div#d3_sidedata.expanded .dataDiv{
     /* background-color: dodgerblue; */
@@ -386,8 +405,42 @@ div#d3_sidedata.expanded .dataDiv{
     overflow:hidden;
     /* display: flex; */
     /* display: block; */
-    /* white-space: nowrap; */
+    /* white-space: normal; */
+    /* padding: 2px; */
+    /* border-top: 1px solid black; */
+    /* border-bottom: 1px solid black; */
+    /* border-right: 1px solid black; */
+    font-size: 14px;
 }
+.dataDiv .title{
+    font-weight:bold;
+    text-decoration:underline;
+}
+.dataDiv_select{
+    font-family: monospace;
+    white-space: pre;
+}
+.dataDiv_option{
+    font-family: monospace;
+    white-space: pre;
+    font-size: 85%;
+}
+
+select#dataDiv_lastOpened{ width: 100%; }
+select#dataDiv_lastModified{ width: 100%; }
+select#dataDiv_favorites{ width: 100%; }
+
+div#dataDiv_storageContainer{}
+div#dataDiv_storageData{
+    /* font-size: 90%; */
+}
+#dataDiv_showMyFiles{}
+#dataDiv_showTrash{}
+#dataDiv_showDeleted{}
+
+
+/* SIDEDATA */
+/* SIDEDATA */
 
 div#fileView1_container {
     /* border: 1px solid black; */

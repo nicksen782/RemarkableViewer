@@ -33,11 +33,20 @@ var fileNav = {
         'filelist_crumbs'     : 'd3_crumbs',
         'filelist_collections': 'd3_collections',
         'filelist_documents'  : 'd3_documents',
-        'sidedata'            : 'd3_sidedata',
-        'expandDiv'           : 'expandDiv',
-        'showTrash'           : 'dataDivShowTrash',
-        'showDeleted'         : 'dataDivShowDeleted',
-        'expandIcon'          : 'navbar_fileNav_view_inner_expandIcon',
+        
+        
+        //
+        'sidedata'   : 'd3_sidedata',
+        'expandDiv'  : 'expandDiv',
+        'expandIcon' : 'navbar_fileNav_view_inner_expandIcon',
+        'showMyFiles': 'dataDiv_showMyFiles',
+        'showTrash'  : 'dataDiv_showTrash',
+        'showDeleted': 'dataDiv_showDeleted',
+
+        'storageData' : 'dataDiv_storageData',
+        'lastOpened'  : 'dataDiv_lastOpened',
+        'lastModified': 'dataDiv_lastModified',
+        'favorites'   : 'dataDiv_favorites',
     },
 
     currentParent: "",
@@ -78,15 +87,97 @@ var fileNav = {
             // <span class="mdi mdi-arrow-expand-right"></span>
             // <span class="mdi mdi-arrow-expand-left"></span>
         }, false);
-        this.DOM['showTrash']  .addEventListener("click", ()=>{ app.m_fileNav.showCollection("trash", true); }, false);
-        this.DOM['showDeleted'].addEventListener("click", ()=>{ app.m_fileNav.showCollection("deleted", true); }, false);
+        this.DOM['showMyFiles'].addEventListener("click", ()=>{ app.m_fileNav.showCollection("", false); }, false);
+        this.DOM['showTrash']  .addEventListener("click", ()=>{ app.m_fileNav.showCollection("trash", false); }, false);
+        this.DOM['showDeleted'].addEventListener("click", ()=>{ app.m_fileNav.showCollection("deleted", false); }, false);
+        
+        this.DOM['lastOpened']   .addEventListener("change", ()=>{ 
+            app.m_fileNav.showDocument(this.DOM['lastOpened'].value); 
+            this.DOM['lastOpened'].value = "";
+        }, false);
+        this.DOM['lastModified'] .addEventListener("change", ()=>{ 
+            app.m_fileNav.showDocument(this.DOM['lastModified'].value); 
+            this.DOM['lastModified'].value = "";
+        }, false);
+        this.DOM['favorites']    .addEventListener("change", ()=>{ 
+            let option = this.DOM['favorites'].options[this.DOM['favorites'].selectedIndex];
+            // let parent = option.getAttribute("parent");
+            let uuid   = option.getAttribute("uuid");
+            let type   = option.getAttribute("type");
+            if     (type == "DocumentType"){ app.m_fileNav.showDocument(uuid);  }
+            else if(type == "CollectionType"){ app.m_fileNav.showCollection(uuid);  }
+            this.DOM['favorites'].value = "";
+        }, false);
 
+        this.populateSelects();
+        this.populateDiskFree();
+        
         // let folders     = app.rm_fs.DocumentType  
         //     .filter(d=>{ if(!d.deleted) { return d.parent == ""; } })
         //     .map(d=>{ return {visibleName:d.visibleName, deleted: d.deleted} } );
 
         // console.log( "Collections in <root>:", collections );
         // console.log( "Documents   in <root>:", folders );
+    },
+
+    populateSelects: function(){
+        // let file = app.rm_fs[type].find(d=>d.uuid == uuid);
+        let top_lastOpened   = app.rm_fs["DocumentType"].slice().sort((a, b) => { return b.lastOpened - a.lastOpened; }).slice(0, 20);
+        let top_lastModified = app.rm_fs["DocumentType"].slice().sort((a, b) => { return b.lastModified - a.lastModified; }).slice(0, 20);
+        let favorites = app.rm_fs["CollectionType"].filter(d=>d.pinned).slice().sort((a, b) => { return b.lastModified - a.lastModified; });
+        favorites.push( ...app.rm_fs["DocumentType"].filter(d=>d.pinned).slice().sort((a, b) => { return b.lastModified - a.lastModified; }) );
+        
+        let dataObj = {
+            top_lastOpened:  { select: this.DOM['lastOpened'],   data: top_lastOpened   },
+            top_lastModified:{ select: this.DOM['lastModified'], data: top_lastModified },
+            favorites:       { select: this.DOM['favorites'],    data: favorites        },
+        };
+        
+        for(let key in dataObj){
+            let select = dataObj[key].select;
+            let data   = dataObj[key].data;
+            
+            let frag = document.createDocumentFragment();
+            for(let i=0; i<data.length; i+=1){
+                let rec = data[i];
+                let option = document.createElement("option");
+                option.value = rec.uuid;
+                option.setAttribute("parent", rec.parent);
+                option.setAttribute("uuid", rec.uuid);
+                option.setAttribute("type", rec.type);
+                option.classList.add("dataDiv_option");
+
+                if     (key == "top_lastOpened")  { 
+                    let date = new Date(+rec.lastOpened); 
+                    // const formattedDate = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}_${(date.getHours() % 12).toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}${(date.getHours() < 12) ? 'AM' : 'PM'}`;
+                    const formattedDate = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+                    option.innerHTML = `${formattedDate}: ${rec.visibleName}`; 
+                }
+                else if(key == "top_lastModified"){ 
+                    let date = new Date(+rec.lastModified); 
+                    // const formattedDate = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}_${(date.getHours() % 12).toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}${(date.getHours() < 12) ? 'AM' : 'PM'}`;
+                    const formattedDate = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+                    option.innerHTML = `${formattedDate}: ${rec.visibleName}`; 
+                }
+                else if(key == "favorites")       { 
+                    let text = `${('['+rec.type+']').padEnd(16, " ")}: ${rec.visibleName}`; 
+                    option.innerHTML = decodeURI(text.replace(/ /g, "%C2%A0"));
+                }
+                frag.append(option);
+            }
+            select.querySelectorAll("option").forEach(function(d,i){ i!=0 && d.remove(); });
+            select.append(frag);
+        }
+
+        // console.log("top_lastOpened:", top_lastOpened);
+        // console.log("top_lastModified:", top_lastModified);
+        // console.log("favorites:", favorites);
+    },
+
+    populateDiskFree: function(){
+        // console.log(app.rm_fs.diskFree);
+        let d = app.rm_fs.diskFree;
+        this.DOM['storageData'].innerHTML = `USED: ${d.usedGb.toFixed(2)}GB of ${d.totalGb.toFixed(2)}GB (${d['used%']}%)`;
     },
 
     showDocument: async function(uuid){

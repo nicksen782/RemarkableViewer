@@ -9,10 +9,10 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
 
     <!-- https://favicon.io/favicon-converter/ -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="manifest" href="site.webmanifest">
     
     <link rel="stylesheet" href="css/LO1.css">
     <script src="js/LO1.js"></script>
@@ -138,8 +138,37 @@
                             </div>
                             <!-- DATA DIV -->
                             <div class="dataDiv">
-                                <button id="dataDivShowTrash">Show "Trash"</button>
-                                <button id="dataDivShowDeleted">Show "Deleted"</button>
+                                <div class="title">Last 20 documents opened:</div>
+                                <select size="5" class="dataDiv_select" id="dataDiv_lastOpened"><option value="">...Choose...</option></select>
+                                <br>
+                                <br>
+                                
+                                <div class="title">Last 20 documents modified:</div>
+                                <select size="5" class="dataDiv_select" id="dataDiv_lastModified"><option value="">...Choose...</option></select>
+                                <br>
+                                <br>
+                                
+                                <div class="title">Favorites:</div>
+                                <select size="5" class="dataDiv_select" id="dataDiv_favorites"><option value="">...Choose...</option></select>
+                                <br>
+                                <br>
+                                
+                                <div id="dataDiv_storageContainer">
+                                    <div class="title">STORAGE:</div>
+                                    <div id="dataDiv_storageData">
+                                        1.89GB used of 6.90GB total (71% free)
+                                    </div>
+                                </div>
+                                <br>
+                                
+                                <div class="title">Root Navs:</div>
+                                <div>
+                                    <button id="dataDiv_showMyFiles">"My files"</button>
+                                    <button id="dataDiv_showTrash">"Trash"</button>
+                                    <button id="dataDiv_showDeleted">"Deleted"</button>
+                                    <br>
+                                </div>
+                                <br>
                                 <br>
                             </div>
                         </div>
