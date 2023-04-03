@@ -91,12 +91,30 @@ let _MOD = {
         // Return true to indicate that there were no errors. 
         return true;
     },
+    
     // Removes one document directory locally.
     process_removeLocalDocumentDir: async function(uuid){
         // WHAT DOES THIS DO?
         // Removes the local document directory indicated by the uuid provided.
         
         let cmd1 = `bash ./deviceData/scripts/process_removeLocalDocumentDir.sh "${uuid}"`;
+        let results1;
+        try{
+            results1 = await _APP.m_shared.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; })
+            .catch( function(e) { throw { results: results1, e: e}; } );
+        }
+        catch(e){ throw e; }
+
+        // Return some data.
+        return results1;
+    },
+
+    // Removes one document's files/directories remotely (on the device).
+    device_delete1DocumentFiles: async function(uuid){
+        // WHAT DOES THIS DO?
+        // Removes the remote files/directories indicated by the uuid provided.
+        
+        let cmd1 = `bash ./deviceData/scripts/device_delete1DocumentFiles.sh "${uuid}"`;
         let results1;
         try{
             results1 = await _APP.m_shared.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; })

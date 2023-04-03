@@ -51,8 +51,8 @@ var fileNav = {
             this.DOM[key] = document.getElementById(this.DOM[key]);
         }
         
-        // this.showCollection("");
-        this.showCollection("9bc9f1d7-eec4-46ee-9cda-0ac50ffdb7a2");
+        this.showCollection("");
+        // this.showCollection("9bc9f1d7-eec4-46ee-9cda-0ac50ffdb7a2");
 
         // DEFAULT STATES
         this.DOM['sidedata'] .classList.add("expanded");
@@ -213,6 +213,7 @@ var fileNav = {
             // Set/configure.
             div_outer.onclick = (e)=>{ this.showDocument(rec.uuid); }
             div_outer.oncontextmenu = (e)=>{ 
+                // div_outer.title = "Right-click to access docDebug.";
                 // Open the new tab (should be reusable.)
                 window.open(`docDebug/${rec.uuid}`, "RMV2_CHILD").focus();
                 // Prevent the context menu from appearing.

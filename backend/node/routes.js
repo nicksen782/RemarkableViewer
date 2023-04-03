@@ -24,6 +24,26 @@ let _MOD = {
         m_shared: [
         ],
         m_sync:[
+            // device_delete1DocumentFiles
+            {
+                "path": "/device_delete1DocumentFiles/", "method": "post",
+                "desc": "",
+                "args": [],
+                "func": async (req,res)=>{
+                    // Declare/define temp vars.
+                    let results;
+                    let error = false;
+
+                    // Try to perform the action.
+                    try{ results = await _APP.m_sync.device_delete1DocumentFiles(req.body.uuid); }
+                    
+                    // Error thrown.
+                    catch(e){ error = true; results = e; }
+
+                    // Return the results. 
+                    res.json( { ...results, error: error } );
+                }
+            },
             {
                 "path": "/rsyncUpdate_and_detectAndRecordChanges", "method": "get",
                 "desc": "",

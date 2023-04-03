@@ -20,9 +20,7 @@ if [ -z "$UUID" ] || [ ${#UUID} -ne 36 ]; then
   echo "UUID variable is not set or has an invalid length"
 else
   # Run the line against the device.
-  # script="find /home/root/.local/share/remarkable/xochitl/ -name \"$UUID*\" -exec rm -rf {} \;";
-  script="find /home/root/.local/share/remarkable/xochitl/ -name \"$UUID*\" -exec rm -rf {} \; 2>/dev/null"
-  # script="find /home/root/.local/share/remarkable/xochitl/ -name \"$UUID*\" -print;"
+  script="find /home/root/.local/share/remarkable/xochitl/ -maxdepth 1 -path \"*/$UUID*\" -exec rm -r {} +"
   ssh $SSHALIAS 'bash -s' <<< "$script";
 fi
 

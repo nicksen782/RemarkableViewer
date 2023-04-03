@@ -149,9 +149,10 @@ var app = {
         },
 
         ext_changePage: function(index){
+            app.nav.showOne("view_pages");
             this.DOM['page_select'].selectedIndex = index;
             this.DOM['page_select'].dispatchEvent(new Event("change"));
-            app.nav.showOne("view_pages");
+            this.DOM['page_select'].focus();
         },
         // Init for the view.
         init: async function() {

@@ -406,3 +406,71 @@ span#navbar_fileNav_view_inner_expandIcon {
     font-size: 1.5em;
     /* display: block; */
 }
+
+
+/* DELETION */
+#files_to_delete_container{
+    border:1px solid black;
+    margin:1px;
+    padding:1px; 
+}
+/* #files_to_delete_info{ */
+    /* border:1px solid black; */
+    /* margin:1px; */
+    /* padding: 4px; */
+/* } */
+#files_to_delete_deleteSelected{
+    border:1px solid black;
+    margin:1px;
+    padding:1px; 
+}
+#files_to_delete_checkAll{
+    border:1px solid black;
+    margin:1px;
+    padding:1px; 
+}
+#files_to_delete_uncheckAll{
+    border:1px solid black;
+    margin:1px;
+    padding:1px; 
+}
+#files_to_delete_output{
+    border:1px solid black;
+    margin:1px;
+    padding: 4px;
+}
+table.deletionRecord{
+    border: 1px solid black;
+    /* margin: 0px; */
+    margin-bottom:5px;
+    /* width: 100%; */
+}
+table.deletionRecord td:nth-child(1){background-color: darkgray;font-weight: bold;white-space: pre;width: 85px;}
+table.deletionRecord td:nth-child(2){background-color: lightgray;font-family: monospace;}
+
+.delete_uuid.delete_uuid_DocumentType:hover{
+    cursor:pointer;
+    background-color:powderblue;
+}
+
+.deleteButton{
+    height: 25px;
+    width: 50px;
+    font-size:60%;
+    vertical-align: text-bottom;
+    margin: 2px;
+    border: 3px solid gray;
+}
+.deleteButton.active{
+    font-weight: bold;
+    font-size:100%;
+}
+
+.deleteNo{}
+.deleteNo.active{
+    border: 3px solid mediumseagreen;
+}
+.deleteYes{}
+.deleteYes.active{
+    border: 3px solid red;
+}

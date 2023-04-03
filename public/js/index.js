@@ -1,25 +1,25 @@
 // Static imports. (Should match modList.)
 import m_net          from "./m_net.mjs";
 import m_nav          from "./m_nav.mjs";
-import m_debug        from "./m_debug.mjs";
 import m_screenStream from "./m_screenStream.mjs";
 import m_syncConvert  from "./m_syncConvert.mjs";
 import m_shared       from "./m_shared.mjs";
 import m_fileNav      from "./m_fileNav.mjs";
 import m_fileView1    from "./m_fileView1.mjs";
 import m_fileView2    from "./m_fileView2.mjs";
+import m_debug        from "./m_debug.mjs";
 
 // Used to set the imports into their app object keys.
 const modList = [
     { key:"m_net"         , obj:"m_net"         , from: "./m_net.mjs" },
     { key:"m_nav"         , obj:"m_nav"         , from: "./m_nav.mjs" },
-    { key:"m_debug"       , obj:"m_debug"       , from: "./m_debug.mjs" },
     { key:"m_screenStream", obj:"m_screenStream", from: "./m_screenStream.mjs" },
     { key:"m_syncConvert" , obj:"m_syncConvert" , from: "./m_syncConvert.mjs" },
     { key:"m_shared"      , obj:"m_shared"      , from: "./m_shared.mjs" },
     { key:"m_fileNav"     , obj:"m_fileNav"     , from: "./m_fileNav.mjs" },
     { key:"m_fileView1"   , obj:"m_fileView1"   , from: "./m_fileView1.mjs" },
     { key:"m_fileView2"   , obj:"m_fileView2"   , from: "./m_fileView2.mjs" },
+    { key:"m_debug"       , obj:"m_debug"       , from: "./m_debug.mjs" },
 ];
 
 function test(){
