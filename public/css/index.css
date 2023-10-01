@@ -362,12 +362,13 @@ div#d3_sidedata {
     display: flex;
     transition: width 500ms;
     /* padding: 1px; */
+    transition: width 500ms;
 }
 /* div#d3_sidedata:hover, */
 div#d3_sidedata.expanded{
     width: 300px;
     /* padding: 1px; */
-    transition: width 500ms;
+    /* transition: width 500ms; */
 }
 div#d3_sidedata .expandDiv {
     background-color: #d9d9d9;
@@ -389,7 +390,7 @@ div#d3_sidedata .dataDiv{
     /* display: none; */
     white-space: nowrap;
     overflow:auto;
-    /* border-top: 1px solid black; */
+    overflow: hidden;
     /* border-bottom: 1px solid black; */
     /* border-right: 1px solid black; */
     padding: 2px;
@@ -397,12 +398,13 @@ div#d3_sidedata .dataDiv{
     border-bottom: 1px solid black;
     border-right: 1px solid black;
     font-family:monospace;
+    font-size: 14px;
 }
 div#d3_sidedata.expanded .dataDiv{
     /* background-color: dodgerblue; */
     /* background-color: blue; */
     width: 100%;
-    overflow:hidden;
+    overflow: auto;
     /* display: flex; */
     /* display: block; */
     /* white-space: normal; */
@@ -410,7 +412,7 @@ div#d3_sidedata.expanded .dataDiv{
     /* border-top: 1px solid black; */
     /* border-bottom: 1px solid black; */
     /* border-right: 1px solid black; */
-    font-size: 14px;
+    /* font-size: 14px; */
 }
 .dataDiv .title{
     font-weight:bold;
@@ -453,6 +455,11 @@ div#fileView1_container {
     flex-direction: row;
     transform-origin: top left;
     transform: scale(1);
+}
+#fileView1_container.flex_justifyCenter{
+    justify-content: center;
+    /* background-color: unset; */
+    background-color: #888;
 }
 
 span#navbar_fileNav_view_inner_expandIcon {

@@ -93,6 +93,12 @@ var app = {
                 }
                 // Return to the file nav?
                 else if(["Escape"].indexOf(e.key) != -1){
+                    // Detect fullscreen and exit full screen if it is active.
+                    if(document.fullscreenElement != null){
+                        document.exitFullscreen();
+                    }
+
+                    // Now the file nav view.
                     app.m_nav.showOne("fileNav");
                 }
             }

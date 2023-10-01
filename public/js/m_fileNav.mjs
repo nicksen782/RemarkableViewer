@@ -92,19 +92,39 @@ var fileNav = {
         this.DOM['showDeleted'].addEventListener("click", ()=>{ app.m_fileNav.showCollection("deleted", false); }, false);
         
         this.DOM['lastOpened']   .addEventListener("change", ()=>{ 
+            // Navigate to the folder of this document:
+            let option = this.DOM['lastOpened'].options[this.DOM['lastOpened'].selectedIndex];
+            let parent = option.getAttribute("parent");
+            app.m_fileNav.showCollection(parent);
+            
+            // Display this document.
             app.m_fileNav.showDocument(this.DOM['lastOpened'].value); 
             this.DOM['lastOpened'].value = "";
+            
         }, false);
         this.DOM['lastModified'] .addEventListener("change", ()=>{ 
+            // Navigate to the folder of this document:
+            let option = this.DOM['lastModified'].options[this.DOM['lastModified'].selectedIndex];
+            let parent = option.getAttribute("parent");
+            app.m_fileNav.showCollection(parent);
+
+            // Display this document.
             app.m_fileNav.showDocument(this.DOM['lastModified'].value); 
             this.DOM['lastModified'].value = "";
+
         }, false);
         this.DOM['favorites']    .addEventListener("change", ()=>{ 
             let option = this.DOM['favorites'].options[this.DOM['favorites'].selectedIndex];
-            // let parent = option.getAttribute("parent");
             let uuid   = option.getAttribute("uuid");
             let type   = option.getAttribute("type");
-            if     (type == "DocumentType"){ app.m_fileNav.showDocument(uuid);  }
+            
+            // Navigate to folder and show document?
+            if     (type == "DocumentType")  { 
+                let parent = option.getAttribute("parent");
+                app.m_fileNav.showCollection(parent); 
+                app.m_fileNav.showDocument(uuid);
+            }
+            // Navigate to folder only?
             else if(type == "CollectionType"){ app.m_fileNav.showCollection(uuid);  }
             this.DOM['favorites'].value = "";
         }, false);

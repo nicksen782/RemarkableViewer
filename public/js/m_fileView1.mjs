@@ -121,30 +121,58 @@ var fileView1 = {
         // imgElem.setAttribute("loading", "lazy");
         imgElem.classList.add("openedDoc_page");
         imgElem.onload = ()=>{
+            // Detects if an element is full screen. 
+            let containerIsFullscreen = document.fullscreenElement != null ? true : false;
+            console.log("containerIsFullscreen:", containerIsFullscreen);
+            
             imgElem.onload = null;
-
-            // Force an aspect ratio for the image. (3:4)
-            let width  = Math.floor(imgElem.width/3) * 3;
-            let height = Math.floor(width *4/3);
-            imgElem.style["width"]  = (width ) + "px";
-            imgElem.style["height"] = (height) + "px";
-
-            // Set the two divs to have the same height as the image.
-            this.DOM['thumbs']   .style["max-height"] = height + "px";
-            this.DOM['dispPages'].style["max-height"] = height + "px";
-
-            // Determine the scale needed to completely fit the container into the parent. 
-            let scale = this.determineScale(app.m_nav.DOM.fileView1.view, this.DOM['fileView1_container']);
-
-            // Update the thumbnail data.
-            this.DOM['dispPages'].innerHTML = "";
-            this.DOM['dispPages'].append(imgElem);
-
-            // Scale the container.
-            this.DOM['fileView1_container'].style.transform = `scale(${scale})`;
+            
+            
+            // Make it full screen if not already so.
+            if(!containerIsFullscreen){
+                console.log("switched to full screen");
+                console.log("NOW full screen");
+                this.DOM['fileView1_container'].requestFullscreen();
+                containerIsFullscreen = document.fullscreenElement != null ? true : false;
+             
+                // Unset the inline CSS styles by setting them to an empty string or null.
+                imgElem.style["width"] = null;
+                imgElem.style["height"] = null;
+                this.DOM['thumbs'].style["max-height"] = null;
+                this.DOM['dispPages'].style["max-height"] = null;
+                this.DOM['fileView1_container'].style.transform = null;
+                this.DOM['fileView1_container'].classList.add("flex_justifyCenter");
+            }
 
             window.requestAnimationFrame( ()=>{
+                // Update the thumbnail data.
+                this.DOM['dispPages'].innerHTML = "";
+                this.DOM['dispPages'].append(imgElem);
             } );
+
+            // else{
+            //     let width;
+            //     let height;
+            //     let scale;
+                
+            //     // Force an aspect ratio for the image. (3:4)
+            //     width  = Math.floor(imgElem.width/3) * 3;
+            //     height = Math.floor(width *4/3);
+            //     imgElem.style["width"]  = (width ) + "px";
+            //     imgElem.style["height"] = (height) + "px";
+                
+            //     // Set the two divs to have the same height as the image.
+            //     this.DOM['thumbs']   .style["max-height"] = height + "px";
+            //     this.DOM['dispPages'].style["max-height"] = height + "px";
+                
+            //     // Determine the scale needed to completely fit the container into the parent. 
+            //     scale = this.determineScale(app.m_nav.DOM.fileView1.view, this.DOM['fileView1_container']);
+                
+            //     // Scale the container.
+            //     this.DOM['fileView1_container'].style.transform = `scale(${scale})`;
+                
+            //     this.DOM['fileView1_container'].classList.remove("flex_justifyCenter");
+            // }
         };
 
         if     (newerType == "svg"   ){ imgElem.src = `${this.generateImageUrl(uuid, pageId, "page_svg")}?)`; }
@@ -174,7 +202,7 @@ var fileView1 = {
     showDocument: async function(uuid){
         // Get the pages data for this document.
         this.pages = await app.m_fileView1.getAvailablePages(uuid);
-
+        
         // Clear existing thumbnails, generate new ones and add them.
         let thumbs_frag = document.createDocumentFragment();
         for(let i=0; i<this.pages.output.length; i+=1){
