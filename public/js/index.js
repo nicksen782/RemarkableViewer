@@ -74,6 +74,8 @@ var app = {
     },
     
     addGlobalEvents: async function(){
+        const openedDoc_close = document.getElementById("openedDoc_close");
+
         // Global event for keydown.
         document.body.onkeydown = (e)=>{ 
             // For m_fileNav:
@@ -91,6 +93,7 @@ var app = {
                 if(["ArrowLeft", "ArrowRight"].indexOf(e.key) != -1){
                     app.m_fileView1.goToAdjacentPage(e.key);
                 }
+
                 // Return to the file nav?
                 else if(["Escape"].indexOf(e.key) != -1){
                     // Detect fullscreen and exit full screen if it is active.
@@ -98,6 +101,12 @@ var app = {
                         document.exitFullscreen();
                     }
 
+                    // TODO: Hide the close div. (This does not work when exiting fullscreen.
+                    if(openedDoc_close.classList.contains("show")){
+                        console.log("hide on escape");
+                        openedDoc_close.classList.remove("show");
+                    }
+                    
                     // Now the file nav view.
                     app.m_nav.showOne("fileNav");
                 }
@@ -107,6 +116,11 @@ var app = {
             else if(app.m_nav.DOM.fileView2.view.classList.contains("active")){
                 // Return to the file nav?
                 if(["Escape"].indexOf(e.key) != -1){
+                    // Hide the close div.
+                    if(openedDoc_close.classList.contains("show")){
+                        openedDoc_close.classList.remove("show");
+                    }
+
                     app.m_nav.showOne("fileNav");
                 }
             }
@@ -119,6 +133,24 @@ var app = {
                 app.m_fileView2.resizeDispPages(e);
             }
         }
+
+        document.getElementById("openedDoc_close").addEventListener("click", function(){
+            // Hide this div.
+            this.classList.remove("show");
+
+            // Close document on click of the close div.
+            if(document.fullscreenElement != null){
+                document.exitFullscreen();
+            }
+    
+            // Hide the close div.
+            if(openedDoc_close.classList.contains("show")){
+                openedDoc_close.classList.remove("show");
+            }
+
+            // Now the file nav view.
+            app.m_nav.showOne("fileNav");
+        }, false);
     },
 };
 

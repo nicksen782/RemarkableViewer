@@ -274,6 +274,19 @@ div#d3_documents   {/* max-height: 650px; *//* min-height: 1em; */overflow: auto
 }
 
 /* Document view: pages */
+div#openedDoc_close{
+    position: fixed;
+    border: 1px solid black;
+    width: 50px;
+    height: 50px;
+    left: 0;
+    top: 0;
+    background-color: red;
+	display:none;
+}
+div#openedDoc_close.show{
+	display:block;
+}
 div#openedDoc_dispPages {
     /* float: left; */
     min-width: 590px;

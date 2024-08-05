@@ -161,6 +161,9 @@ let _MOD = {
             else{ newE = JSON.stringify(e); }
 
             sendMessage("ERROR running rsyncUpdate", newE); 
+
+            // console.log(e);
+
             res1 = { error: JSON.stringify(e) };
             res2 = { error: "Skipped: detectAndRecordChanges" };
         }
@@ -251,7 +254,7 @@ let _MOD = {
         let cmd1 = `bash ./deviceData/scripts/sync_syncDownMetafiles.sh`;
         
         let results1;
-        results1 = await _APP.m_shared.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { throw e; }); 
+        results1 = await _APP.m_shared.runCommand_exec_progress(cmd1, 0, false).catch(function(e) { console.log("error:", e); throw e; }); 
 
         let results2;
         let diskFree;

@@ -34,31 +34,67 @@ let _APP = {
 
     // Make sure that certain directories and files exist.
     fileChecks: async function(){
-        // FILE CHECK.
-        if(!fs.existsSync("backend/config.json")){ 
-            console.log(`MISSING: backend/config.json. Creating file from backend/config.example.json`);
-            fs.copyFileSync("backend/config.example.json", "backend/config.json");
+        // FOLDERS CHECK
+        const folders = [
+            { label: "config"                   , relPath: "deviceData/config" },
+            { label: "custTemplates"            , relPath: "deviceData/custTemplates" },
+            { label: "pdf"                      , relPath: "deviceData/pdf" },
+            { label: "queryData"                , relPath: "deviceData/queryData" },
+            { label: "queryData/meta"           , relPath: "deviceData/queryData/meta" },
+            { label: "queryData/meta/metadata"  , relPath: "deviceData/queryData/meta/metadata" },
+            { label: "queryData/meta/content"   , relPath: "deviceData/queryData/meta/content" },
+            { label: "queryData/meta/thumbnails", relPath: "deviceData/queryData/meta/thumbnails" },
+        ];
+        for(let rec of folders) {
+            if( !fs.existsSync(rec.relPath) ){ 
+                console.log(`CREATE FOLDER: ${rec.label ? rec.label : rec.relPath}`);
+                fs.mkdirSync(rec.relPath); 
+            }
         }
-        if( !fs.existsSync(`deviceData/config`) ){ 
-            console.log("MISSING: config folder. Creating new folder.");
-            fs.mkdirSync(`deviceData/config`); 
+
+        // FILE CHECK. (copies)
+        const copies = [
+            { label : "'backend config'", src: "backend/config.example.json", dst: "backend/config.json" },
+        ];
+        for(let rec of copies) {
+            if(!fs.existsSync(rec.dst)){ 
+                console.log(`COPY FILE FROM EXAMPLE: ${rec.label ? rec.label : rec.dst}`);
+                fs.copyFileSync(rec.src, rec.dst);
+            }
         }
-        if( !fs.existsSync(`deviceData/custTemplates`) ){ 
-            console.log("MISSING: custTemplates folder. Creating new folder.");
-            fs.mkdirSync(`deviceData/custTemplates`); 
+
+        // if(!fs.existsSync("backend/config.json")){ 
+        //     console.log(`MISSING: backend/config.json. Creating file from backend/config.example.json`);
+        //     fs.copyFileSync("backend/config.example.json", "backend/config.json");
+        // }
+        
+        // FILE CHECK (individual)
+        const files = [
+            { label: "lastSync.txt"    , dst: "deviceData/config/lastSync.txt"    , content: JSON.stringify(0,null,1) },
+            { label: "needsUpdate.json", dst: "deviceData/config/needsUpdate.json", content: JSON.stringify([],null,1) },
+            { label: "rm_fs.json"      , dst: "deviceData/config/rm_fs.json"      , content: JSON.stringify({"CollectionType": [], "DocumentType": []},null,1) },
+        ];
+        for(let rec of files) {
+            if( !fs.existsSync(rec.dst) ){
+                console.log(`CREATE FILE: ${rec.label ? rec.label : rec.dst}`);
+                fs.writeFileSync(rec.dst, rec.content);
+            }
         }
-        if( !fs.existsSync(`deviceData/config/lastSync.txt`) ){
-            console.log("MISSING: lastSync.txt. Creating new file.");
-            fs.writeFileSync(`deviceData/config/lastSync.txt`, JSON.stringify(0,null,1));
-        }
-        if( !fs.existsSync(`deviceData/config/needsUpdate.json`) ){
-            console.log("MISSING: needsUpdate.json. Creating new file.");
-            fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify([],null,1));
-        }
-        if( !fs.existsSync(`deviceData/config/rm_fs.json`) ){
-            console.log("MISSING: rm_fs.json. Creating new file.");
-            fs.writeFileSync(`deviceData/config/rm_fs.json`, JSON.stringify({"CollectionType": [], "DocumentType": []},null,1));
-        }
+
+        // if( !fs.existsSync(`deviceData/config/lastSync.txt`) ){
+        //     console.log("MISSING: lastSync.txt. Creating new file.");
+        //     fs.writeFileSync(`deviceData/config/lastSync.txt`, JSON.stringify(0,null,1));
+        // }
+        // if( !fs.existsSync(`deviceData/config/needsUpdate.json`) ){
+        //     console.log("MISSING: needsUpdate.json. Creating new file.");
+        //     fs.writeFileSync(`deviceData/config/needsUpdate.json`, JSON.stringify([],null,1));
+        // }
+        // if( !fs.existsSync(`deviceData/config/rm_fs.json`) ){
+        //     console.log("MISSING: rm_fs.json. Creating new file.");
+        //     fs.writeFileSync(`deviceData/config/rm_fs.json`, JSON.stringify({"CollectionType": [], "DocumentType": []},null,1));
+        // }
+
+        
     },
 
     // MODULE INITS

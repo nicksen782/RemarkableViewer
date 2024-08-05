@@ -8,7 +8,7 @@ let _MOD = {
     moduleLoaded: false,
 
     cp_child: null,
-    script: "deviceData/scripts/reStream.sh",
+    script: "deviceData/scripts/reStream2.sh",
 
     module_init: async function(parent, name){
         return new Promise(async (resolve,reject)=>{
@@ -36,7 +36,7 @@ let _MOD = {
         console.log("Starting: restream");
         await this.endRestream();
         this.cp_child = child_process.spawn(
-            "bash", [this.script]
+            "bash", [this.script, "-p"]
         );
 
         this.cp_child.stdout.on('data' , (e,f)=>{ 

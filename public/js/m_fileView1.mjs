@@ -33,6 +33,7 @@ var fileView1 = {
         'thumbs'    : 'openedDoc_thumbs',
         'dispPages' : 'openedDoc_dispPages',
         // navbar_fileView1_view
+        'openedDoc_close':'openedDoc_close',
     },
     pages: [],
 
@@ -112,6 +113,7 @@ var fileView1 = {
 
     // Create a page image using the device's .jpg thumb or this program's .svg. Whichever is newer.
     updatePage: async function(uuid, pageNum){
+        // console.log("hi");
         //
         let page      = this.pages.output[pageNum];
         let pageId    = this.pages.output[pageNum].pageId;
@@ -125,6 +127,10 @@ var fileView1 = {
             let containerIsFullscreen = document.fullscreenElement != null ? true : false;
             console.log("containerIsFullscreen:", containerIsFullscreen);
             
+            if(!this.DOM.openedDoc_close.classList.contains("show")){
+                this.DOM.openedDoc_close.classList.add("show");
+            }
+
             imgElem.onload = null;
             
             

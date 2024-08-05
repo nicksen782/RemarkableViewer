@@ -248,8 +248,9 @@ let _MOD = {
 
         if(!metadata){
             return {
-                found        : false,
+                found      : false,
                 hasMetadata: false,
+                title      : "",
             };
         }
 
@@ -295,19 +296,20 @@ let _MOD = {
             return {
                 found        : true,
                 hasMetadata  : metadata ? true : false,
+                title        : metadata ? metadata.visibleName : "",
                 outputFile   : outputFile,
                 contentLength: outputStats.size,
                 contentType  : mime.lookup(outputFile)
             };
 
             // console.log("RETURNING:", tmp);
-            const file = fs.createReadStream(outputFile);
-            const headers = {
-                'Content-Length': outputStats.size,
-                'Content-Type': mime.lookup(outputFile),
-            };
-            res.writeHead(200, headers);
-            file.pipe(res);
+            // const file = fs.createReadStream(outputFile);
+            // const headers = {
+            //     'Content-Length': outputStats.size,
+            //     'Content-Type': mime.lookup(outputFile),
+            // };
+            // res.writeHead(200, headers);
+            // file.pipe(res);
             // console.log("--");
         }
         // We did not get a file. Send blank output. 
@@ -315,6 +317,7 @@ let _MOD = {
             return {
                 found        : false,
                 hasMetadata  : metadata ? true : false,
+                title        : metadata ? metadata.visibleName : "",
             };
             console.log("MISSING DATA:", tmp);
             res.end("");

@@ -197,7 +197,12 @@ var fileNav = {
     populateDiskFree: function(){
         // console.log(app.rm_fs.diskFree);
         let d = app.rm_fs.diskFree;
-        this.DOM['storageData'].innerHTML = `USED: ${d.usedGb.toFixed(2)}GB of ${d.totalGb.toFixed(2)}GB (${d['used%']}%)`;
+        if(d) {
+            this.DOM['storageData'].innerHTML = `USED: ${d.usedGb.toFixed(2)}GB of ${d.totalGb.toFixed(2)}GB (${d['used%']}%)`;
+        }
+        else {
+            console.log("WARNING: Missing diskFree data");
+        }
     },
 
     showDocument: async function(uuid){
@@ -344,6 +349,11 @@ var fileNav = {
             
             // NEW WAY
             div_thumb.style['background-image'] = `url("getThumb/${rec.uuid}/${rec.pages[0]}")`;
+
+            // console.log("bg img:", `url("getThumb/${rec.uuid}/${rec.pages[0]}")`);
+
+            // THUMB_NOT_FOUND.svg
+            // THUMB_NOT_FOUND.png
             
             // Can use the .png from svgThumbs once it can be determined which is the newer file. 
             // It works now but I want whichever is the latest one for display.

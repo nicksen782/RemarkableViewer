@@ -8,8 +8,8 @@ SSHALIAS=remarkableusb
 # CONNECTION CHECK (unless "skipSshCheck" is a command argument.)
 if [ "$1" != "skipSshCheck" ]; then
     # CONNECTION CHECK.
-    STATUS=$(ssh -o BatchMode=yes -o ConnectTimeout=2 $SSHALIAS echo ok 2>&1)
-    if [[ $STATUS != ok ]] ; then
+    STATUS=$(ssh -o BatchMode=yes -o ConnectTimeout=2 $SSHALIAS echo xCONNECTIONxSUCCESSFULx 2>&1)
+    if [[ $STATUS != *xCONNECTIONxSUCCESSFULx* ]]; then
         echo "Could not connect to the device (SSH alias: '$SSHALIAS')."
         echo "Please check connectivity and/or SSH config."
         exit 1

@@ -103,10 +103,19 @@ let _MOD = {
                     // console.log(`  cmd: ${cmd}`);
                     if(typeof stdOutHist == "string"){ stdOutHist = stdOutHist.trim(); } 
                     if(typeof stdErrHist == "string"){ stdErrHist = stdErrHist.trim(); } 
+
+                    console.log({
+                        "cmd": cmd,
+                        "stdOutHist": stdOutHist,
+                        "stdErrHist": stdErrHist,
+                        "code"      : code,
+                    });
+                    
                     cmd_rej({
                         "cmd": cmd,
                         "stdOutHist": stdOutHist,
                         "stdErrHist": stdErrHist,
+                        "code"      : code,
                     });
                 }
             });

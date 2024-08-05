@@ -11,12 +11,12 @@ deviceData/config/needsUpdate.json
 deviceData/config/rm_fs.json
 deviceData/pdf
 deviceData/queryData
-backend/config.json
 
 # BACKUP
 deviceData/xochitl_BK/
 
-# OTHER
-deviceData/custTemplates/*
+# OTHER 
 public/tests/*
-index.js
+
+# Ignore specific certificate file
+DOCKER/rm_key_p

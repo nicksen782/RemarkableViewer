@@ -120,7 +120,11 @@ var syncConvert = {
                                 // console.log("JSON: ", tmp); 
                                 let keys = Object.keys(tmp);
                                 keys.forEach(k=>{
-                                    let lines = tmp[k].split("\n");
+                                    if(typeof tmp[k] !== "string") {
+                                        console.log("This key's value is not the expected type of 'string'.", `key: ${k}, type: ${typeof tmp[k]}, value: ${tmp[k]}`);
+                                        return; 
+                                    }
+                                    let lines = tmp[k] ? tmp[k].split("\n") : [];
                                     newText += `${k}: ` + "\n"; 
                                     lines.forEach(l=>{
                                         if(l){ newText += `  ` + l.trim() + "\n";  }

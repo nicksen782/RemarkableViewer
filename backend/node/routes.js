@@ -189,8 +189,33 @@ let _MOD = {
                         file.pipe(res);
                     }
                     else{
-                        console.log(`ERROR: File not found. hasMetadata: ${result.hasMetadata}, uuid: ${req.params.uuid}, pageid: ${req.params.pageid}`);
-                        res.end("");
+                        const err = `ERROR: found: false. metadata: ${result.hasMetadata}, uuid: ${req.params.uuid}, pageid: ${req.params.pageid}, title: '${result.title}'`;
+                        console.log(err);
+
+                        const notFound_png = `public/images/THUMB_NOT_FOUND.png`;
+                        if(fs.existsSync(notFound_png)) {
+                            let stats_pngThumb;
+                            try{ 
+                                stats_pngThumb = await fs.promises.lstat(`${notFound_png}`)
+                                .catch(function(e) { throw e; }); 
+
+                                const file = fs.createReadStream(notFound_png);
+                                const headers = {
+                                    'Content-Length': stats_pngThumb.size,
+                                    'Content-Type': "image/png",
+                                };
+                                res.writeHead(200, headers);
+                                file.pipe(res);
+                            } 
+                            catch(e){
+                                console.log("ERROR: notFound_png was not found!");
+                                res.end("");
+                            }
+                        }
+                        else {
+                            res.end("");
+                        }
+
                     }
                 }
             },
